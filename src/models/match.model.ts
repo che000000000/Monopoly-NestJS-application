@@ -8,8 +8,9 @@ export class Match extends Model {
     @Column({
         type: DataType.UUID,
         allowNull: false,
+        defaultValue: () => v4() 
     })
-    id: string = v4()
+    declare id: string
 
     @Column({
         type: DataType.DATE,

@@ -13,9 +13,10 @@ export class User extends Model {
     @PrimaryKey
     @Column({
         type: DataType.UUID,
-        allowNull: false
+        allowNull: false,
+        defaultValue: () => v4() 
     })
-    id: string = v4()
+    declare id: string
 
     @Column({
         type: DataType.STRING,

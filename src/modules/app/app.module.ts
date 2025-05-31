@@ -33,6 +33,7 @@ import { User } from 'src/models/user.model';
           dialect: 'postgres',
           autoLoadModels: true,
           synchronize: true,
+          logging: false,
           models: [User, Account, Player, Token, Match]
         }
       }

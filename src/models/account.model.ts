@@ -5,11 +5,12 @@ import { User } from "./user.model";
 @Table({ tableName: 'Accounts' })
 export class Account extends Model {
     @PrimaryKey
-    @Default(v4)
     @Column({
         type: DataType.STRING,
+        allowNull: false,
+        defaultValue: () => v4()
     })
-    id: string = v4()
+    declare id: string
 
     @Column({
         type: DataType.STRING,

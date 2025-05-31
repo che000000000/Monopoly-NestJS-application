@@ -9,8 +9,9 @@ export class Player extends Model {
     @Column({
         type: DataType.UUID,
         allowNull: false,
+        defaultValue: () => v4() 
     })
-    id: string = v4()
+    declare id: string
 
     @ForeignKey(() => User)
     @Column({
@@ -25,4 +26,16 @@ export class Player extends Model {
         allowNull: false
     })
     matchId: string
+    
+    @Column({
+        type: DataType.UUID,
+        allowNull: true,
+    })
+    name: string
+
+    @Column({
+        type: DataType.UUID,
+        allowNull: true,
+    })
+    avatarUrl: string
 }
