@@ -11,7 +11,7 @@ async function bootstrap() {
 
   const appPort = configService.get('app.port') ? configService.get('app.port') : 7505
   await app.listen(appPort).then(
-    () => appLogger.log(`Server working on port ${appPort}.`)
+    () => appLogger.log(`Application working on port ${appPort}.`)
   )
 }
 bootstrap()

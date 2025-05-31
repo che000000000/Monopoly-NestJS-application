@@ -1,7 +1,9 @@
 import appConfig from "./app.config"
+import pgdbConfig from "./pgdb.config"
 
 export default () => {
     return {
-        app: appConfig()
+        app: appConfig(),
+        pgdb: pgdbConfig()
     }
 }
