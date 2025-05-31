@@ -30,18 +30,18 @@ async function bootstrap() {
   })
 
   app.use(
-    cookieParser(configService.get('session.cookiesSecret') || "secret"),
+    cookieParser(configService.get('sessions.cookieSecret')),
     session({
-      secret: configService.get('session.sessionSecret') || 'secret',
-      name: configService.get('session.name') || 'secret',
+      secret: configService.get('sessions.secret'),
+      name: configService.get('sessions.name'),
       resave: true,
       saveUninitialized: false,
       cookie: {
-        domain: configService.get('session.domain') || "localhost",
-        maxAge: 86400 * 1000, // Доработать
-        httpOnly: true, // Доработать
-        secure: false, // Доработать
-        sameSite: configService.get('session.sameSite') || 'lax'
+        domain: configService.get('sessions.domain'),
+        maxAge: 86400 * 1000,
+        httpOnly: true,
+        secure: false,
+        sameSite: configService.get('sessions.sameSite')
       },
       store: redisStore,
     })
