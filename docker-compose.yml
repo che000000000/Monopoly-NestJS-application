@@ -1,20 +1,21 @@
 services: 
-  database:
-    container_name: momopoly-pgdatabase
-    image: postgres:16.4-alpine
+  database: 
+    container_name: pgdatabase
     restart: always
+    image: postgres:16.4-alpine
     command: postgres
     ports: 
-      - "7838:7832"
+      - "4448:5432"
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
-      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_USER=${POSTGRES_USER_NAME}
       - POSTGRES_DB=${POSTGRES_DB_NAME}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes: 
       - postgres_data:/vol/lib/postgresql/data
     networks: 
       - backend
+
 
   redis: 
     container_name: monopoly-redis

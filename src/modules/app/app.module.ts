@@ -2,6 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import indexConfig from 'src/config/index.config';
+import { Account } from 'src/models/account.model';
+import { Match } from 'src/models/match.model';
+import { Player } from 'src/models/player.model';
+import { Token } from 'src/models/token.model';
+import { User } from 'src/models/user.model';
 
 @Module({
   imports: [
@@ -17,21 +22,21 @@ import indexConfig from 'src/config/index.config';
           host: configService.get('pgdb.host'),
           port: configService.get('pgdb.port'),
           username: configService.get('pgdb.username'),
-          password: configService.get('pgdb.password'),
           database: configService.get('pgdb.dbName'),
+          password: configService.get('pgdb.password'),
         }
-         if (!connectConfig.host || !connectConfig.port || !connectConfig.username || !connectConfig.database || !connectConfig.password) {
+        if (!connectConfig.host || !connectConfig.port || !connectConfig.username || !connectConfig.database || !connectConfig.password) {
           throw new Error("Failed connect to database. Missing connection params!")
         }
         return {
           ...connectConfig,
           dialect: 'postgres',
+          autoLoadModels: true,
           synchronize: true,
-          // autoLoadModels: true,
-          models: []
+          models: [User, Account, Player, Token, Match]
         }
       }
-    })
+    }),
   ]
 })
 export class AppModule { }
