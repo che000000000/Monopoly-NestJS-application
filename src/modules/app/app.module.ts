@@ -7,6 +7,8 @@ import { Match } from 'src/models/match.model';
 import { Player } from 'src/models/player.model';
 import { Token } from 'src/models/token.model';
 import { User } from 'src/models/user.model';
+import { AuthModule } from '../auth/auth.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -38,6 +40,7 @@ import { User } from 'src/models/user.model';
         }
       }
     }),
+    UserModule, AuthModule
   ]
 })
 export class AppModule { }

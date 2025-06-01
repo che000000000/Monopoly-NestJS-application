@@ -1,6 +1,6 @@
 services: 
   database: 
-    container_name: pgdatabase
+    container_name: momopoly-pgdatabase
     restart: always
     image: postgres:16.4-alpine
     command: postgres

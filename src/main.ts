@@ -32,7 +32,7 @@ async function bootstrap() {
   app.use(
     cookieParser(configService.get('sessions.cookieSecret')),
     session({
-      secret: configService.get('sessions.secret'),
+      secret: configService.get('sessions.secret') || 'secret',
       name: configService.get('sessions.name'),
       resave: true,
       saveUninitialized: false,
