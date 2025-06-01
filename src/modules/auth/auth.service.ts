@@ -1,16 +1,16 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { UserService } from '../user/user.service';
 import { RegisterDto } from './dto/register.dto';
 import { AuthMethod, User } from 'src/models/user.model';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
     constructor(
-        private readonly userService: UserService,
+        private readonly usersService: UsersService,
         private readonly configService: ConfigService
     ) { }
 
@@ -18,7 +18,7 @@ export class AuthService {
         if (!(dto.password === dto.repeatPassword)) {
             throw new BadRequestException(`Passwords don't match.`)
         }
-        await this.userService.createUser({
+        await this.usersService.createUser({
             email: dto.email,
             name: dto.name,
             password: dto.password,
@@ -28,7 +28,7 @@ export class AuthService {
     }
 
     async login(req: Request, dto: LoginDto): Promise<void> {
-        const foundUser = await this.userService.findUserByEmail(dto.email)
+        const foundUser = await this.usersService.findUserByEmail(dto.email)
         if (!foundUser || !foundUser.password) throw new NotFoundException('Incorrect email or password')
 
         const isValidPassword = await bcrypt.compare(dto.password, foundUser.password)

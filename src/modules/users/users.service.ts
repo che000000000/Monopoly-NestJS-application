@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { InjectModel } from '@nestjs/sequelize';
 
 @Injectable()
-export class UserService {
+export class UsersService {
     constructor(@InjectModel(User) private readonly usersRepository: typeof User) { }
 
     async findUserById(user_id: string) {
@@ -15,11 +15,24 @@ export class UserService {
         })
     }
 
-    async findUserByEmail(user_enmail: string) {
+    async findUserByEmail(user_email: string) {
         return await this.usersRepository.findOne({
-            where: { email: user_enmail },
+            where: { email: user_email },
             raw: true
         })
+    }
+
+    async getUserProfile(user_id: string) {
+        const foundUser = await this.findUserById(user_id)
+        if (!foundUser) throw new BadRequestException('User not found.')
+        return {
+            id: foundUser.id,
+            email: foundUser.email,
+            name: foundUser.name,
+            avatarUrl: foundUser.avatarUrl,
+            role: foundUser.role,
+            isVerified: foundUser.isVerified
+        }
     }
 
     async createUser(dto: CreateUserDto): Promise<User> {

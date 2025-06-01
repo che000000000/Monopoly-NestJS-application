@@ -65,15 +65,15 @@ export class User extends Model {
 
     @Column({
         type: DataType.BOOLEAN,
-        allowNull: true,
-        defaultValue: null
+        allowNull: false,
+        defaultValue: false
     })
     isVerified: boolean
 
     @Column({
         type: DataType.BOOLEAN,
-        allowNull: true,
-        defaultValue: null
+        allowNull: false,
+        defaultValue: false
     })
     isTwoFactorEnabled: boolean
 
