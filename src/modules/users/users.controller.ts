@@ -1,12 +1,20 @@
-import { Controller, Get, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { UserRole } from 'src/models/user.model';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Authorization } from '../auth/decorators/authorization.decorator';
+import { ExtractId } from '../auth/decorators/extract-id.decorator';
 
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
+    @Authorization(UserRole.regular)
     @Get('profile')
-    getUserProfile(@Query('user-id', new ParseUUIDPipe({ optional: true })) user_id: string) {
-        return this.usersService.getUserProfile(user_id)
+    getUserProfile(
+        @ExtractId() myId: string,
+        @Query('user-id', new ParseUUIDPipe({ optional: true })) user_id: string
+    ) {
+        return this.usersService.getUserProfile(myId ? myId : user_id)
     }
 }

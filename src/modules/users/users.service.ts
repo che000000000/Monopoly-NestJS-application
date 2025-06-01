@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UseGuards } from '@nestjs/common';
 import { User, UserRole } from 'src/models/user.model';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { InjectModel } from '@nestjs/sequelize';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
 @Injectable()
 export class UsersService {
