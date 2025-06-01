@@ -8,19 +8,25 @@ export enum UserRole {
     admin = 'admin'
 }
 
+export enum AuthMethod {
+    credentials = 'credentials',
+    google = 'google'
+}
+
 @Table({ tableName: 'Users' })
 export class User extends Model {
     @PrimaryKey
     @Column({
         type: DataType.UUID,
         allowNull: false,
-        defaultValue: () => v4() 
+        defaultValue: () => v4()
     })
     declare id: string
 
     @Column({
         type: DataType.STRING,
-        allowNull: false
+        allowNull: false,
+        unique: true
     })
     email: string
 
@@ -31,6 +37,20 @@ export class User extends Model {
     name: string
 
     @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: null
+    })
+    password?: string
+
+    @Column({
+        type: DataType.STRING,
+        allowNull: true,
+        defaultValue: null
+    })
+    avatarUrl?: string
+
+    @Column({
         type: DataType.ENUM(...Object.values(UserRole)),
         allowNull: false,
         defaultValue: UserRole.regular
@@ -38,19 +58,24 @@ export class User extends Model {
     role: string
 
     @Column({
-        type: DataType.STRING,
-        allowNull: true,
-        defaultValue: null
+        type: DataType.ENUM(...Object.values(AuthMethod)),
+        allowNull: false
     })
-    password?: string
+    authMethod: string
 
-    @Default(null)
     @Column({
-        type: DataType.STRING,
-        allowNull: true,
-        defaultValue: null
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
     })
-    avatarUrl?: string
+    isVerified: boolean
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    })
+    isTwoFactorEnabled: boolean
 
     @HasOne(() => Account)
     account: Account
