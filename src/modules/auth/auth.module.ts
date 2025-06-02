@@ -13,7 +13,7 @@ import { AccountsModule } from '../accounts/accounts.module';
     UsersModule,
     AccountsModule,
     OauthModule.forRootAsync({
-      imports: [ConfigModule, AccountsModule, UsersModule],
+      imports: [ConfigModule, AccountsModule, UsersModule, AuthModule],
       useFactory: async (configServide: ConfigService): Promise<OauthModuleOptionsType> => ({
         services: [
           new GoogleOauthService({
@@ -28,6 +28,7 @@ import { AccountsModule } from '../accounts/accounts.module';
     })
   ],
   providers: [AuthService],
-  controllers: [AuthController]
+  controllers: [AuthController],
+  exports: [AuthService]
 })
 export class AuthModule { }

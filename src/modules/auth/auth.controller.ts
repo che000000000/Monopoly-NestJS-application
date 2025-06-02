@@ -4,8 +4,6 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import { OauthService } from '../oauth/oauth.service';
-import { UsersService } from '../users/users.service';
-import { AccountsService } from '../accounts/accounts.service';
 
 @Controller('auth')
 export class AuthController {
@@ -45,12 +43,16 @@ export class AuthController {
 
     @Get('oauth/callback/:service')
     async oauthCallback(
+        @Req() req: Request,
+        @Res() res: Response,
         @Param('service') service_name: string,
         @Query('code') code: string
     ) {
         const foundService = this.oauthService.getServiceByName(service_name)
         const oauthData = await foundService.getUserByCode(code)
 
-        this.oauthService.oauthRegister(oauthData)
+        this.oauthService.oauthRegister(req, oauthData)
+
+        return res.redirect(`http://localhost:7507`)
     }
 }

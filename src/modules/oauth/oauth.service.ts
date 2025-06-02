@@ -4,13 +4,16 @@ import { BaseOauthService } from './services/base-oauth.service';
 import { UsersService } from '../users/users.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { OauthRegisterDto } from './dto/oauthRegister.dto';
+import { AuthService } from '../auth/auth.service';
+import { Request } from 'express';
 
 @Injectable()
 export class OauthService {
     constructor(
         @Inject(oauthModuleSymbol) private readonly options: OauthModuleOptionsType,
         private readonly usersService: UsersService,
-        private readonly accountsService: AccountsService
+        private readonly accountsService: AccountsService,
+        private readonly authService: AuthService
     ) { }
 
     getServiceByName(service_name: string): BaseOauthService {
@@ -19,8 +22,7 @@ export class OauthService {
         else throw new NotFoundException('Oauth service not found')
     }
 
-    async oauthRegister(dto: OauthRegisterDto) {
-        console.log(dto)
+    async oauthRegister(req: Request, dto: OauthRegisterDto) {
         const userExists = await this.usersService.findUserByEmail(dto.email)
         if (!userExists) {
             await this.usersService.createUser({
@@ -51,5 +53,7 @@ export class OauthService {
         if (!newAccount) {
             throw new NotFoundException(`Can't create account by oauth respone data.`)
         }
+
+        return await this.authService.saveSession(req, newUser)
     }
 }

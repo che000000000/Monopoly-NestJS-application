@@ -15,7 +15,6 @@ export class BaseOauthService {
             access_type: 'offline',
             prompt: 'select_account'
         })
-        console.log(querry)
         return `${this.options.authorizeUrl}?${querry}`
     }
 
