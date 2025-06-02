@@ -4,12 +4,14 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import { OauthService } from '../oauth/oauth.service';
+import { UsersService } from '../users/users.service';
+import { AccountsService } from '../accounts/accounts.service';
 
 @Controller('auth')
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
-        private readonly oauthService: OauthService
+        private readonly oauthService: OauthService,
     ) { }
 
     @Post('register')
@@ -47,6 +49,8 @@ export class AuthController {
         @Query('code') code: string
     ) {
         const foundService = this.oauthService.getServiceByName(service_name)
-        console.log(await foundService.getUserByCode(code))
+        const oauthData = await foundService.getUserByCode(code)
+
+        this.oauthService.oauthRegister(oauthData)
     }
 }

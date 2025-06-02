@@ -1,5 +1,6 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { BaseOauthServiceType } from "../types/base-oauth-service.type";
+import { OauthRegisterDto } from "../dto/oauthRegister.dto";
 
 export class BaseOauthService {
     constructor(
@@ -14,6 +15,7 @@ export class BaseOauthService {
             access_type: 'offline',
             prompt: 'select_account'
         })
+        console.log(querry)
         return `${this.options.authorizeUrl}?${querry}`
     }
 
@@ -36,7 +38,7 @@ export class BaseOauthService {
         })
         const getAccessResponse = await getAccessRequest.json()
 
-        if(!await getAccessResponse.access_token) {
+        if(!getAccessResponse.access_token) {
             throw new BadRequestException('Response do not contains access token.')
         }
 
@@ -45,7 +47,23 @@ export class BaseOauthService {
                 Authorization: `Bearer ${getAccessResponse.access_token}`
             }
         })
-        return await getUserRequest.json()
+        const getUserResponse = await getUserRequest.json()
+
+        if(!getUserResponse) {
+            throw new NotFoundException('Failed to get user by access code.')
+        }
+
+        const oauthData: OauthRegisterDto = {
+            type: 'oauth',
+            provider: this.options.name,
+            email: getUserResponse.email,
+            name: getUserResponse.name,
+            picture: getUserResponse.picture,
+            accessToken: getAccessResponse.access_token,
+            refreshToken: getAccessResponse.refresh_token ? getAccessResponse.refresh_token : null,
+            expires: getAccessResponse.expires_in
+        }
+        return oauthData
     }
 
     get name() {
