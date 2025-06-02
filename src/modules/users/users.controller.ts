@@ -1,7 +1,6 @@
 import { Controller, Get, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserRole } from 'src/models/user.model';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { Authorization } from '../auth/decorators/authorization.decorator';
 import { ExtractId } from '../auth/decorators/extract-id.decorator';
 
@@ -15,6 +14,6 @@ export class UsersController {
         @ExtractId() myId: string,
         @Query('user-id', new ParseUUIDPipe({ optional: true })) user_id: string
     ) {
-        return this.usersService.getUserProfile(myId ? myId : user_id)
+        return this.usersService.getUserProfile(user_id ? user_id : myId)
     }
 }
