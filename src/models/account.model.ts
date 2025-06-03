@@ -14,11 +14,13 @@ export class Account extends Model {
 
     @Column({
         type: DataType.STRING,
+        allowNull: false
     })
     type: string
 
     @Column({
         type: DataType.STRING,
+        allowNull: false
     })
     provider: string
 
@@ -27,20 +29,20 @@ export class Account extends Model {
         allowNull: true,
         unique: true,
     })
-    refreshToken?: string
+    refreshToken?: string | null
 
     @Column({
         type: DataType.STRING,
         allowNull: true,
         unique: true,
     })
-    accessToken?: string
+    accessToken?: string | null
 
     @Column({
         type: DataType.INTEGER,
         allowNull: true
     })
-    expiresAt?: number
+    expires?: number | null
 
     @ForeignKey(() => User)
     @Column({

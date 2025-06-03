@@ -48,7 +48,7 @@ async function bootstrap() {
   )
 
   app.enableCors({
-    origin: configService.get('app.baseUrl'),
+    origin: configService.get('app.baseURL'),
     credentials: true,
     exposedHeaders: ['set-cookie']
   })

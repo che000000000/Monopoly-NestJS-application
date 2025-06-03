@@ -9,6 +9,7 @@ import { Token } from 'src/models/token.model';
 import { User } from 'src/models/user.model';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
+import { AccountsModule } from '../accounts/accounts.module';
 
 @Module({
   imports: [
@@ -40,7 +41,7 @@ import { UsersModule } from '../users/users.module';
         }
       }
     }),
-    UsersModule, AuthModule
+    UsersModule, AuthModule, AccountsModule
   ]
 })
 export class AppModule { }

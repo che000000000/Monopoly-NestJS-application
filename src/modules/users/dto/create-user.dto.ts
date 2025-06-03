@@ -10,8 +10,8 @@ export class CreateUserDto {
     name: string
 
     @IsString({ message: 'password should be string' })
-    @IsNotEmpty({ message: 'password is not received' })
-    password: string
+    @IsOptional()
+    password?: string
 
     @IsString({ message: 'avatarUrl should be string' })
     @IsOptional()
