@@ -6,6 +6,7 @@ import IORedis from 'ioredis';
 import * as connectRedis from 'connect-redis';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
+import { SessionSocketAdapter } from './webSocketAdapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -46,6 +47,7 @@ async function bootstrap() {
       store: redisStore,
     })
   )
+  app.useWebSocketAdapter(new SessionSocketAdapter(app, configService, redisStore))
 
   app.enableCors({
     origin: configService.get('app.baseURL'),
