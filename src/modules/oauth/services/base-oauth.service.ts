@@ -3,8 +3,7 @@ import { BaseOauthServiceType } from "../types/base-oauth-service.type";
 import { OauthRegisterDto } from "../dto/oauthRegister.dto";
 
 export class BaseOauthService {
-    constructor(
-        private readonly options: BaseOauthServiceType) { }
+    constructor(private readonly options: BaseOauthServiceType) { }
 
     constructOauthUrl(): string {
         const querry = new URLSearchParams({
@@ -37,7 +36,7 @@ export class BaseOauthService {
         })
         const getAccessResponse = await getAccessRequest.json()
 
-        if(!getAccessResponse.access_token) {
+        if (!getAccessResponse.access_token) {
             throw new BadRequestException('Response do not contains access token.')
         }
 
@@ -48,7 +47,7 @@ export class BaseOauthService {
         })
         const getUserResponse = await getUserRequest.json()
 
-        if(!getUserResponse) {
+        if (!getUserResponse) {
             throw new NotFoundException('Failed to get user by access code.')
         }
 

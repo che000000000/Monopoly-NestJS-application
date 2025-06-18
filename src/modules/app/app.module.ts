@@ -10,6 +10,7 @@ import { User } from 'src/models/user.model';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { AccountsModule } from '../accounts/accounts.module';
+import { GatewayModule } from '../gateway/gateway.module';
 
 @Module({
   imports: [
@@ -41,7 +42,7 @@ import { AccountsModule } from '../accounts/accounts.module';
         }
       }
     }),
-    UsersModule, AuthModule, AccountsModule
+    UsersModule, AuthModule, AccountsModule, GatewayModule
   ]
 })
 export class AppModule { }
