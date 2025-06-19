@@ -11,7 +11,7 @@ export class PregameRoomsController {
     @Authorization(UserRole.regular)
     @Post('create')
     createRoom(@ExtractId() myId: string) {
-        this.pregameRoomsService.createPregameRoom({userId: myId})
+        return this.pregameRoomsService.createPregameRoom({ userId: myId })
     }
 
     @Authorization(UserRole.regular)
@@ -19,7 +19,7 @@ export class PregameRoomsController {
     deleteRoom(
         @ExtractId() myId: string,
     ) {
-        return this.pregameRoomsService.deletePregameRoom({userId: myId})
+        return this.pregameRoomsService.deletePregameRoom({ userId: myId })
     }
 
     @Authorization(UserRole.regular)
@@ -28,7 +28,7 @@ export class PregameRoomsController {
         @ExtractId() myId: string,
         @Query('room-id', new ParseUUIDPipe()) room_id: string
     ) {
-        this.pregameRoomsService.joinToRoom({
+        return this.pregameRoomsService.joinToRoom({
             userId: myId,
             roomId: room_id
         })
@@ -36,11 +36,21 @@ export class PregameRoomsController {
 
     @Authorization(UserRole.regular)
     @Delete('leave')
-    leaveFromRoom(
-        @ExtractId() myId: string
-    ) {
-        this.pregameRoomsService.leaveFromRoom({
+    leaveFromRoom(@ExtractId() myId: string) {
+        return this.pregameRoomsService.leaveFromRoom({
             userId: myId,
+        })
+    }
+
+    @Authorization(UserRole.regular)
+    @Delete('kick')
+    kickFromRoom(
+        @ExtractId() myId: string,
+        @Query('user-id', new ParseUUIDPipe()) user_id: string
+    ) {
+        return this.pregameRoomsService.kickFromRoom({
+            userId: myId,
+            kickedUserId: user_id
         })
     }
 }

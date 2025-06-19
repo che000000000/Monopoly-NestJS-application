@@ -10,10 +10,11 @@ export class UsersService {
     constructor(@InjectModel(User) private readonly usersRepository: typeof User) { }
 
     async findUserById(user_id: string) {
-        return await this.usersRepository.findOne({
+        const foundUser = await this.usersRepository.findOne({
             where: { id: user_id },
             raw: true
         })
+        return foundUser
     }
 
     async findUserByEmail(user_email: string) {
@@ -31,7 +32,7 @@ export class UsersService {
     }
 
     async updatePregameRoomId(dto: UpdatePregameRoomIdDto) {
-        this.usersRepository.update({ pregameRoomId: dto.roomId }, {
+        await this.usersRepository.update({ pregameRoomId: dto.roomId }, {
             where: {
                 id: dto.userId
             }
@@ -47,7 +48,7 @@ export class UsersService {
             name: foundUser.name,
             avatarUrl: foundUser.avatarUrl,
             role: foundUser.role,
-            isVerified: foundUser.isVerified
+            isVerified: foundUser.isVerified,
         }
     }
 
