@@ -1,9 +1,10 @@
-import { Column, DataType, Default, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, Default, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Player } from "./player.model";
+import { Chat } from "./chat.model";
 
-@Table({ tableName: 'Matches' })
-export class Match extends Model {
+@Table({ tableName: 'Games' })
+export class Game extends Model {
     @PrimaryKey
     @Column({
         type: DataType.UUID,
@@ -12,12 +13,9 @@ export class Match extends Model {
     })
     declare id: string
 
-    @Column({
-        type: DataType.DATE,
-        allowNull: false,
-    })
-    date: Date
-
     @HasMany(() => Player)
     players: Player[]
+
+    @HasOne(() => Chat)
+    chat: Chat
 }

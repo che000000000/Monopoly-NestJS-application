@@ -1,15 +1,16 @@
-import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { User } from "./user.model";
-import { Match } from "./match.model";
+import { Game } from "./game.model";
+import { PregameRoom } from "./pregame-room.model";
 
-@Table({ tableName: 'Players'})
+@Table({ tableName: 'Players' })
 export class Player extends Model {
     @PrimaryKey
     @Column({
         type: DataType.UUID,
         allowNull: false,
-        defaultValue: () => v4() 
+        defaultValue: () => v4()
     })
     declare id: string
 
@@ -20,22 +21,17 @@ export class Player extends Model {
     })
     userId: string
 
-    @ForeignKey(() => Match)
+    @ForeignKey(() => Game)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false 
+    })
+    gameId: string
+
+    @ForeignKey(() => PregameRoom)
     @Column({
         type: DataType.UUID,
         allowNull: false
     })
-    matchId: string
-    
-    @Column({
-        type: DataType.UUID,
-        allowNull: true,
-    })
-    name: string
-
-    @Column({
-        type: DataType.UUID,
-        allowNull: true,
-    })
-    avatarUrl: string
+    pregameRoomId: string
 }
