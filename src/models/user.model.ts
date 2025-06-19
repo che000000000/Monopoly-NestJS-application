@@ -1,7 +1,8 @@
-import { Column, DataType, Default, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { BelongsTo, Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Account } from "./account.model";
 import { Player } from "./player.model";
+import { PregameRoom } from "./pregame-room.model";
 
 export enum UserRole {
     regular = 'regular',
@@ -77,9 +78,19 @@ export class User extends Model {
     })
     isTwoFactorEnabled: boolean
 
+    @ForeignKey(() => PregameRoom)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    pregameRoomId: string | null
+
     @HasOne(() => Account)
     account: Account
 
     @HasMany(() => Player)
     players: Player[]
+
+    @HasOne(() => PregameRoom, {foreignKey: 'ownerId'})
+    owningRoom: PregameRoom
 }
