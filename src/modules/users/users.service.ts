@@ -1,9 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, UseGuards } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UseGuards } from '@nestjs/common';
 import { User, UserRole } from 'src/models/user.model';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { InjectModel } from '@nestjs/sequelize';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { UpdatePregameRoomIdDto } from './dto/update-pregame-room.dto';
 
 @Injectable()
 export class UsersService {
@@ -20,6 +20,21 @@ export class UsersService {
         return await this.usersRepository.findOne({
             where: { email: user_email },
             raw: true
+        })
+    }
+
+    async findPregameRoomUsers(room_id: string) {
+        return await this.usersRepository.findAll({
+            where: { pregameRoomId: room_id, },
+            raw: true
+        })
+    }
+
+    async updatePregameRoomId(dto: UpdatePregameRoomIdDto) {
+        this.usersRepository.update({ pregameRoomId: dto.roomId }, {
+            where: {
+                id: dto.userId
+            }
         })
     }
 

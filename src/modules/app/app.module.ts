@@ -10,12 +10,13 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { AccountsModule } from '../accounts/accounts.module';
 import { GatewayModule } from '../gateway/gateway.module';
-import { MatchesModule } from '../games/games.module';
-import { PlayersModule } from '../players/players.module';
 import { Game } from 'src/models/game.model';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { Chat } from 'src/models/chat.model';
 import { Message } from 'src/models/message.model';
+import { GamesModule } from '../games/games.module';
+import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
+import { PlayersModule } from '../players/players.module';
 
 @Module({
   imports: [
@@ -47,7 +48,7 @@ import { Message } from 'src/models/message.model';
         }
       }
     }),
-    UsersModule, AuthModule, AccountsModule, GatewayModule, MatchesModule, PlayersModule
+    UsersModule, AuthModule, AccountsModule, GatewayModule, GamesModule, PregameRoomsModule, PlayersModule
   ]
 })
 export class AppModule { }

@@ -1,7 +1,7 @@
-import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { Player } from "./player.model";
 import { Chat } from "./chat.model";
+import { User } from "./user.model";
 
 @Table({ tableName: 'PregameRooms' })
 export class PregameRoom extends Model {
@@ -13,8 +13,15 @@ export class PregameRoom extends Model {
     })
     declare id: string
 
-    @HasMany(() => Player)
-    players: Player
+    @ForeignKey(() => User)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    ownerId: string
+
+    @HasMany(() => User, {foreignKey: 'pregameRoomId'})
+    users: User[]
 
     @HasOne(() => Chat)
     chat: Chat
