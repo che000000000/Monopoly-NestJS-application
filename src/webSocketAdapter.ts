@@ -17,19 +17,19 @@ export class SessionSocketAdapter extends IoAdapter {
     ) {
         super(app)
 
-        this.cookieMiddleware = cookieParser(configService.get('sessions.cookieSecret'))
+        this.cookieMiddleware = cookieParser(this.configService.get('sessions.cookieSecret'))
 
         this.sessionMiddleware = session({
-            secret: configService.get('sessions.secret') || 'secret',
-            name: configService.get('sessions.name'),
+            secret: this.configService.getOrThrow('sessions.secret'),
+            name: this.configService.get('sessions.name'),
             resave: true,
             saveUninitialized: false,
             cookie: {
-                domain: configService.get('sessions.domain'),
+                domain: this.configService.get('sessions.domain'),
                 maxAge: 86400 * 1000,
                 httpOnly: true,
                 secure: false,
-                sameSite: configService.get('sessions.sameSite')
+                sameSite: this.configService.get('sessions.sameSite')
             },
             store: this.redisStore,
         })

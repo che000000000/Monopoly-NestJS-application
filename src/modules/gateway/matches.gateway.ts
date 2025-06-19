@@ -12,7 +12,7 @@ import { SocketWithSession } from './interfaces/socket-with-session.interface';
         credentials: true,
     },
 })
-export class MatchesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class MatchesGateway implements OnGatewayConnection {
     constructor(private readonly usersService: UsersService) { }
 
     @WebSocketServer()
@@ -23,10 +23,6 @@ export class MatchesGateway implements OnGatewayConnection, OnGatewayDisconnect 
         if (!userId) {
             client.disconnect()
         }
-    }
-
-    handleDisconnect(client: Socket) {
-        client.disconnect()
     }
 
     @UseGuards(WsAuthGuard)
@@ -41,6 +37,29 @@ export class MatchesGateway implements OnGatewayConnection, OnGatewayDisconnect 
         const foundUser = await this.usersService.findUserById(userId)
         if (!foundUser) throw new WsException('User not found.')
 
-        this.server.emit('onMessage', `${foundUser.name} | ${messageText}`)
+        this.server.emit('serverMessages', `${foundUser.name}: ${messageText}`)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('throwDice')
+    async throwTheDice(@ConnectedSocket() client: SocketWithSession) {
+        const min = 1
+        const max = 6
+        const dices: number[] = new Array(2)
+        let summ = 0
+
+        for(let i = 0; i < dices.length; i++) {
+            dices[i] = Math.floor(Math.random() * (max - min + 1) + min)
+            summ += dices[i]
+        }
+        
+
+        const userId = client.request.session.userId
+        if(!userId) throw new WsException('Unauthorized.')
+
+        const foundUser = await this.usersService.findUserById(userId)
+        if(!foundUser) throw new WsException('User not found')
+
+        this.server.emit('matchMaster', `${foundUser.name} бросил: ${dices.join(' ')}. Сумма = ${summ}`)
     }
 }
