@@ -29,7 +29,7 @@ export class Token extends Model {
         allowNull: false,
         unique: true,
     })
-    token: string
+    token: TokenType
 
     @Column({
         type: DataType.ENUM(...Object.values(TokenType)),

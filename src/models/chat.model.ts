@@ -1,10 +1,11 @@
-import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Game } from "./game.model";
 import { PregameRoom } from "./pregame-room.model";
 import { Message } from "./message.model";
+import { ChatMember } from "./chat-members";
 
-export enum tiedTo {
+export enum TiedTo {
     global = 'global',
     game = 'game',
     pregame = 'pregame'
@@ -21,25 +22,20 @@ export class Chat extends Model {
     declare id: string
 
     @Column({
-        type: DataType.ENUM(...Object.values(tiedTo)),
+        type: DataType.ENUM(...Object.values(TiedTo)),
         allowNull: false,
     })
-    tiedTo: string
-
-    @ForeignKey(() => Game)
-    @Column({
-        type: DataType.UUID,
-        allowNull: true,
-    })
-    gameId: string | null
-
-    @ForeignKey(() => PregameRoom)
-    @Column({
-        type: DataType.UUID,
-        allowNull: true
-    })
-    pregameRoomId: string | null
+    declare tiedTo: TiedTo
 
     @HasMany(() => Message)
     messages: Message[]
+
+    @HasMany(() => ChatMember)
+    chatMembers: ChatMember[]
+
+    @HasOne(() => PregameRoom)
+    pregameRoom: PregameRoom
+
+    @HasOne(() => Game)
+    game: Game
 }
