@@ -9,7 +9,6 @@ import { User } from 'src/models/user.model';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { AccountsModule } from '../accounts/accounts.module';
-import { GatewayModule } from '../gateway/gateway.module';
 import { Game } from 'src/models/game.model';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { Chat } from 'src/models/chat.model';
@@ -17,6 +16,10 @@ import { Message } from 'src/models/message.model';
 import { GamesModule } from '../games/games.module';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
 import { PlayersModule } from '../players/players.module';
+import { GatewaysModule } from '../gateways/gateways.module';
+import { ChatMember } from 'src/models/chat-members';
+import { ChatsModule } from '../chats/chats.module';
+import { ChatMembersModule } from '../chat-members/chat-members.module';
 
 @Module({
   imports: [
@@ -44,11 +47,17 @@ import { PlayersModule } from '../players/players.module';
           autoLoadModels: true,
           synchronize: true,
           logging: false,
-          models: [User, Account, Token, Game, Player, PregameRoom, Chat, Message]
+          models: [
+            User, Account, Token,
+            Game, Player, PregameRoom,
+            Chat, Message, ChatMember
+          ]
         }
       }
     }),
-    UsersModule, AuthModule, AccountsModule, GatewayModule, GamesModule, PregameRoomsModule, PlayersModule
+    AuthModule, AccountsModule, GatewaysModule,
+    GamesModule, UsersModule, PregameRoomsModule,
+    PlayersModule, ChatsModule, ChatMembersModule
   ]
 })
 export class AppModule { }

@@ -18,11 +18,15 @@ export class PregameRoom extends Model {
         type: DataType.UUID,
         allowNull: false
     })
-    ownerId: string
+    declare ownerId: string
+
+    @ForeignKey(() => Chat)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    declare chatId: string
 
     @HasMany(() => User, {foreignKey: 'pregameRoomId'})
     users: User[]
-
-    @HasOne(() => Chat)
-    chat: Chat
 }
