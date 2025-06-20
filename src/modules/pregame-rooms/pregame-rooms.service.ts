@@ -39,6 +39,13 @@ export class PregameRoomsService {
         })
     }
 
+    async getRoomChatId(room_id: string) {
+        return await this.pregameRoomsRepository.findOne({
+            where: {id: room_id},
+            attributes: [ 'chatId' ]
+        })
+    }
+
     async createPregameRoom(dto: CreatePregameRoomDto): Promise<void> {
         const foundUser = await this.usersService.findUserById(dto.userId)
         if (!foundUser) {

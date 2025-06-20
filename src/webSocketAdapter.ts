@@ -40,7 +40,12 @@ export class SessionSocketAdapter extends IoAdapter {
 
         server.use((socket: any, next: any) => {
             this.cookieMiddleware(socket.request, {}, () => {
-                this.sessionMiddleware(socket.request, {}, next)
+                this.sessionMiddleware(socket.request, {}, () => {
+                    if(socket.request.session?.userId) {
+                        socket.data.userId = socket.request.session.userId
+                    }
+                    next()
+                })
             })
         })
         return server
