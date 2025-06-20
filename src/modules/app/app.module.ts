@@ -20,6 +20,7 @@ import { GatewaysModule } from '../gateways/gateways.module';
 import { ChatMember } from 'src/models/chat-members';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { ChatMembersModule } from '../chat-members/chat-members.module';
     }),
     AuthModule, AccountsModule, GatewaysModule,
     GamesModule, UsersModule, PregameRoomsModule,
-    PlayersModule, ChatsModule, ChatMembersModule
+    PlayersModule, ChatsModule, ChatMembersModule,
+    MessagesModule
   ]
 })
 export class AppModule { }

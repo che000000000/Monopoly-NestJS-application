@@ -6,6 +6,7 @@ import { CreateChatMemberDto } from './dto/create-chat-member.dto';
 import { ChatsService } from '../chats/chats.service';
 import { FindChatMembersDto } from './dto/find-chat-members.dto';
 import { DeleteChatMemberDto } from './dto/delete-chat-member.dto';
+import { FindChatMemberDto } from './dto/find-chat-member.dto';
 
 @Injectable()
 export class ChatMembersService {
@@ -14,6 +15,16 @@ export class ChatMembersService {
         @Inject(forwardRef(() => ChatsService)) private readonly chatsService: ChatsService,
         private readonly usersService: UsersService,
     ) { }
+
+    async findChatMember(dto: FindChatMemberDto): Promise<ChatMember | null> {
+        return await this.chatMembersRepository.findOne({
+            where: {
+                userId: dto.userId,
+                chatId: dto.chatId
+            },
+            raw: true
+        })
+    }
 
     async findChatMembers(dto: FindChatMembersDto): Promise<ChatMember[]> {
         return await this.chatMembersRepository.findAll({

@@ -1,6 +1,7 @@
 import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Chat } from "./chat.model";
+import { User } from "./user.model";
 
 @Table({ tableName: 'Messages' })
 export class Message extends Model {
@@ -16,7 +17,7 @@ export class Message extends Model {
         type: DataType.TEXT,
         allowNull: false
     })
-    textMessage: string
+    text: string
 
     @ForeignKey(() => Chat)
     @Column({
@@ -24,4 +25,11 @@ export class Message extends Model {
         allowNull: false
     })
     chatId: string
+
+    @ForeignKey(() => User)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    userId: string
 }

@@ -4,6 +4,7 @@ import { Account } from "./account.model";
 import { Player } from "./player.model";
 import { PregameRoom } from "./pregame-room.model";
 import { ChatMember } from "./chat-members";
+import { Message } from "./message.model";
 
 export enum UserRole {
     regular = 'regular',
@@ -91,6 +92,9 @@ export class User extends Model {
 
     @HasMany(() => ChatMember)
     chatMembers: ChatMember[]
+
+    @HasMany(() => Message)
+    messages: Message[]
 
     @HasOne(() => Account)
     account: Account
