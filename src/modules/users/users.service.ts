@@ -31,12 +31,12 @@ export class UsersService {
         })
     }
 
-    async updatePregameRoomId(dto: UpdatePregameRoomIdDto) {
-        await this.usersRepository.update({ pregameRoomId: dto.roomId }, {
-            where: {
-                id: dto.userId
-            }
-        })
+    async updatePregameRoomId(dto: UpdatePregameRoomIdDto): Promise<number> {
+        const [affectedCount] = await this.usersRepository.update(
+            { pregameRoomId: dto.roomId },
+            { where: { id: dto.userId } }
+        )
+        return affectedCount
     }
 
     async getUserProfile(user_id: string) {

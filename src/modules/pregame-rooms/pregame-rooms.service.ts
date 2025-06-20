@@ -52,7 +52,7 @@ export class PregameRoomsService {
             tiedTo: TiedTo.pregame,
             userId: foundUser.id
         })
-        if(!newChat) {
+        if (!newChat) {
             throw new InternalServerErrorException('Chat not created.')
         }
 
@@ -77,24 +77,10 @@ export class PregameRoomsService {
             throw new ForbiddenException(`You're not owner of this room.`)
         }
 
-        const deleteChat = await this.chatsService.deleteChat({chatId: foundRoom.chatId})
-        if(deleteChat === 0) {
+        const deleteChat = await this.chatsService.deleteChat({ chatId: foundRoom.chatId })
+        if (deleteChat === 0) {
             throw new NotFoundException('Chat not found.')
         }
-
-        const roomMembers = await this.usersService.findPregameRoomUsers(foundRoom.id)
-        if(roomMembers === null) {
-            throw new NotFoundException('Room is clear')
-        }
-
-        await Promise.all(
-            roomMembers.map(user => {
-                this.usersService.updatePregameRoomId({
-                    userId: user.id,
-                    roomId: null
-                })
-            })
-        )
 
         await this.pregameRoomsRepository.destroy({
             where: {
@@ -109,59 +95,71 @@ export class PregameRoomsService {
             this.findRoomById(dto.roomId),
         ])
 
-        if(!foundUser) {
+        if (!foundUser) {
             throw new BadRequestException(`User not found.`)
         }
         if (!foundRoom) {
             throw new NotFoundException('Room not found.')
         }
-        
-        if(foundUser.pregameRoomId) {
+        if (foundUser.pregameRoomId) {
             throw new BadRequestException(`User in the room already.`)
         }
 
-        const newChatMember = await this.chatMembersService.createMember({
-            userId: foundUser.id,
-            chatId: foundRoom.chatId
-        })
-        if(!newChatMember) {
+        const [affectedCount, newChatMember] = await Promise.all([
+            this.usersService.updatePregameRoomId({
+                userId: dto.userId,
+                roomId: foundRoom.id
+            }),
+
+            this.chatMembersService.createMember({
+                userId: foundUser.id,
+                chatId: foundRoom.chatId
+            }),
+        ])
+
+        if (affectedCount === 0) {
+            throw new InternalServerErrorException(`User pregameRoomId field wasn't updated.`)
+        }
+        if (!newChatMember) {
             throw new InternalServerErrorException(`New chat member wasn't created.`)
         }
-
-        await this.usersService.updatePregameRoomId({
-            userId: dto.userId,
-            roomId: foundRoom.id
-        })
     }
 
     async leaveFromRoom(dto: LeaveFromRoomDto): Promise<void> {
         const foundRoom = await this.findRoomByUserId(dto.userId)
-        if(!foundRoom) {
+        if (!foundRoom) {
             throw new NotFoundException(`User not in the room.`)
         }
 
-        await this.usersService.updatePregameRoomId({
-            userId: dto.userId,
-            roomId: null
-        })
+        const [affectedCount, deleteMemberResult] = await Promise.all([
+            this.usersService.updatePregameRoomId({
+                userId: dto.userId,
+                roomId: null
+            }),
+            this.chatMembersService.deleteMember({
+                userId: dto.userId,
+                chatId: foundRoom.chatId
+            })
+        ])
 
-        const deleteMemberResult = await this.chatMembersService.deleteMember({
-            userId: dto.userId,
-            chatId: foundRoom.chatId
-        })
-        if(deleteMemberResult === 0) {
+        if (affectedCount === 0) {
+            throw new InternalServerErrorException(`User pregameRoomId field wasn't updated.`)
+        }
+        if (deleteMemberResult === 0) {
             throw new InternalServerErrorException(`Member wasn't deleted.`)
         }
 
         const roomMembers = await this.usersService.findPregameRoomUsers(foundRoom.id)
-        if(roomMembers === null) {
+        if (roomMembers === null) {
             throw new NotFoundException('Room is clear.')
         }
 
-        if(roomMembers.length === 0) {
-            this.pregameRoomsRepository.destroy({where: {
-                id: foundRoom.id
-            }})
+        if (roomMembers.length === 0) {
+            this.pregameRoomsRepository.destroy({
+                where: {
+                    id: foundRoom.id
+                }
+            })
         }
     }
 
