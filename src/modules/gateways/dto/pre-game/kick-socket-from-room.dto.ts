@@ -1,7 +1,11 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class DeleteSocketDto {
+export class KickSocketFromRoomDto {
     @IsUUID()
     @IsNotEmpty()
     userId: string
+
+    @IsUUID()
+    @IsNotEmpty()
+    chatId: string
 }

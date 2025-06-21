@@ -24,7 +24,7 @@ export class UsersService {
         })
     }
 
-    async findPregameRoomUsers(room_id: string): Promise<User[] | null> {
+    async findPregameRoomUsers(room_id: string): Promise<User[]> {
         return await this.usersRepository.findAll({
             where: { pregameRoomId: room_id, },
             raw: true

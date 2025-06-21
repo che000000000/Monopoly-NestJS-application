@@ -5,9 +5,10 @@ import { Server } from "socket.io";
 import { forwardRef, Inject, UseFilters, UseGuards } from "@nestjs/common";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { MessagesService } from "../messages/messages.service";
-import { UsersService } from "../users/users.service";
-import { ChatMembersService } from "../chat-members/chat-members.service";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
+import { KickSocketFromRoomDto } from "./dto/pre-game/kick-socket-from-room.dto";
+import { DeleteRoomSocketsDto } from "./dto/pre-game/delete-room-sockets.dto";
+import { UsersService } from "../users/users.service";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -21,8 +22,7 @@ export class PregameChatsGateway implements OnGatewayConnection {
     constructor(
         @Inject(forwardRef(() => PregameRoomsService)) private readonly pregameRoomsService: PregameRoomsService,
         private readonly messagesService: MessagesService,
-        private readonly usersService: UsersService,
-        private readonly chatMembersService: ChatMembersService
+        private readonly usersService: UsersService
     ) { }
 
     @WebSocketServer()
@@ -30,18 +30,31 @@ export class PregameChatsGateway implements OnGatewayConnection {
 
     throwException(socket: SocketWithSession, error_message: string) {
         socket.emit('exceptions', {
-            event: 'Exception',
+            event: 'Error',
             message: error_message,
         })
         socket.disconnect()
     }
 
-    async kickSokcketFromRoom(user_id: string, chat_id: string) {
+    async kickSokcketFromRoom(dto: KickSocketFromRoomDto): Promise<void> {
         const allSockets = await this.server.fetchSockets()
-        const socket = allSockets.find(socket => socket.data.userId === user_id)
+        const socket = allSockets.find(socket => socket.data.userId === dto.userId)
         if(!socket) return
 
-        socket?.leave(chat_id)
+        socket?.leave(dto.chatId)
+    }
+
+    async deleteRoomSockets(dto: DeleteRoomSocketsDto): Promise<void> {
+        const pregameRoomUsers = await this.usersService.findPregameRoomUsers(dto.roomId)
+    
+        const allSockets = await this.server.fetchSockets()
+
+        for(const user of pregameRoomUsers) {
+            const socket = allSockets.find(socket => socket.data.userId = user.id)
+            if(socket) {
+                socket.leave(dto.chatId)
+            }
+        }
     }
 
     async handleConnection(socket: SocketWithSession) {
@@ -64,7 +77,7 @@ export class PregameChatsGateway implements OnGatewayConnection {
             pageSize: 10
         })
 
-        this.server.to(socket.id).emit('room-chat', earlyMessages)
+        this.server.to(socket.id).emit('room-chat', {messagesPage: earlyMessages})
     }
 
     @UseGuards(WsAuthGuard)
@@ -93,6 +106,6 @@ export class PregameChatsGateway implements OnGatewayConnection {
             throw new WsException(`Message wasn't created.`)
         }
 
-        this.server.to(foundRoom.chatId).emit('room-chat', newMessage)
+        this.server.to(foundRoom.chatId).emit('room-chat', {message: newMessage})
     }
 }

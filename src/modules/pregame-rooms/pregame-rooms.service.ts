@@ -19,7 +19,7 @@ export class PregameRoomsService {
         private readonly usersService: UsersService,
         private readonly chatsService: ChatsService,
         private readonly chatMembersService: ChatMembersService,
-        @Inject(forwardRef(() => PregameChatsGateway)) private readonly pregamesGateway: PregameChatsGateway
+        @Inject(forwardRef(() => PregameChatsGateway)) private readonly pregameChatsGateway: PregameChatsGateway
     ) { }
 
     async findRoomById(room_id: string): Promise<PregameRoom | null> {
@@ -140,7 +140,10 @@ export class PregameRoomsService {
             throw new NotFoundException(`User not in the room.`)
         }
 
-        await this.pregamesGateway.kickSokcketFromRoom(dto.userId, foundRoom.chatId)
+        await this.pregameChatsGateway.kickSokcketFromRoom({
+            userId: dto.userId,
+            chatId: foundRoom.chatId
+        })
 
         const [affectedCount, deleteMemberResult] = await Promise.all([
             this.usersService.updatePregameRoomId({
@@ -167,6 +170,10 @@ export class PregameRoomsService {
 
         if (roomMembers.length === 0) {
             await Promise.all([
+                this.pregameChatsGateway.deleteRoomSockets({
+                    roomId: foundRoom.id,
+                    chatId: foundRoom.chatId
+                }),
                 this.chatsService.deleteChat({ chatId: foundRoom.chatId }),
                 this.pregameRoomsRepository.destroy({
                     where: {
