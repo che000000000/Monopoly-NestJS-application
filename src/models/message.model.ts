@@ -17,19 +17,19 @@ export class Message extends Model {
         type: DataType.TEXT,
         allowNull: false
     })
-    text: string
+    declare text: string
 
     @ForeignKey(() => Chat)
     @Column({
         type: DataType.UUID,
         allowNull: false
     })
-    chatId: string
+    declare chatId: string
 
     @ForeignKey(() => User)
     @Column({
         type: DataType.UUID,
         allowNull: false
     })
-    userId: string
+    declare userId: string
 }

@@ -5,7 +5,7 @@ import { Server } from "socket.io";
 import { UseGuards } from "@nestjs/common";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { MessagesService } from "../messages/messages.service";
-import { SendMessageDto } from "./dto/send-message.dto";
+import { SendMessageDto } from "./dto/pre-game/send-message.dto";
 import { UsersService } from "../users/users.service";
 import { ChatMembersService } from "../chat-members/chat-members.service";
 
@@ -39,6 +39,8 @@ export class PregamesRoomsGateway implements OnGatewayConnection {
             client.disconnect()
             throw new WsException('User is not a member of the room.')
         }
+
+        client.join(foundRoom.chatId)
 
         const earlyMessages = await this.messagesService.findChatMessages({
             chatId: foundRoom?.chatId,
@@ -76,19 +78,6 @@ export class PregamesRoomsGateway implements OnGatewayConnection {
             throw new WsException(`Message wasn't created.`)
         }
 
-        const foundMembers = await this.chatMembersService.findChatMembers({
-            chatId: foundRoom.chatId
-        })
-
-        const membersUsersIds = foundMembers.map(member => (member.userId))
-
-        const allClients = await this.server.fetchSockets()
-
-        const filteredClients = allClients.filter(
-            socket => membersUsersIds.includes(socket.data.userId)
-        )
-        const clientsIds = filteredClients.map(client => client.id)
-
-        this.server.to(clientsIds).emit('room-chat', newMessage)
+        this.server.to(foundRoom.chatId).emit('room-chat', newMessage)
     }
 }

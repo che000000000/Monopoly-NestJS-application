@@ -41,8 +41,8 @@ export class PregameRoomsService {
 
     async getRoomChatId(room_id: string) {
         return await this.pregameRoomsRepository.findOne({
-            where: {id: room_id},
-            attributes: [ 'chatId' ]
+            where: { id: room_id },
+            attributes: ['chatId']
         })
     }
 
@@ -162,11 +162,14 @@ export class PregameRoomsService {
         }
 
         if (roomMembers.length === 0) {
-            this.pregameRoomsRepository.destroy({
-                where: {
-                    id: foundRoom.id
-                }
-            })
+            await Promise.all([
+                this.chatsService.deleteChat({ chatId: foundRoom.chatId }),
+                this.pregameRoomsRepository.destroy({
+                    where: {
+                        id: foundRoom.id
+                    }
+                })
+            ])
         }
     }
 
