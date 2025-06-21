@@ -56,8 +56,8 @@ import { MessagesModule } from '../messages/messages.module';
         }
       }
     }),
-    AuthModule, AccountsModule, GatewaysModule,
-    GamesModule, UsersModule, PregameRoomsModule,
+    AuthModule, AccountsModule, GamesModule,
+    UsersModule, PregameRoomsModule, GatewaysModule,
     PlayersModule, ChatsModule, ChatMembersModule,
     MessagesModule
   ]

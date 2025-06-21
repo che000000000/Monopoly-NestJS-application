@@ -1,6 +1,5 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
-import { MatchesGateway } from "./matches.gateway";
 import { UsersModule } from "../users/users.module";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { PregameRoomsModule } from "../pregame-rooms/pregame-rooms.module";
@@ -11,12 +10,13 @@ import { ChatMembersModule } from "../chat-members/chat-members.module";
 @Module({
     imports: [
         ConfigModule, 
-        UsersModule, 
-        PregameRoomsModule,
-        MessagesModule,
+        forwardRef(() => UsersModule),
+        forwardRef(() => PregameRoomsModule),
+        forwardRef(() => MessagesModule),
         ChatMembersModule
     ],
-    providers: [MatchesGateway, PregamesRoomsGateway, WsAuthGuard]
+    providers: [PregamesRoomsGateway, WsAuthGuard],
+    exports: [PregamesRoomsGateway]
 })
 
 export class GatewaysModule { }

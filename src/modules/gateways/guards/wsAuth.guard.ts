@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from "@nestjs/common";
+import { CanActivate, ExecutionContext, Injectable, UseFilters } from "@nestjs/common";
 import { WsException } from "@nestjs/websockets";
 
 @Injectable()

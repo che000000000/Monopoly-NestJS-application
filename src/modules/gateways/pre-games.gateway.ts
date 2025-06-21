@@ -2,13 +2,14 @@ import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, We
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { Server } from "socket.io";
-import { UseGuards } from "@nestjs/common";
+import { forwardRef, Inject, UseFilters, UseGuards } from "@nestjs/common";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { MessagesService } from "../messages/messages.service";
-import { SendMessageDto } from "./dto/send-message.dto";
 import { UsersService } from "../users/users.service";
 import { ChatMembersService } from "../chat-members/chat-members.service";
+import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 
+@UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
     namespace: 'pregame',
     cors: {
@@ -18,8 +19,8 @@ import { ChatMembersService } from "../chat-members/chat-members.service";
 })
 export class PregamesRoomsGateway implements OnGatewayConnection {
     constructor(
+        @Inject(forwardRef(() => PregameRoomsService)) private readonly pregameRoomsService: PregameRoomsService,
         private readonly messagesService: MessagesService,
-        private readonly pregameRoomsService: PregameRoomsService,
         private readonly usersService: UsersService,
         private readonly chatMembersService: ChatMembersService
     ) { }
@@ -27,43 +28,59 @@ export class PregamesRoomsGateway implements OnGatewayConnection {
     @WebSocketServer()
     server: Server
 
-    async handleConnection(client: SocketWithSession) {
-        const userId = client.request.session.userId
+    throwException(socket: SocketWithSession, error_message: string) {
+        socket.emit('exceptions', {
+            event: 'Exception',
+            message: error_message,
+        })
+        socket.disconnect()
+    }
+
+    async kickSokcketFromRoom(user_id: string, chat_id: string) {
+        const allSockets = await this.server.fetchSockets()
+        const socket = allSockets.find(socket => socket.data.userId === user_id)
+        if(!socket) return
+
+        socket?.leave(chat_id)
+    }
+
+    async handleConnection(socket: SocketWithSession) {
+        const userId = socket.request.session.userId
         if (!userId) {
-            client.disconnect()
-            throw new WsException(`Unauthorized.`)
+            this.throwException(socket, 'Unauthorized.')
+            return
         }
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
         if (!foundRoom) {
-            client.disconnect()
-            throw new WsException('User is not a member of the room.')
+            this.throwException(socket, 'User is not a member of the room.')
+            return
         }
+
+        socket.join(foundRoom.chatId)
 
         const earlyMessages = await this.messagesService.findChatMessages({
             chatId: foundRoom?.chatId,
             pageSize: 10
         })
 
-        this.server.to(client.id).emit('room-chat', earlyMessages)
+        this.server.to(socket.id).emit('room-chat', earlyMessages)
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('sendMessage')
     async sendMessage(
         @MessageBody() messageText: string,
-        @ConnectedSocket() client: SocketWithSession
+        @ConnectedSocket() socket: SocketWithSession
     ) {
-        const userId = client.request.session.userId
+        const userId = socket.request.session.userId
         if (!userId) {
-            client.disconnect()
-            throw new WsException('userId not extracted from client.')
+            throw new WsException('userId not extracted from socket.')
         }
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
 
         if (!foundRoom) {
-            client.disconnect()
             throw new WsException('User is not a member of the chat')
         }
 
@@ -76,19 +93,6 @@ export class PregamesRoomsGateway implements OnGatewayConnection {
             throw new WsException(`Message wasn't created.`)
         }
 
-        const foundMembers = await this.chatMembersService.findChatMembers({
-            chatId: foundRoom.chatId
-        })
-
-        const membersUsersIds = foundMembers.map(member => (member.userId))
-
-        const allClients = await this.server.fetchSockets()
-
-        const filteredClients = allClients.filter(
-            socket => membersUsersIds.includes(socket.data.userId)
-        )
-        const clientsIds = filteredClients.map(client => client.id)
-
-        this.server.to(clientsIds).emit('room-chat', newMessage)
+        this.server.to(foundRoom.chatId).emit('room-chat', newMessage)
     }
 }

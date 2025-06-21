@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Message } from 'src/models/message.model';
@@ -9,7 +9,7 @@ import { ChatMembersModule } from '../chat-members/chat-members.module';
 @Module({
   imports: [
     SequelizeModule.forFeature([Message]),
-    UsersModule,
+    forwardRef(() => UsersModule),
     ChatsModule,
     ChatMembersModule
   ],
