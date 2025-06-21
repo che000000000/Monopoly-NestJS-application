@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
@@ -10,6 +10,7 @@ import { KickFromRoomDto } from './dto/kick-from-room.dto';
 import { ChatsService } from '../chats/chats.service';
 import { TiedTo } from 'src/models/chat.model';
 import { ChatMembersService } from '../chat-members/chat-members.service';
+import { PregamesRoomsGateway } from '../gateways/pre-games.gateway';
 
 @Injectable()
 export class PregameRoomsService {
@@ -17,7 +18,8 @@ export class PregameRoomsService {
         @InjectModel(PregameRoom) private readonly pregameRoomsRepository: typeof PregameRoom,
         private readonly usersService: UsersService,
         private readonly chatsService: ChatsService,
-        private readonly chatMembersService: ChatMembersService
+        private readonly chatMembersService: ChatMembersService,
+        @Inject(forwardRef(() => PregamesRoomsGateway)) private readonly pregamesGateway: PregamesRoomsGateway
     ) { }
 
     async findRoomById(room_id: string): Promise<PregameRoom | null> {
@@ -137,6 +139,8 @@ export class PregameRoomsService {
         if (!foundRoom) {
             throw new NotFoundException(`User not in the room.`)
         }
+
+        await this.pregamesGateway.kickSokcketFromRoom(dto.userId, foundRoom.chatId)
 
         const [affectedCount, deleteMemberResult] = await Promise.all([
             this.usersService.updatePregameRoomId({
