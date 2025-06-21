@@ -7,8 +7,8 @@ export class WsExceptionsFilter extends BaseWsExceptionFilter {
     const client = host.switchToWs().getClient();
     
     client.emit('exceptions', {
-      event: 'error',
-      error: exception.getError(),
+      event: 'Exception',
+      message: exception.getError(),
     })
     
     client.disconnect()
