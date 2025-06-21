@@ -170,7 +170,7 @@ export class PregameRoomsService {
 
         if (roomMembers.length === 0) {
             await Promise.all([
-                this.pregameChatsGateway.deleteRoomSockets({
+                this.pregameChatsGateway.deleteRoomAndSockets({
                     roomId: foundRoom.id,
                     chatId: foundRoom.chatId
                 }),

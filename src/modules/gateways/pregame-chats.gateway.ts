@@ -44,7 +44,7 @@ export class PregameChatsGateway implements OnGatewayConnection {
         socket?.leave(dto.chatId)
     }
 
-    async deleteRoomSockets(dto: DeleteRoomSocketsDto): Promise<void> {
+    async deleteRoomAndSockets(dto: DeleteRoomSocketsDto): Promise<void> {
         const pregameRoomUsers = await this.usersService.findPregameRoomUsers(dto.roomId)
     
         const allSockets = await this.server.fetchSockets()
@@ -53,6 +53,7 @@ export class PregameChatsGateway implements OnGatewayConnection {
             const socket = allSockets.find(socket => socket.data.userId = user.id)
             if(socket) {
                 socket.leave(dto.chatId)
+                socket.disconnect()
             }
         }
     }
