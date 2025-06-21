@@ -17,7 +17,7 @@ import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
         credentials: true
     }
 })
-export class PregamesRoomsGateway implements OnGatewayConnection {
+export class PregameChatsGateway implements OnGatewayConnection {
     constructor(
         @Inject(forwardRef(() => PregameRoomsService)) private readonly pregameRoomsService: PregameRoomsService,
         private readonly messagesService: MessagesService,

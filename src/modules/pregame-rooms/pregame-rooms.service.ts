@@ -10,7 +10,7 @@ import { KickFromRoomDto } from './dto/kick-from-room.dto';
 import { ChatsService } from '../chats/chats.service';
 import { TiedTo } from 'src/models/chat.model';
 import { ChatMembersService } from '../chat-members/chat-members.service';
-import { PregamesRoomsGateway } from '../gateways/pre-games.gateway';
+import { PregameChatsGateway } from '../gateways/pregame-chats.gateway';
 
 @Injectable()
 export class PregameRoomsService {
@@ -19,7 +19,7 @@ export class PregameRoomsService {
         private readonly usersService: UsersService,
         private readonly chatsService: ChatsService,
         private readonly chatMembersService: ChatMembersService,
-        @Inject(forwardRef(() => PregamesRoomsGateway)) private readonly pregamesGateway: PregamesRoomsGateway
+        @Inject(forwardRef(() => PregameChatsGateway)) private readonly pregamesGateway: PregameChatsGateway
     ) { }
 
     async findRoomById(room_id: string): Promise<PregameRoom | null> {
