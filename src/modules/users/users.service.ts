@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { InjectModel } from '@nestjs/sequelize';
 import { UpdatePregameRoomIdDto } from './dto/update-pregame-room.dto';
 import { UpdateGameIdDto } from './dto/update-game-id.dto';
+import { FindPregameRoomUsersDto } from './dto/find-pregame-users.dto';
 
 @Injectable()
 export class UsersService {
@@ -25,9 +26,9 @@ export class UsersService {
         })
     }
 
-    async findPregameRoomUsers(room_id: string): Promise<User[]> {
+    async findPregameRoomUsers(dto: FindPregameRoomUsersDto): Promise<User[]> {
         return await this.usersRepository.findAll({
-            where: { pregameRoomId: room_id, },
+            where: { pregameRoomId: dto.roomId, },
             raw: true
         })
     }
