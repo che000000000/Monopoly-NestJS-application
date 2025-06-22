@@ -1,7 +1,11 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class DeletePregameRoomDto {
+export class UpdateGameIdDto {
     @IsUUID()
     @IsNotEmpty()
     userId: string
+
+    @IsUUID()
+    @IsNotEmpty()
+    gameId: string
 }

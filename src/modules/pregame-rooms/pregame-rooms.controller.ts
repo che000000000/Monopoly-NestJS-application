@@ -1,4 +1,4 @@
-import { Controller, Delete, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Controller, Delete, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { Authorization } from '../auth/decorators/authorization.decorator';
 import { UserRole } from 'src/models/user.model';
 import { ExtractId } from '../auth/decorators/extract-id.decorator';
@@ -19,7 +19,9 @@ export class PregameRoomsController {
     deleteRoom(
         @ExtractId() myId: string,
     ) {
-        return this.pregameRoomsService.deletePregameRoom({ userId: myId })
+        return this.pregameRoomsService.deletePregameRoom({
+            userId: myId
+        })
     }
 
     @Authorization(UserRole.regular)

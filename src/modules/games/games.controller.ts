@@ -1,13 +1,22 @@
-import { Body, Controller, Post, ValidationPipe } from '@nestjs/common';
-import { CreateGameDto } from './dto/create-game.dto';
+import { Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { GamesService } from './games.service';
+import { Authorization } from '../auth/decorators/authorization.decorator';
+import { UserRole } from 'src/models/user.model';
+import { ExtractId } from '../auth/decorators/extract-id.decorator';
 
-@Controller('matches')
-export class MatchesController {
+@Controller('games')
+export class GamesController {
     constructor(private readonly gamesService: GamesService) { }
 
-    @Post('create')
-    createMatch(@Body(new ValidationPipe) dto: CreateGameDto) {
-        return this.gamesService.createMatch(dto)
+    @Authorization(UserRole.regular)
+    @Post('create/:roomId')
+    createMatch(
+        @Param('roomId', new ParseUUIDPipe() ) room_id: string,
+        @ExtractId() myId: string
+    ) {
+        return this.gamesService.createGame({
+            roomId: room_id,
+            userId: myId
+        })
     }
 }

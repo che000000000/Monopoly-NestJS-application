@@ -1,13 +1,23 @@
-import { Module } from '@nestjs/common';
-import { MatchesController } from './games.controller';
+import { forwardRef, Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { Game} from 'src/models/game.model';
-import { PlayersModule } from '../players/players.module';
 import { GamesService } from './games.service';
+import { GamesController } from './games.controller';
+import { UsersModule } from '../users/users.module';
+import { GatewaysModule } from '../gateways/gateways.module';
+import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
+import { ChatsModule } from '../chats/chats.module';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Game]), PlayersModule],
+  imports: [
+    SequelizeModule.forFeature([Game]),
+    forwardRef(() => UsersModule),
+    forwardRef(() => GatewaysModule),
+    forwardRef(() => PregameRoomsModule),
+    ChatsModule
+  ],
   providers: [GamesService],
-  controllers: [MatchesController]
+  controllers: [GamesController],
+  exports: [GamesService]
 })
 export class GamesModule {}

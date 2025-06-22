@@ -9,10 +9,11 @@ import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { DisconnectSocketDto } from "./dto/pre-game/disconnect-socket.dto";
 import { UsersService } from "../users/users.service";
 import { DisconnectSocketsFromRoomDto } from "./dto/pre-game/disconnect-sockets-from-room.dto";
+import { throwException } from "./common/throw-ws-exception";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
-    namespace: 'pregame',
+    namespace: 'pregames',
     cors: {
         origin: true,
         credentials: true
@@ -27,14 +28,6 @@ export class PregameChatsGateway implements OnGatewayConnection {
 
     @WebSocketServer()
     server: Server
-
-    throwException(socket: SocketWithSession, error_message: string) {
-        socket.emit('exceptions', {
-            event: 'Error',
-            message: error_message,
-        })
-        socket.disconnect()
-    }
 
     async disconnectSocket(dto: DisconnectSocketDto): Promise<void> {
         const allSockets = await this.server.fetchSockets()
@@ -51,13 +44,13 @@ export class PregameChatsGateway implements OnGatewayConnection {
     async handleConnection(socket: SocketWithSession) {
         const userId = socket.request.session.userId
         if (!userId) {
-            this.throwException(socket, 'Unauthorized.')
+            throwException(socket, 'Unauthorized.')
             return
         }
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
         if (!foundRoom) {
-            this.throwException(socket, 'User is not a member of the room.')
+            throwException(socket, 'User is not a member of the room.')
             return
         }
 
@@ -68,7 +61,7 @@ export class PregameChatsGateway implements OnGatewayConnection {
             pageSize: 10
         })
 
-        this.server.to(socket.id).emit('room-chat', {messagesPage: earlyMessages})
+        socket.emit('room-chat', {messagesPage: earlyMessages})
     }
 
     @UseGuards(WsAuthGuard)

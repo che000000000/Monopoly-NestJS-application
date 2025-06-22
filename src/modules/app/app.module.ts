@@ -3,7 +3,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import indexConfig from 'src/config/index.config';
 import { Account } from 'src/models/account.model';
-import { Player } from 'src/models/player.model';
 import { Token } from 'src/models/token.model';
 import { User } from 'src/models/user.model';
 import { AuthModule } from '../auth/auth.module';
@@ -15,7 +14,6 @@ import { Chat } from 'src/models/chat.model';
 import { Message } from 'src/models/message.model';
 import { GamesModule } from '../games/games.module';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
-import { PlayersModule } from '../players/players.module';
 import { GatewaysModule } from '../gateways/gateways.module';
 import { ChatMember } from 'src/models/chat-members';
 import { ChatsModule } from '../chats/chats.module';
@@ -50,16 +48,15 @@ import { MessagesModule } from '../messages/messages.module';
           logging: false,
           models: [
             User, Account, Token,
-            Game, Player, PregameRoom,
-            Chat, Message, ChatMember
+            Game, PregameRoom, Chat,
+            Message, ChatMember
           ]
         }
       }
     }),
-    AuthModule, AccountsModule, GamesModule,
-    UsersModule, PregameRoomsModule, GatewaysModule,
-    PlayersModule, ChatsModule, ChatMembersModule,
-    MessagesModule
+    AuthModule, AccountsModule, UsersModule,
+    PregameRoomsModule, GatewaysModule, ChatsModule,
+    ChatMembersModule, MessagesModule, GamesModule
   ]
 })
 export class AppModule { }

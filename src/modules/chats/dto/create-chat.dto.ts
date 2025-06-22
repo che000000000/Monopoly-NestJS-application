@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsUUID } from "class-validator";
+import { IsArray, IsEnum, IsNotEmpty, IsUUID } from "class-validator";
 import { TiedTo } from "src/models/chat.model";
 
 export class CreateChatDto {
@@ -6,7 +6,8 @@ export class CreateChatDto {
     @IsNotEmpty()
     tiedTo: TiedTo
 
-    @IsUUID()
-    @IsNotEmpty()
-    userId: string
+    @IsArray()
+    @IsUUID('4', { each: true })
+    @IsNotEmpty({ each: true })
+    usersIds: string[]
 }

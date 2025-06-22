@@ -1,7 +1,11 @@
-import { IsArray, IsString } from "class-validator";
+import { IsNotEmpty, IsUUID } from "class-validator";
 
 export class CreateGameDto {
-    @IsArray()
-    @IsString({ each: true })
-    usersIds: []
+    @IsUUID()
+    @IsNotEmpty()
+    roomId: string
+
+    @IsUUID()
+    @IsNotEmpty()
+    userId: string
 }

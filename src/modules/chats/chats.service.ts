@@ -24,12 +24,14 @@ export class ChatsService {
         const newChat = await this.chatsRepository.create({
             tiedTo: dto.tiedTo
         })
-        
-        await this.chatMembersService.createMember({
-            chatId: newChat.id,
-            userId: dto.userId
-        })
 
+        await Promise.all(dto.usersIds.map(userId => {
+            this.chatMembersService.createMember({
+                userId: userId,
+                chatId: newChat.id
+            })
+        }))
+        
         return newChat
     }
 
