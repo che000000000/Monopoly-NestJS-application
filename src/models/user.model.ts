@@ -1,10 +1,10 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Account } from "./account.model";
-import { Player } from "./player.model";
 import { PregameRoom } from "./pregame-room.model";
 import { ChatMember } from "./chat-members";
 import { Message } from "./message.model";
+import { Game } from "./game.model";
 
 export enum UserRole {
     regular = 'regular',
@@ -87,8 +87,12 @@ export class User extends Model {
     })
     declare pregameRoomId: string | null
 
-    @HasMany(() => Player)
-    players: Player[]
+    @ForeignKey(() => Game)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    declare gameId: string | null
 
     @HasMany(() => ChatMember)
     chatMembers: ChatMember[]

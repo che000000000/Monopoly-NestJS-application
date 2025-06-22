@@ -1,22 +1,21 @@
 import { forwardRef, Module } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
-import { UsersModule } from "../users/users.module";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { PregameRoomsModule } from "../pregame-rooms/pregame-rooms.module";
 import { MessagesModule } from "../messages/messages.module";
-import { ChatMembersModule } from "../chat-members/chat-members.module";
-import { PregameChatsGateway } from "./pregame-chats.gateway";
+import { UsersModule } from "../users/users.module";
+import { GamesModule } from "../games/games.module";
+import { GamesGateway } from "./games.gateway";
+import { PregameGateway } from "./pregame.gateway";
 
 @Module({
     imports: [
-        ConfigModule, 
-        forwardRef(() => UsersModule),
         forwardRef(() => PregameRoomsModule),
-        forwardRef(() => MessagesModule),
-        ChatMembersModule
+        forwardRef(() => UsersModule),
+        MessagesModule,
+        forwardRef(() => GamesModule)
     ],
-    providers: [PregameChatsGateway, WsAuthGuard],
-    exports: [PregameChatsGateway]
+    providers: [PregameGateway, GamesGateway, WsAuthGuard],
+    exports: [PregameGateway, GamesGateway]
 })
 
 export class GatewaysModule { }

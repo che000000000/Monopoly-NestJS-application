@@ -1,6 +1,5 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { PregameRoomsService } from './pregame-rooms.service';
-import { PregameRoomsController } from './pregame-rooms.controller';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersModule } from '../users/users.module';
@@ -17,7 +16,6 @@ import { GatewaysModule } from '../gateways/gateways.module';
         ChatMembersModule,
     ],
     providers: [PregameRoomsService],
-    controllers: [PregameRoomsController],
     exports: [PregameRoomsService]
 })
 export class PregameRoomsModule { }

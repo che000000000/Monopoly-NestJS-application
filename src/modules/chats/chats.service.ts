@@ -20,16 +20,19 @@ export class ChatsService {
         })
     }
 
-    async createChat(dto: CreateChatDto): Promise<Chat> {
+    async createChat(dto: CreateChatDto): Promise<Chat | null> {
         const newChat = await this.chatsRepository.create({
             tiedTo: dto.tiedTo
         })
-        
-        await this.chatMembersService.createMember({
-            chatId: newChat.id,
-            userId: dto.userId
-        })
+        if(!newChat) return null
 
+        await Promise.all(dto.usersIds.map(userId => {
+            this.chatMembersService.createMember({
+                userId: userId,
+                chatId: newChat.id
+            })
+        }))
+        
         return newChat
     }
 

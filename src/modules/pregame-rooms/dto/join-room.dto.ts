@@ -1,11 +1,11 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class KickFromRoomDto {
-    @IsUUID()
-    @IsNotEmpty()
-    userId: string
-
+export class JoinRoomDto {
     @IsUUID()
     @IsNotEmpty()
     roomId: string
+
+    @IsUUID()
+    @IsNotEmpty()
+    userId: string
 }
