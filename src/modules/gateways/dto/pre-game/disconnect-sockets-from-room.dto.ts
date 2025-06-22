@@ -1,10 +1,6 @@
 import { IsString, IsUUID } from "class-validator";
 
-export class DeleteRoomSocketsDto {
-    @IsUUID()
-    @IsString()
-    roomId: string
-
+export class DisconnectSocketsFromRoomDto {
     @IsUUID()
     @IsString()
     chatId: string

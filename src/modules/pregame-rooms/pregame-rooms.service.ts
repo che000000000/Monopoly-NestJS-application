@@ -86,16 +86,15 @@ export class PregameRoomsService {
             throw new ForbiddenException(`You're not owner of this room.`)
         }
 
-        const deleteChat = await this.chatsService.deleteChat({ chatId: foundRoom.chatId })
-        if (deleteChat === 0) {
-            throw new NotFoundException('Chat not found.')
-        }
-
-        await this.pregameRoomsRepository.destroy({
-            where: {
-                id: foundRoom.id
-            }
-        })
+        await Promise.all([
+            this.pregameChatsGateway.disconnectSocketsFromRoom({ chatId: foundRoom.chatId }),
+            this.chatsService.deleteChat({ chatId: foundRoom.chatId }),
+            this.pregameRoomsRepository.destroy({
+                where: {
+                    id: foundRoom.id
+                }
+            })
+        ])
     }
 
     async joinToRoom(dto: JoinToRoomDto): Promise<void> {
@@ -140,7 +139,7 @@ export class PregameRoomsService {
             throw new NotFoundException(`User not in the room.`)
         }
 
-        await this.pregameChatsGateway.kickSokcketFromRoom({
+        await this.pregameChatsGateway.disconnectSocket({
             userId: dto.userId,
             chatId: foundRoom.chatId
         })
@@ -170,10 +169,7 @@ export class PregameRoomsService {
 
         if (roomMembers.length === 0) {
             await Promise.all([
-                this.pregameChatsGateway.deleteRoomAndSockets({
-                    roomId: foundRoom.id,
-                    chatId: foundRoom.chatId
-                }),
+                this.pregameChatsGateway.disconnectSocketsFromRoom({ chatId: foundRoom.chatId }),
                 this.chatsService.deleteChat({ chatId: foundRoom.chatId }),
                 this.pregameRoomsRepository.destroy({
                     where: {
@@ -185,27 +181,41 @@ export class PregameRoomsService {
     }
 
     async kickFromRoom(dto: KickFromRoomDto) {
-        const foundRoom = await this.findRoomByUserId(dto.userId)
+        const [foundUser, foundRoom] = await Promise.all([
+            this.usersService.findUserById(dto.kickedUserId),
+            this.findRoomByUserId(dto.userId)
+        ])
+
+        if (!foundUser) {
+            throw new NotFoundException('User not found.')
+        }
         if (!foundRoom) {
             throw new NotFoundException('Room not found.')
         }
 
+        if(foundUser.pregameRoomId !== foundRoom.id) {
+            throw new BadRequestException(`User not in the room.`)
+        }
         if (foundRoom.ownerId !== dto.userId) {
             throw new ForbiddenException(`You're not owner for kicking users.`)
         }
-
         if (dto.kickedUserId === dto.userId) {
             throw new BadRequestException(`You're can't kick yourself`)
         }
 
-        const foundUser = await this.usersService.findUserById(dto.kickedUserId)
-        if (!foundUser) {
-            throw new NotFoundException('User not found.')
-        }
-
-        await this.usersService.updatePregameRoomId({
-            userId: foundUser.id,
-            roomId: null
-        })
+        await Promise.all([
+            this.pregameChatsGateway.disconnectSocket({
+                userId: foundUser.id,
+                chatId: foundRoom.chatId
+            }),
+            this.chatMembersService.deleteMember({
+                chatId: foundRoom.chatId,
+                userId: foundUser.id
+            }),
+            this.usersService.updatePregameRoomId({
+                userId: foundUser.id,
+                roomId: null
+            })
+        ])
     }
 }
