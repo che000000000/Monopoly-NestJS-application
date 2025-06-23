@@ -3,7 +3,10 @@ import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
 
 export enum ErrorTypes {
   Unauthorized = 'Unauthorized',
-  BadRequest = 'BadRequest'
+  NotFound = 'NotFound',
+  BadRequest = 'BadRequest',
+  Forbidden = 'Forbidden',
+  Internal = 'Internal'
 }
 
 @Catch(WsException)
@@ -33,12 +36,29 @@ export class WsExceptionsFilter extends BaseWsExceptionFilter {
           })
           break
         }
+        case ErrorTypes.Forbidden: {
+          client.emit('exceptions', {
+            event: 'Error',
+            errorType: errorType,
+            message: message,
+          })
+          break
+        }
+        case ErrorTypes.Internal: {
+          client.emit('exceptions', {
+            event: 'Error',
+            errorType: errorType,
+            message: message,
+          })
+          break
+        }
         default: {
           client.emit('exceptions', {
             event: 'Error',
             errorType: 'Unhandled exception',
             message: 'An unknown error occurred',
           })
+          break
         }
       }
     } else {

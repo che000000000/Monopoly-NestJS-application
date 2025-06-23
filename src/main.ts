@@ -11,7 +11,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const appLogger = new Logger()
 
-  app.useGlobalPipes(new ValidationPipe())
   app.useGlobalFilters(new WsExceptionsFilter())
 
   const configService = app.get(ConfigService)
