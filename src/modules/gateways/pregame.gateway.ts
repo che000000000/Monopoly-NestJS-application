@@ -10,6 +10,7 @@ import { UsersService } from "../users/users.service";
 import { throwException } from "./common/throw-ws-exception";
 import { JoinRoomDto } from "./dto/pregame/join-room.dto";
 import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
+import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -42,7 +43,7 @@ export class PregameGateway implements OnGatewayConnection {
         const socket = allSockets.find(socket => socket.data.userId === user_id)
         if (!socket) return false
 
-        socket?.leave(chat_id)
+        socket.leave(chat_id)
         return true
     }
 
@@ -53,12 +54,25 @@ export class PregameGateway implements OnGatewayConnection {
             return
         }
 
-        const pregameRoomsPage = await this.pregameRoomsService.getRoomsPage({
-            pageSize: 12,
-            pageNumber: 1
+        const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
+        if(!foundRoom) {
+            return
+        }
+        socket.join(foundRoom?.chatId)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('rooms-page')
+    async getRoomsPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetRoomsPageDto
+    ) {
+        const roomsPage = await this.pregameRoomsService.getRoomsPage({
+            pageSize: dto.pageSize ? dto.pageSize : 12,
+            pageNumber: dto.pageNumber
         })
 
-        socket.emit('pregame', pregameRoomsPage)
+        socket.emit('pregame', roomsPage)
     }
 
     @UseGuards(WsAuthGuard)
@@ -166,8 +180,6 @@ export class PregameGateway implements OnGatewayConnection {
         if (!isKicked) {
             throw new WsException('Failed to delete records from database.')
         }
-
-        console.log(foundRoom.chatId, '   ', kickedUser.name)
 
         this.server.to(foundRoom.chatId).emit('pregame', {
             event: 'kick',
