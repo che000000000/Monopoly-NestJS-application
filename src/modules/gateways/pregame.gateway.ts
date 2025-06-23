@@ -14,6 +14,7 @@ import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.dto";
 import { ReportRoomRemovedDto } from "./dto/pregame/report-room-removed";
 import { ExceptionData } from "./types/exception-data.type";
+import { EmitNewOwnerDto } from "./dto/pregame/emit-new-room-owner.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -58,16 +59,22 @@ export class PregameGateway implements OnGatewayConnection {
         return true
     }
 
-    async reportRoomRemoved(dto: ReportRoomRemovedDto): Promise<void> {
+    async reportRoomRemoved(dto: ReportRoomRemovedDto): Promise<boolean> {
+        const foundRoom = await this.pregameRoomsService.findRoomById(dto.roomId)
+        if(!foundRoom) return false
+
         this.server.emit('pregame', {
-            event: 'remove room',
-            deletedRoomId: dto.roomId,
-            message: `Room was remowed.`
+            event: 'remove',
+            removedRoom: {
+                id: foundRoom.id,
+                ownerId: foundRoom.ownerId
+            },
         })
+        return true
     }
 
-    async reportRoomOwner(room_id: string): Promise<boolean | ExceptionData> {
-        const foundRoom = await this.pregameRoomsService.findRoomById(room_id)
+    async emitNewRoomOwner(dto: EmitNewOwnerDto): Promise<boolean | ExceptionData> {
+        const foundRoom = await this.pregameRoomsService.findRoomById(dto.roomId)
         if(!foundRoom) {
             return {
                 errorType: ErrorTypes.NotFound,
@@ -75,10 +82,27 @@ export class PregameGateway implements OnGatewayConnection {
             }
         }
 
-        this.server.to(room_id).emit('pregame', {
-            event: 'event',
-            roomOwnerId: foundRoom.ownerId,
-            message: `User ${foundRoom.ownerId} is owner of this room.`
+        const foundUser = await this.usersService.findUserById(foundRoom.ownerId)
+            if(!foundUser) {
+            return {
+                errorType: ErrorTypes.NotFound,
+                message: `User not found.`
+            }
+        }
+
+        this.server.to(foundRoom.id).emit('pregame', {
+            event: 'new-owner',
+            pregameRoom: {
+                id: foundRoom.id,
+                ownerId: foundRoom.ownerId
+            },
+            newRoomOwner: {
+                id: foundUser.id,
+                email: foundUser.email,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            },
         })
 
         return true
@@ -105,12 +129,37 @@ export class PregameGateway implements OnGatewayConnection {
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: GetRoomsPageDto
     ) {
-        const roomsPage = await this.pregameRoomsService.getRoomsPage({
+        const foundRooms = await this.pregameRoomsService.getRoomsPage({
             pageSize: dto.pageSize ? dto.pageSize : 12,
             pageNumber: dto.pageNumber
         })
 
-        socket.emit('pregame', roomsPage)
+        const roomsPage = await Promise.all(foundRooms.roomsPage.map(
+            async pregameRoom => {
+                const roomMembers = await this.usersService.findPregameRoomUsers({
+                    roomId: pregameRoom.id
+                })
+                return {
+                    pregameRoom: {
+                        id: pregameRoom.id,
+                        ownerId: pregameRoom.ownerId
+                    },
+                    roomMembers: roomMembers.map(user => ({
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        avatarUrl: user.avatarUrl,
+                        role: user.role
+                    }))
+                }
+            }
+        ))
+
+        socket.emit('pregame', {
+            event: 'rooms-page',
+            roomsPage: roomsPage,
+            totalCount: foundRooms.totalCount
+        })
     }
 
     @UseGuards(WsAuthGuard)
@@ -121,7 +170,13 @@ export class PregameGateway implements OnGatewayConnection {
         const exctractedUserId = this.extractUserId(socket)
 
         const foundUser = await this.usersService.findUserById(exctractedUserId)
-        if (foundUser?.pregameRoomId) {
+        if (!foundUser) {
+            throw new WsException({
+                errorType: ErrorTypes.NotFound,
+                message: `User bot found.`
+            })
+        }
+        if (foundUser.pregameRoomId) {
             throw new WsException({
                 errorType: ErrorTypes.BadRequest,
                 message: `User is already in the room.`
@@ -136,12 +191,20 @@ export class PregameGateway implements OnGatewayConnection {
             })
         }
 
-        const pregameRoom = newPregameRoom
-        socket.join(pregameRoom.id)
+        socket.join(newPregameRoom.id)
         this.server.emit('pregame', {
-            event: 'create_room',
-            createdRoom: pregameRoom,
-            message: `Created new pregame room.`
+            event: 'create',
+            createdRoom: {
+                id: newPregameRoom.id,
+                ownerId: newPregameRoom.ownerId
+            },
+            roomMembers: [{
+                id: foundUser.id,
+                email: foundUser.email,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            }]
         })
     }
 
@@ -153,19 +216,24 @@ export class PregameGateway implements OnGatewayConnection {
     ) {
         const userId = this.extractUserId(socket)
 
-        const [foundUser, pregameRoom] = await Promise.all([
-            this.usersService.findUserById(userId),
-            this.pregameRoomsService.joinRoom({
-                userId: userId,
-                roomId: dto.roomId
-            })
-        ])
+        const foundUser = await this.usersService.findUserById(userId)
         if (!foundUser) {
             throw new WsException({
                 errorType: ErrorTypes.NotFound,
                 message: 'User not found.'
             })
         }
+        if(foundUser.pregameRoomId) {
+            throw new WsException({
+                errorType: ErrorTypes.BadRequest,
+                message: 'User in room already.'
+            })
+        }
+
+        const pregameRoom = await this.pregameRoomsService.joinRoom({
+            userId: userId,
+            roomId: dto.roomId
+        })
         if ('errorType' in pregameRoom) {
             throw new WsException({
                 errorType: pregameRoom.errorType,
@@ -176,8 +244,17 @@ export class PregameGateway implements OnGatewayConnection {
         socket.join(pregameRoom.id)
         this.server.to(pregameRoom.id).emit('pregame', {
             event: 'join',
-            joinedUser: foundUser,
-            message: `${foundUser.name} entered the room.`
+            joinedUser: {
+                id: foundUser.id,
+                email: foundUser.email,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            },
+            joinTo: {
+                id: pregameRoom.id,
+                ownerId: pregameRoom.ownerId
+            }
         })
     }
 
@@ -222,8 +299,17 @@ export class PregameGateway implements OnGatewayConnection {
         socket.leave(foundRoom.id)
         this.server.emit('pregame', {
             event: 'leave',
-            leftUser: foundUser,
-            message: `${foundUser.name} left the room.`
+            leftUser: {
+                id: foundUser.id,
+                email: foundUser.id,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            },
+            leftFrom: {
+                id: foundRoom.id,
+                ownerId: foundRoom.ownerId 
+            }
         })
     }
 
@@ -279,14 +365,32 @@ export class PregameGateway implements OnGatewayConnection {
 
         this.server.to(foundRoom.id).emit('pregame', {
             event: 'kick',
-            kickedUser: foundUser,
-            message: `${foundUser.name} was kicked from the room.`
+            kickedUser: {
+                id: foundUser.id,
+                email: foundUser.id,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            },
+            leftFrom: {
+                id: foundRoom.id,
+                ownerId: foundRoom.ownerId 
+            }
         })
 
         this.server.except(foundRoom.id).emit('pregame', {
             event: 'leave',
-            leftUser: foundUser,
-            message: `${foundUser.name} left the room.`
+            leftUser: {
+                id: foundUser.id,
+                email: foundUser.id,
+                name: foundUser.name,
+                avatarUrl: foundUser.avatarUrl,
+                role: foundUser.role
+            },
+            leftFrom: {
+                id: foundRoom.id,
+                ownerId: foundRoom.ownerId 
+            }
         })
 
         await this.removeSocketFromRoom({

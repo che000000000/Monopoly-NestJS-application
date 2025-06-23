@@ -11,7 +11,6 @@ import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
 import { JoinRoomDto } from './dto/join-room.dto';
 import { LeaveRoomDto } from './dto/leave-room.dto';
 import { KickFromRoomDto } from './dto/kick-from-room.dto';
-import { WsException } from '@nestjs/websockets';
 import { ExceptionData } from '../gateways/types/exception-data.type';
 import { ErrorTypes } from '../gateways/filters/WsExcepton.filter';
 import { SetOwnerIdDto } from './dto/set-owner-id.dto';
@@ -183,7 +182,9 @@ export class PregameRoomsService {
                 userId: roomMembers[0].id,
                 roomId: foundRoom.id
             })
-            await this.pregameGateway.reportRoomOwner(foundRoom.id)
+            await this.pregameGateway.emitNewRoomOwner({
+                roomId: foundRoom.id
+            })
         }
 
         return true
