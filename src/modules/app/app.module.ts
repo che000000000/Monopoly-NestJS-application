@@ -19,6 +19,7 @@ import { ChatMember } from 'src/models/chat-members';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
 import { MessagesModule } from '../messages/messages.module';
+import { RedisModule } from 'src/modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -54,9 +55,9 @@ import { MessagesModule } from '../messages/messages.module';
         }
       }
     }),
-    AuthModule, AccountsModule, UsersModule,
+    RedisModule, AuthModule, AccountsModule, UsersModule,
     PregameRoomsModule, GatewaysModule, ChatsModule,
     ChatMembersModule, MessagesModule, GamesModule
-  ]
+  ],
 })
 export class AppModule { }

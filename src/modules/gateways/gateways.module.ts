@@ -6,15 +6,17 @@ import { UsersModule } from "../users/users.module";
 import { GamesModule } from "../games/games.module";
 import { GamesGateway } from "./games.gateway";
 import { PregameGateway } from "./pregame.gateway";
+import { RedisModule } from "src/modules/redis/redis.module";
 
 @Module({
     imports: [
         forwardRef(() => PregameRoomsModule),
         forwardRef(() => UsersModule),
         MessagesModule,
-        forwardRef(() => GamesModule)
+        forwardRef(() => GamesModule),
+        RedisModule
     ],
-    providers: [PregameGateway, GamesGateway, WsAuthGuard],
+    providers: [PregameGateway, GamesGateway],
     exports: [PregameGateway, GamesGateway]
 })
 

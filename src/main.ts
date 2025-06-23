@@ -2,8 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './modules/app/app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import IORedis from 'ioredis';
-import * as connectRedis from 'connect-redis';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
 import { SessionSocketAdapter } from './webSocketAdapter';
@@ -13,26 +11,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const appLogger = new Logger()
 
-  app.useGlobalPipes(new ValidationPipe())
   app.useGlobalFilters(new WsExceptionsFilter())
 
   const configService = app.get(ConfigService)
 
-  const redisUri = configService.get('redis.uri')
-  if (!redisUri) {
-    throw new Error('Redis URI not configured.')
-  }
-  const redisClient = new IORedis(redisUri)
-
-  const redisLogger = new Logger('Redis')
-  redisClient.on('connect', () => {
-    redisLogger.log(`Redis connected! Listening on port ${redisClient.options.port}`)
-  })
-
-  const redisStore = new connectRedis.RedisStore({
-    client: redisClient,
-    prefix: configService.get('sessions.folder') || ':sessions'
-  })
+  const redisStore = app.get('REDIS_STORE')
 
   app.use(
     cookieParser(configService.get('sessions.cookieSecret')),
