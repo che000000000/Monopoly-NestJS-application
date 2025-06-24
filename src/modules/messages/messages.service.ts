@@ -1,20 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Message } from 'src/models/message.model';
-import { UsersService } from '../users/users.service';
-import { ChatsService } from '../chats/chats.service';
 import { CreateMessageDto } from './dto/create-message.dto';
-import { ChatMembersService } from '../chat-members/chat-members.service';
-import { GetMessagesPageDto } from './dto/find-chat-messages.dto';
+import { GetMessagesPageDto } from './dto/get-messages-page.dto';
 
 @Injectable()
 export class MessagesService {
-    constructor(
-        @InjectModel(Message) private readonly messagesRepository: typeof Message,
-        private readonly usersService: UsersService,
-        private readonly chatsService: ChatsService,
-        private readonly chatMembersService: ChatMembersService
-    ) { }
+    constructor(@InjectModel(Message) private readonly messagesRepository: typeof Message) { }
     
     async findMessageById(message_id: string): Promise<Message | null> {
         return await this.messagesRepository.findOne({
@@ -25,7 +17,7 @@ export class MessagesService {
         })
     }
 
-    async createMessage(dto: CreateMessageDto): Promise<Message | null> {
+    async createMessage(dto: CreateMessageDto): Promise<Message> {
         return await this.messagesRepository.create({
             userId: dto.userId,
             chatId: dto.chatId,
@@ -33,7 +25,7 @@ export class MessagesService {
         })
     }
 
-        async getMessagesPage(dto: GetMessagesPageDto): Promise<{messagesPage: Message[], totalCount: number}> {
+    async getMessagesPage(dto: GetMessagesPageDto): Promise<{ messagesPage: Message[], totalCount: number }> {
         const [messagesPage, totalCount] = await Promise.all([
             this.messagesRepository.findAll({
                 where: {

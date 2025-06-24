@@ -5,9 +5,4 @@ export class CreateChatDto {
     @IsEnum(TiedTo)
     @IsNotEmpty()
     tiedTo: TiedTo
-
-    @IsArray()
-    @IsUUID('4', { each: true })
-    @IsNotEmpty({ each: true })
-    usersIds: string[]
 }

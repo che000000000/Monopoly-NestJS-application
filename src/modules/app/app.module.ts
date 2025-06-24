@@ -57,10 +57,10 @@ import { PlayersModule } from '../players/players.module';
         }
       }
     }),
-    RedisModule, AuthModule, AccountsModule, UsersModule,
-    PregameRoomsModule, GatewaysModule, ChatsModule,
-    ChatMembersModule, MessagesModule, GamesModule,
-    PlayersModule
+    RedisModule, AuthModule, AccountsModule,
+    UsersModule, PregameRoomsModule, GatewaysModule,
+    ChatsModule, ChatMembersModule, MessagesModule, 
+    GamesModule, PlayersModule
   ],
 })
 export class AppModule { }

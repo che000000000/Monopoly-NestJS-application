@@ -1,6 +1,7 @@
 import { ErrorTypes } from "../filters/WsExcepton.filter"
 
-export type ExceptionData = {
+export type WsExceptionData = {
     errorType: ErrorTypes,
-    message: string
+    message: string,
+    from: string
 }

@@ -1,20 +1,23 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { ChatMember } from 'src/models/chat-members';
-import { UsersService } from '../users/users.service';
 import { CreateChatMemberDto } from './dto/create-chat-member.dto';
-import { ChatsService } from '../chats/chats.service';
 import { FindChatMembersDto } from './dto/find-chat-members.dto';
 import { DeleteChatMemberDto } from './dto/delete-chat-member.dto';
 import { FindChatMemberDto } from './dto/find-chat-member.dto';
 
 @Injectable()
 export class ChatMembersService {
-    constructor(
-        @InjectModel(ChatMember) private readonly chatMembersRepository: typeof ChatMember,
-        @Inject(forwardRef(() => ChatsService)) private readonly chatsService: ChatsService,
-        private readonly usersService: UsersService,
-    ) { }
+    constructor(@InjectModel(ChatMember) private readonly chatMembersRepository: typeof ChatMember) { }
+
+    async findChatMemberById(member_id: string): Promise<ChatMember | null> {
+        return await this.chatMembersRepository.findOne({
+            where: {
+                id: member_id
+            },
+            raw: true
+        })
+    }
 
     async findChatMember(dto: FindChatMemberDto): Promise<ChatMember | null> {
         return await this.chatMembersRepository.findOne({
@@ -30,26 +33,15 @@ export class ChatMembersService {
         return await this.chatMembersRepository.findAll({
             where: {
                 chatId: dto.chatId
-            }
+            },
+            raw: true
         })
     }
 
     async createMember(dto: CreateChatMemberDto): Promise<ChatMember> {
-        const [foundUser, foundChat] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
-            this.chatsService.findChatById(dto.chatId)
-        ])
-
-        if(!foundUser) {
-            throw new NotFoundException(`User doesn't exist.`)
-        }
-        if(!foundChat) {
-            throw new NotFoundException(`Chat doesn't exist`)
-        }
-
         return await this.chatMembersRepository.create({
-            userId: foundUser.id,
-            chatId: foundChat.id
+            userId: dto.userId,
+            chatId: dto.chatId
         })
     }
 
