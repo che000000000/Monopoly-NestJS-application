@@ -1,24 +1,24 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
-import { SocketWithSession } from "../interfaces/socket-with-session.interface";
-import { PregameRoomsService } from "../../pregame-rooms/pregame-rooms.service";
 import { Server } from "socket.io";
 import { forwardRef, Inject, UseFilters, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
-import { WsAuthGuard } from "../guards/wsAuth.guard";
-import { MessagesService } from "../../messages/messages.service";
-import { ErrorTypes, WsExceptionsFilter } from "../filters/WsExcepton.filter";
-import { UsersService } from "../../users/users.service";
-import { throwException } from "../common/throw-ws-exception";
-import { JoinRoomDto } from "./dto/join-room.dto";
-import { KickFromRoomDto } from "./dto/kick-from-room.dto";
-import { GetRoomsPageDto } from "./dto/get-rooms-page.dto";
-import { RemoveSocketFromRoomDto } from "./dto/remove-socket-from-room.dto";
-import { ReportRoomRemovedDto } from "./dto/report-room-removed";
-import { ExceptionData } from "../types/exception-data.type";
-import { EmitNewOwnerDto } from "./dto/emit-new-room-owner.dto";
-import { SendMessageDto } from "./dto/send-message.dto";
-import { GetMessagesPageDto } from "./dto/get-messages-page.dto";
-import { ChatMembersService } from "../../chat-members/chat-members.service";
-import { User } from "src/models/user.model";
+import { ErrorTypes, WsExceptionsFilter } from "./filters/WsExcepton.filter";
+import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
+import { MessagesService } from "../messages/messages.service";
+import { UsersService } from "../users/users.service";
+import { ChatMembersService } from "../chat-members/chat-members.service";
+import { SocketWithSession } from "./interfaces/socket-with-session.interface";
+import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.dto";
+import { ReportRoomRemovedDto } from "./dto/pregame/report-room-removed";
+import { EmitNewOwnerDto } from "./dto/pregame/emit-new-room-owner.dto";
+import { ExceptionData } from "./types/exception-data.type";
+import { throwException } from "./common/throw-ws-exception";
+import { WsAuthGuard } from "./guards/wsAuth.guard";
+import { GetRoomsPageDto } from "../pregame-rooms/dto/get-rooms-page.dto";
+import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
+import { JoinRoomDto } from "./dto/pregame/join-room.dto";
+import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
+import { SendMessageDto } from "./dto/pregame/send-message.dto";
+
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -122,7 +122,10 @@ export class PregameGateway implements OnGatewayConnection {
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
         if (!userId) {
-            throwException(socket, 'Unauthorized.')
+            throwException(socket, {
+                errorType: ErrorTypes.Unauthorized,
+                message: 'User not authorized.'
+            })
             return
         }
 
@@ -137,11 +140,12 @@ export class PregameGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('rooms-page')
-    @UsePipes(new ValidationPipe)
     async getRoomsPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: GetRoomsPageDto
     ) {
+        console.log(22)
+
         const foundRooms = await this.pregameRoomsService.getRoomsPage({
             pageSize: dto.pageSize ? dto.pageSize : 12,
             pageNumber: dto.pageNumber ? dto.pageNumber : 1
@@ -282,6 +286,16 @@ export class PregameGateway implements OnGatewayConnection {
         @MessageBody() dto: JoinRoomDto
     ) {
         const userId = this.extractUserId(socket)
+
+        const roomMembers = await this.usersService.findPregameRoomUsers({
+            roomId: dto.roomId
+        })
+        if(roomMembers.length === 4) {
+            throw new WsException({
+                errorType: ErrorTypes.BadRequest,
+                message: 'The room is full.'
+            })
+        }
 
         const foundUser = await this.usersService.findUserById(userId)
         if (!foundUser) {

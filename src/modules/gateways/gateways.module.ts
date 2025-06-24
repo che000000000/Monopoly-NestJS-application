@@ -3,22 +3,26 @@ import { PregameRoomsModule } from "../pregame-rooms/pregame-rooms.module";
 import { MessagesModule } from "../messages/messages.module";
 import { UsersModule } from "../users/users.module";
 import { GamesModule } from "../games/games.module";
-import { GamesGateway } from "./games-gateway/games.gateway";
-import { PregameGateway } from "./pregame-gateway/pregame.gateway";
+import { PregameGateway } from "./pregame.gateway";
 import { RedisModule } from "src/modules/redis/redis.module";
 import { ChatMembersModule } from "../chat-members/chat-members.module";
+import { GameGateway } from "./game.gateway";
+import { PlayersModule } from "../players/players.module";
+import { ChatsModule } from "../chats/chats.module";
 
 @Module({
     imports: [
-        forwardRef(() => PregameRoomsModule),
         forwardRef(() => UsersModule),
-        MessagesModule,
+        forwardRef(() => PregameRoomsModule),
+        ChatsModule,
         ChatMembersModule,
-        forwardRef(() => GamesModule),
+        MessagesModule,
+        GamesModule,
+        PlayersModule,
         RedisModule
     ],
-    providers: [PregameGateway, GamesGateway],
-    exports: [PregameGateway, GamesGateway]
+    providers: [PregameGateway, GameGateway],
+    exports: [PregameGateway, GameGateway]
 })
 
 export class GatewaysModule { }

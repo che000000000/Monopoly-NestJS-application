@@ -6,7 +6,7 @@ import { CreatePregameRoomDto } from './dto/create-pregame-room.dto';
 import { ChatsService } from '../chats/chats.service';
 import { TiedTo } from 'src/models/chat.model';
 import { ChatMembersService } from '../chat-members/chat-members.service';
-import { PregameGateway } from '../gateways/pregame-gateway/pregame.gateway';
+import { PregameGateway } from '../gateways/pregame.gateway';
 import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
 import { JoinRoomDto } from './dto/join-room.dto';
 import { LeaveRoomDto } from './dto/leave-room.dto';

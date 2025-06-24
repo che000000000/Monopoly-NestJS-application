@@ -1,9 +1,10 @@
 import { SocketWithSession } from "../interfaces/socket-with-session.interface"
-
-export function throwException(socket: SocketWithSession, error_message: string) {
+import { ExceptionData } from "../types/exception-data.type"
+ 
+export function throwException(socket: SocketWithSession, dto: ExceptionData ) {
     socket.emit('exceptions', {
-        event: 'Error',
-        message: error_message,
+        errorType: dto.errorType,
+        message: dto.message,
     })
     socket.disconnect()
 }
