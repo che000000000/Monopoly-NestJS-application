@@ -15,6 +15,10 @@ import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.d
 import { ReportRoomRemovedDto } from "./dto/pregame/report-room-removed";
 import { ExceptionData } from "./types/exception-data.type";
 import { EmitNewOwnerDto } from "./dto/pregame/emit-new-room-owner.dto";
+import { SendMessageDto } from "./dto/pregame/send-message.dto";
+import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
+import { ChatMembersService } from "../chat-members/chat-members.service";
+import { User } from "src/models/user.model";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -28,7 +32,8 @@ export class PregameGateway implements OnGatewayConnection {
     constructor(
         @Inject(forwardRef(() => PregameRoomsService)) private readonly pregameRoomsService: PregameRoomsService,
         private readonly messagesService: MessagesService,
-        private readonly usersService: UsersService
+        private readonly usersService: UsersService,
+        private readonly chatMembersService: ChatMembersService
     ) { }
 
     @WebSocketServer()
@@ -46,7 +51,12 @@ export class PregameGateway implements OnGatewayConnection {
     }
 
     async removeSocketFromRoom(dto: RemoveSocketFromRoomDto): Promise<boolean> {
-        const allSockets = await this.server.fetchSockets()
+        const [allSockets, foundRoom] = await Promise.all([
+            this.server.fetchSockets(),
+            this.pregameRoomsService.findRoomById(dto.roomId)
+        ])
+        if(!foundRoom) return false
+
         const socket = allSockets.find(socket => socket.data.userId === dto.userId)
         if (!socket) {
             throw new WsException({
@@ -55,7 +65,8 @@ export class PregameGateway implements OnGatewayConnection {
             })
         }
 
-        socket.leave(dto.roomId)
+        socket.leave(foundRoom.chatId)
+        socket.leave(foundRoom.id)
         return true
     }
 
@@ -83,7 +94,7 @@ export class PregameGateway implements OnGatewayConnection {
         }
 
         const foundUser = await this.usersService.findUserById(foundRoom.ownerId)
-            if(!foundUser) {
+        if (!foundUser) {
             return {
                 errorType: ErrorTypes.NotFound,
                 message: `User not found.`
@@ -119,7 +130,9 @@ export class PregameGateway implements OnGatewayConnection {
         if (!foundRoom) {
             return
         }
+
         socket.join(foundRoom.id)
+        socket.join(foundRoom.chatId)
     }
 
     @UseGuards(WsAuthGuard)
@@ -131,7 +144,7 @@ export class PregameGateway implements OnGatewayConnection {
     ) {
         const foundRooms = await this.pregameRoomsService.getRoomsPage({
             pageSize: dto.pageSize ? dto.pageSize : 12,
-            pageNumber: dto.pageNumber
+            pageNumber: dto.pageNumber ? dto.pageNumber : 1
         })
 
         const roomsPage = await Promise.all(foundRooms.roomsPage.map(
@@ -163,17 +176,93 @@ export class PregameGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
+    @SubscribeMessage('messages-page')
+    async getMessagesPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetMessagesPageDto
+    ) {
+        const userId = this.extractUserId(socket)
+
+        const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
+        if(!foundRoom) {
+            throw new WsException({
+                errorType: ErrorTypes.BadRequest,
+                message: `User isn't in the pregame room.`
+            })
+        }
+
+        const [foundMessages, foundChatMembers] = await Promise.all([
+            this.messagesService.getMessagesPage({
+                chatId: foundRoom.chatId,
+                pageNumber: dto.pageNumber ? dto.pageNumber : 1,
+                pageSize: dto.pageSize ? dto.pageSize : 24
+            }),
+            this.chatMembersService.findChatMembers({
+                chatId: foundRoom.chatId
+            })
+        ])
+
+        const messagesPage = await Promise.all(foundMessages.messagesPage.map(
+            async message => {
+                const chatMember = foundChatMembers.find(member => member.userId === message.userId)
+
+                if (chatMember) {
+                    const foundUser = await this.usersService.findUserById(chatMember.userId)
+
+                    return {
+                        message: {
+                            message: message.id,
+                            messageText: message.text,
+                            createdAt: message.createdAt
+                        },
+                        sender: {
+                            id: foundUser?.id,
+                            email: foundUser?.email,
+                            name: foundUser?.name,
+                            avatarUrl: foundUser?.avatarUrl,
+                            role: foundUser?.role
+                        }
+                    }
+                }
+
+                const leftSender = await this.usersService.findUserById(message.userId)
+
+                return {
+                    message: {
+                        message: message.id,
+                        messageText: message.text,
+                        createdAt: message.createdAt
+                    },
+                    sender: {
+                        id: leftSender?.id,
+                        email: leftSender?.email,
+                        name: leftSender?.name,
+                        avatarUrl: leftSender?.avatarUrl,
+                        role: leftSender?.role
+                    }
+                }
+            }
+        ))
+
+        socket.emit('chat', {
+            event: 'messages-page',
+            messagesPage: messagesPage,
+            totalCount: foundMessages.totalCount
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
     @SubscribeMessage('create')
     async createPregameRoom(
         @ConnectedSocket() socket: SocketWithSession
     ) {
-        const exctractedUserId = this.extractUserId(socket)
+        const userId = this.extractUserId(socket)
 
-        const foundUser = await this.usersService.findUserById(exctractedUserId)
+        const foundUser = await this.usersService.findUserById(userId)
         if (!foundUser) {
             throw new WsException({
                 errorType: ErrorTypes.NotFound,
-                message: `User bot found.`
+                message: `User not found.`
             })
         }
         if (foundUser.pregameRoomId) {
@@ -183,7 +272,7 @@ export class PregameGateway implements OnGatewayConnection {
             })
         }
 
-        const newPregameRoom = await this.pregameRoomsService.createRoom({ userId: exctractedUserId })
+        const newPregameRoom = await this.pregameRoomsService.createRoom({ userId: foundUser.id })
         if ('errorType' in newPregameRoom) {
             throw new WsException({
                 errorType: newPregameRoom.errorType,
@@ -192,6 +281,8 @@ export class PregameGateway implements OnGatewayConnection {
         }
 
         socket.join(newPregameRoom.id)
+        socket.join(newPregameRoom.chatId)
+
         this.server.emit('pregame', {
             event: 'create',
             createdRoom: {
@@ -242,6 +333,8 @@ export class PregameGateway implements OnGatewayConnection {
         }
 
         socket.join(pregameRoom.id)
+        socket.join(pregameRoom.chatId)
+
         this.server.to(pregameRoom.id).emit('pregame', {
             event: 'join',
             joinedUser: {
@@ -297,6 +390,8 @@ export class PregameGateway implements OnGatewayConnection {
         }
 
         socket.leave(foundRoom.id)
+        socket.leave(foundRoom.chatId)
+
         this.server.emit('pregame', {
             event: 'leave',
             leftUser: {
@@ -320,7 +415,7 @@ export class PregameGateway implements OnGatewayConnection {
         @MessageBody() dto: KickFromRoomDto
     ) {
         const userId = this.extractUserId(socket)
-
+        
         if (userId === dto.userId) {
             throw new WsException({
                 errorType: ErrorTypes.BadRequest,
@@ -332,7 +427,6 @@ export class PregameGateway implements OnGatewayConnection {
             this.pregameRoomsService.findRoomByUserId(userId),
             this.usersService.findUserById(dto.userId)
         ])
-
         if (!foundUser) {
             throw new WsException({
                 errorType: ErrorTypes.NotFound,
@@ -396,6 +490,67 @@ export class PregameGateway implements OnGatewayConnection {
         await this.removeSocketFromRoom({
             userId: dto.userId,
             roomId: foundRoom.id
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('send')
+    async sendMessage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: SendMessageDto
+    ) {
+        const userId = this.extractUserId(socket)
+
+        if(!dto.messageText) {
+            throw new WsException({
+                errorType: ErrorTypes.BadRequest,
+                message: `Message can't be empty.`
+            })
+        }
+
+        const [foundUser, foundRoom] = await Promise.all([
+            this.usersService.findUserById(userId),
+            this.pregameRoomsService.findRoomByUserId(userId)
+        ])
+        if(!foundUser) {
+            throw new WsException({
+                errorType: ErrorTypes.NotFound,
+                message: `User not found.`
+            })
+        }
+        if(!foundRoom) {
+            throw new WsException({
+                errorType: ErrorTypes.BadRequest,
+                message: `User isn't in the pregame room.`
+            })
+        }
+
+        const newMessage = await this.messagesService.createMessage({
+            userId: userId,
+            chatId: foundRoom.chatId,
+            messageText: dto.messageText
+        })
+        if(!newMessage) {
+            throw new WsException({
+                errorType: ErrorTypes.Internal,
+                message: `Message wasn't sent.`
+            })
+        }
+
+        this.server.to(foundRoom.chatId).emit('chat',{
+            event: 'send',
+            message: {
+                id: newMessage.id,
+                messageText: newMessage.text,
+                createdAt: newMessage.createdAt,
+                sender: {
+                    id: foundUser.id,
+                    email: foundUser.email,
+                    name: foundUser.name,
+                    avatarUrl: foundUser.avatarUrl,
+                    role: foundUser.role
+                }
+            }
         })
     }
 }

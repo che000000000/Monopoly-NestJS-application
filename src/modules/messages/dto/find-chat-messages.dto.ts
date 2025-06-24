@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsUUID } from "class-validator";
 
-export class FindChatMessagesDto {
+export class GetMessagesPageDto {
     @IsUUID()
     @IsNotEmpty()
     chatId: string
@@ -8,4 +8,8 @@ export class FindChatMessagesDto {
     @IsNumber()
     @IsOptional()
     pageSize: number
+
+    @IsNumber()
+    @IsOptional()
+    pageNumber: number
 }
