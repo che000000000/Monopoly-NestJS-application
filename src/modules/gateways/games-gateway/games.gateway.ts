@@ -1,9 +1,9 @@
 import { forwardRef, Inject, UseFilters } from "@nestjs/common";
 import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
+import { WsExceptionsFilter } from "../filters/WsExcepton.filter";
 import { Server } from "socket.io";
-import { GamesService } from "../games/games.service";
-import { UsersService } from "../users/users.service";
+import { GamesService } from "../../games/games.service";
+import { UsersService } from "../../users/users.service";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
