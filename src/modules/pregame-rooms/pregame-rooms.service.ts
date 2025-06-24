@@ -56,7 +56,8 @@ export class PregameRoomsService {
             this.pregameRoomsRepository.findAll({
                 order: [['createdAt', 'DESC']],
                 limit: dto.pageSize ? dto.pageSize : 12,
-                offset: (dto.pageNumber - 1) * dto.pageSize
+                offset: (dto.pageNumber - 1) * dto.pageSize,
+                raw: true
             }),
             this.pregameRoomsRepository.count()
         ])
