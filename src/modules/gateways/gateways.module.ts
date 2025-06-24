@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { PregameRoomsModule } from "../pregame-rooms/pregame-rooms.module";
 import { UsersModule } from "../users/users.module";
 import { PregameGateway } from "./pregame.gateway";
@@ -8,10 +8,11 @@ import { GamesGateway } from "./game.gateway";
 @Module({
     imports: [
         UsersModule,
-        PregameRoomsModule,
-        GamesModule
+        forwardRef(() => PregameRoomsModule),
+        forwardRef(() => GamesModule)
     ],
     providers: [PregameGateway, GamesGateway],
+    exports: [PregameGateway, GamesGateway]
 })
 
 export class GatewaysModule { }
