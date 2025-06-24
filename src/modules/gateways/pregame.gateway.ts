@@ -89,6 +89,7 @@ export class PregameGateway implements OnGatewayConnection {
         }
 
         this.server.emit('pregame', {
+            event: 'create',
             newRoom: {
                 id: newPregameRoom.id,
                 createdAt: newPregameRoom.createdAt
