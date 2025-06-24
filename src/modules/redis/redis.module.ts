@@ -28,5 +28,6 @@ import IORedis from 'ioredis';
     },
   ],
   exports: ['REDIS_STORE'],
-})
+}) 
+ 
 export class RedisModule {}

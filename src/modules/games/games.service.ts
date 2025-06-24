@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { Game } from 'src/models/game.model';
 import { CreateGameDto } from './dto/create-game.dto';
 import { LeaveFromGameDto } from './dto/leave-from-game.dto';
-import { GamesGateway } from '../gateways/games.gateway';
+import { GamesGateway } from '../gateways/games-gateway/games.gateway';
 import { UsersService } from '../users/users.service';
 import { PregameRoomsService } from '../pregame-rooms/pregame-rooms.service';
 import { ChatsService } from '../chats/chats.service';

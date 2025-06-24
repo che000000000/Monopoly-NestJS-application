@@ -1,23 +1,23 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
-import { SocketWithSession } from "./interfaces/socket-with-session.interface";
-import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
+import { SocketWithSession } from "../interfaces/socket-with-session.interface";
+import { PregameRoomsService } from "../../pregame-rooms/pregame-rooms.service";
 import { Server } from "socket.io";
 import { forwardRef, Inject, UseFilters, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
-import { WsAuthGuard } from "./guards/wsAuth.guard";
-import { MessagesService } from "../messages/messages.service";
-import { ErrorTypes, WsExceptionsFilter } from "./filters/WsExcepton.filter";
-import { UsersService } from "../users/users.service";
-import { throwException } from "./common/throw-ws-exception";
-import { JoinRoomDto } from "./dto/pregame/join-room.dto";
-import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
-import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
-import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.dto";
-import { ReportRoomRemovedDto } from "./dto/pregame/report-room-removed";
-import { ExceptionData } from "./types/exception-data.type";
-import { EmitNewOwnerDto } from "./dto/pregame/emit-new-room-owner.dto";
-import { SendMessageDto } from "./dto/pregame/send-message.dto";
-import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
-import { ChatMembersService } from "../chat-members/chat-members.service";
+import { WsAuthGuard } from "../guards/wsAuth.guard";
+import { MessagesService } from "../../messages/messages.service";
+import { ErrorTypes, WsExceptionsFilter } from "../filters/WsExcepton.filter";
+import { UsersService } from "../../users/users.service";
+import { throwException } from "../common/throw-ws-exception";
+import { JoinRoomDto } from "./dto/join-room.dto";
+import { KickFromRoomDto } from "./dto/kick-from-room.dto";
+import { GetRoomsPageDto } from "./dto/get-rooms-page.dto";
+import { RemoveSocketFromRoomDto } from "./dto/remove-socket-from-room.dto";
+import { ReportRoomRemovedDto } from "./dto/report-room-removed";
+import { ExceptionData } from "../types/exception-data.type";
+import { EmitNewOwnerDto } from "./dto/emit-new-room-owner.dto";
+import { SendMessageDto } from "./dto/send-message.dto";
+import { GetMessagesPageDto } from "./dto/get-messages-page.dto";
+import { ChatMembersService } from "../../chat-members/chat-members.service";
 import { User } from "src/models/user.model";
 
 @UseFilters(WsExceptionsFilter)
@@ -191,55 +191,31 @@ export class PregameGateway implements OnGatewayConnection {
             })
         }
 
-        const [foundMessages, foundChatMembers] = await Promise.all([
-            this.messagesService.getMessagesPage({
-                chatId: foundRoom.chatId,
-                pageNumber: dto.pageNumber ? dto.pageNumber : 1,
-                pageSize: dto.pageSize ? dto.pageSize : 24
-            }),
-            this.chatMembersService.findChatMembers({
-                chatId: foundRoom.chatId
-            })
-        ])
+        const foundMessages = await this.messagesService.getMessagesPage({
+            chatId: foundRoom.chatId,
+            pageNumber: dto.pageNumber ? dto.pageNumber : 1,
+            pageSize: dto.pageSize ? dto.pageSize : 24
+        })
 
         const messagesPage = await Promise.all(foundMessages.messagesPage.map(
             async message => {
-                const chatMember = foundChatMembers.find(member => member.userId === message.userId)
+                const senderUser = await this.usersService.findUserById(message.userId)
 
-                if (chatMember) {
-                    const foundUser = await this.usersService.findUserById(chatMember.userId)
-
-                    return {
-                        message: {
-                            message: message.id,
-                            messageText: message.text,
-                            createdAt: message.createdAt
-                        },
-                        sender: {
-                            id: foundUser?.id,
-                            email: foundUser?.email,
-                            name: foundUser?.name,
-                            avatarUrl: foundUser?.avatarUrl,
-                            role: foundUser?.role
-                        }
-                    }
-                }
-
-                const leftSender = await this.usersService.findUserById(message.userId)
+                const sender = senderUser ? {
+                    id: senderUser.id,
+                    email: senderUser.email,
+                    name: senderUser.name,
+                    avatarUrl: senderUser.avatarUrl,
+                    role: senderUser.role
+                } : null
 
                 return {
                     message: {
-                        message: message.id,
+                        id: message.id,
                         messageText: message.text,
                         createdAt: message.createdAt
                     },
-                    sender: {
-                        id: leftSender?.id,
-                        email: leftSender?.email,
-                        name: leftSender?.name,
-                        avatarUrl: leftSender?.avatarUrl,
-                        role: leftSender?.role
-                    }
+                    sender
                 }
             }
         ))
