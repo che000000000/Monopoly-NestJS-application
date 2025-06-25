@@ -1,14 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Game } from 'src/models/game.model';
-import { CreateGameDto } from './dto/create-game.dto';
 import { UsersService } from '../users/users.service';
 import { PregameRoomsService } from '../pregame-rooms/pregame-rooms.service';
 import { ChatsService } from '../chats/chats.service';
-import { TiedTo } from 'src/models/chat.model';
-import { ErrorTypes } from '../gateways/filters/WsExcepton.filter';
 import { PlayersService } from '../players/players.service';
-import { WsExceptionData } from '../gateways/types/ws-exception-data.type';
 
 @Injectable()
 export class GamesService {
