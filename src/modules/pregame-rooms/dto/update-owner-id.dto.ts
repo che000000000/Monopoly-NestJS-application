@@ -1,7 +1,11 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class EmitNewOwnerDto {
+export class UpdateOwnerIdDto {
     @IsUUID()
     @IsNotEmpty()
     roomId: string
+
+    @IsUUID()
+    @IsNotEmpty()
+    newOwnerId: string
 }

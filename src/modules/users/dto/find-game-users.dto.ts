@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class ReportRoomRemovedDto {
+export class FindGameUsersDto {
     @IsUUID()
     @IsNotEmpty()
-    roomId: string
+    gameId: string
 }

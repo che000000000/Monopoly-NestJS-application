@@ -1,25 +1,23 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
-import { CreatePregameRoomDto } from './dto/create-pregame-room.dto';
 import { ChatsService } from '../chats/chats.service';
-import { TiedTo } from 'src/models/chat.model';
 import { ChatMembersService } from '../chat-members/chat-members.service';
-import { PregameGateway } from '../gateways/pregame-gateway/pregame.gateway';
-import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
-import { JoinRoomDto } from './dto/join-room.dto';
-import { LeaveRoomDto } from './dto/leave-room.dto';
-import { KickFromRoomDto } from './dto/kick-from-room.dto';
-import { ExceptionData } from '../gateways/types/exception-data.type';
-import { ErrorTypes } from '../gateways/filters/WsExcepton.filter';
-import { SetOwnerIdDto } from './dto/set-owner-id.dto';
+import { InitRoomDto } from './dto/init-room.dto';
+import { TiedTo } from 'src/models/chat.model';
+import { FindRoomMembersDto } from './dto/find-room-members.dto';
+import { FormatedUser } from './interfaces/formated-user.interface';
+import { FormatedRoom } from './interfaces/formated-room.interface';
+import { UpdateOwnerIdDto } from './dto/update-owner-id.dto';
+import { RemoveRoomDto } from './dto/remove-room.dto';
+import { AppointNewOwnerDto } from './dto/appiont-new-owner.dto';
+import { RemoveUserFromRoomDto } from './dto/remove-user-from-room.dto';
 
 @Injectable()
 export class PregameRoomsService {
     constructor(
         @InjectModel(PregameRoom) private readonly pregameRoomsRepository: typeof PregameRoom,
-        @Inject(forwardRef(() => PregameGateway)) private readonly pregameGateway: PregameGateway,
         private readonly usersService: UsersService,
         private readonly chatsService: ChatsService,
         private readonly chatMembersService: ChatMembersService
@@ -44,178 +42,126 @@ export class PregameRoomsService {
         })
     }
 
-    async setOwnerId(dto: SetOwnerIdDto): Promise<void> {
-        await this.pregameRoomsRepository.update(
-            { ownerId: dto.userId },
+    async findRoomMembers(dto: FindRoomMembersDto): Promise<FormatedUser[]> {
+        const [foundRoom, foundMembers] = await Promise.all([
+            this.findRoomById(dto.roomId),
+            this.usersService.findPregameRoomUsers({
+                roomId: dto.roomId
+            })
+        ])
+        if (foundMembers.length === 0) throw new NotFoundException('Room members not found')
+        return foundMembers.map(user => ({
+            id: user.id,
+            name: user.name,
+            avatarUrl: user.avatarUrl ?? null,
+            isOwner: foundRoom?.ownerId === user.id ? true : false,
+            role: user.role
+        }))
+    }
+
+    async updateOwnerId(dto: UpdateOwnerIdDto): Promise<number> {
+        const [affectedCount] = await this.pregameRoomsRepository.update(
+            { ownerId: dto.newOwnerId },
             { where: { id: dto.roomId } }
         )
+        return affectedCount
     }
 
-    async getRoomsPage(dto: GetRoomsPageDto): Promise<{ roomsPage: PregameRoom[], totalCount: number }> {
-        const [roomsPage, totalCount] = await Promise.all([
-            this.pregameRoomsRepository.findAll({
-                order: [['createdAt', 'DESC']],
-                limit: dto.pageSize ? dto.pageSize : 12,
-                offset: (dto.pageNumber - 1) * dto.pageSize,
-                raw: true
-            }),
-            this.pregameRoomsRepository.count()
-        ])
+    async initRoom(dto: InitRoomDto): Promise<FormatedRoom> {
+        const foundUser = await this.usersService.findUserById(dto.userId)
+        if (!foundUser) throw new NotFoundException('User not found.')
 
-        return { roomsPage, totalCount }
-    }
-
-    async createRoom(dto: CreatePregameRoomDto): Promise<PregameRoom | ExceptionData> {
         const newChat = await this.chatsService.createChat({
-            usersIds: [dto.userId],
             tiedTo: TiedTo.pregame
         })
-        if (!newChat) {
-            return {
-                errorType: ErrorTypes.Internal,
-                message: `Room's chat wasn't created.`
-            }
-        }
+        if (!newChat) throw new InternalServerErrorException('Chat not created.')
 
-        const newRoom = await this.pregameRoomsRepository.create({
-            ownerId: dto.userId,
-            chatId: newChat.id
-        })
-           if (!newRoom) {
-            return {
-                errorType: ErrorTypes.Internal,
-                message: `Room wasn't created.`
-            }
-        }
+        const [newRoom] = await Promise.all([
+            this.pregameRoomsRepository.create({
+                ownerId: foundUser.id,
+                chatId: newChat.id
+            }),
+            this.chatMembersService.createMember({
+                userId: foundUser.id,
+                chatId: newChat.id
+            })
+        ])
 
         await this.usersService.updatePregameRoomId({
-            userId: dto.userId,
+            userId: foundUser.id,
             roomId: newRoom.id
         })
 
-        return newRoom
+        return {
+            id: newRoom.id,
+            createdAt: newRoom.createdAt
+        }
     }
 
-    async joinRoom(dto: JoinRoomDto): Promise<PregameRoom | ExceptionData> {
+    async removeUserFromRoom(dto: RemoveUserFromRoomDto): Promise<FormatedUser> {
         const [foundUser, foundRoom] = await Promise.all([
             this.usersService.findUserById(dto.userId),
-            this.pregameRoomsRepository.findOne({
-                where: { id: dto.roomId }
-            })
+            this.findRoomByUserId(dto.userId),
         ])
-        if (!foundUser) {
-            return ({
-                errorType: ErrorTypes.Internal,
-                message: `User not created.`
-            })
-        }
-        if(!foundRoom) {
-            return ({
-                errorType: ErrorTypes.Internal,
-                message: `Room not found.`
-            })
-        }
-
-        await Promise.all([
-            this.chatMembersService.createMember({
-                userId: foundUser.id,
-                chatId: foundRoom.chatId
-            }),
-            this.usersService.updatePregameRoomId({
-                userId: foundUser.id,
-                roomId: foundRoom.id
-            })
-        ])
-
-        return foundRoom
-    }
-
-    async leaveRoom(dto: LeaveRoomDto): Promise<boolean | ExceptionData> {
-        const [foundUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
-            this.findRoomById(dto.roomId)
-        ])
-        if (!foundUser) {
-            return {
-                errorType: ErrorTypes.NotFound,
-                message: 'User not found.'
-            }
-        }
-        if (!foundRoom) {
-            return {
-                errorType: ErrorTypes.NotFound,
-                message: 'Room not found.'
-            }
-        }
-        if (foundUser.pregameRoomId !== foundRoom.id) {
-            return {
-                errorType: ErrorTypes.BadRequest,
-                message: `User isn't in the room.`
-            }
-        }
+        if (!foundUser) throw new InternalServerErrorException('User not found.')
+        if (!foundRoom) throw new InternalServerErrorException(`User isn't in the pregameRoom.`)
 
         await Promise.all([
             this.chatMembersService.deleteMember({
                 userId: dto.userId,
-                chatId: foundRoom.chatId
+                chatId: foundRoom?.chatId
             }),
             this.usersService.updatePregameRoomId({
                 userId: dto.userId,
                 roomId: null
-            }),
+            })
         ])
 
-        const roomMembers = await this.usersService.findPregameRoomUsers({
-            roomId: foundRoom.id
+        return {
+            id: foundUser.id,
+            name: foundUser.name,
+            avatarUrl: foundUser.avatarUrl ?? null,
+            role: foundUser.role
+        }
+    }
+
+    async removeRoom(dto: RemoveRoomDto): Promise<FormatedRoom> {
+        const foundRoom = await this.findRoomById(dto.roomId)
+        if(!foundRoom) throw new InternalServerErrorException('Room not found.')
+
+        await this.chatsService.deleteChat({
+            chatId: foundRoom.chatId
+        })
+        
+        return {
+            id: foundRoom.id,
+            createdAt: foundRoom.createdAt
+        }
+    }
+
+    async appointNewOwner(dto: AppointNewOwnerDto): Promise<FormatedUser> {
+        const [foundRoom, roomMembers] = await Promise.all([
+            this.findRoomById(dto.roomId),
+            this.usersService.findPregameRoomUsers({
+                roomId: dto.roomId
+            })
+        ])
+        if (!foundRoom) throw new InternalServerErrorException('Room not found.')
+        if (roomMembers.length === 0) throw new InternalServerErrorException(`Room is empty. Can't appoint new owner.`)
+
+        const randomIndex = Math.floor(Math.random() * roomMembers.length)
+        const newOwner = roomMembers[randomIndex]
+
+        await this.updateOwnerId({
+            roomId: foundRoom.id,
+            newOwnerId: newOwner.id
         })
 
-        if (roomMembers.length === 0) {
-            await Promise.all([
-                this.chatsService.deleteChat({
-                    chatId: foundRoom.chatId
-                }),
-                this.pregameGateway.reportRoomRemoved({
-                    roomId: foundRoom.id
-                })
-            ])
-        } else if ((foundRoom.ownerId === foundUser.id)) {
-            await this.setOwnerId({
-                userId: roomMembers[0].id,
-                roomId: foundRoom.id
-            })
-            await this.pregameGateway.emitNewRoomOwner({
-                roomId: foundRoom.id
-            })
+        return {
+            id: newOwner.id,
+            name: newOwner.name,
+            avatarUrl: newOwner.avatarUrl,
+            role: newOwner.role
         }
-
-        return true
-    }
-
-    async kickFromRoom(dto: KickFromRoomDto): Promise<boolean> {
-        const [foundUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
-            this.findRoomById(dto.roomId)
-        ])
-        if (!foundUser || !foundRoom) return false
-
-
-        await Promise.all([
-            this.usersService.updatePregameRoomId({
-                userId: dto.userId,
-                roomId: null
-            }),
-            this.chatMembersService.deleteMember({
-                chatId: foundRoom.chatId,
-                userId: dto.userId
-            }),
-
-        ])
-        const roomUsers = await this.usersService.findPregameRoomUsers({ roomId: foundRoom.id })
-
-        if (roomUsers.length === 0) {
-            await this.chatsService.deleteChat({ chatId: foundRoom.chatId })
-        }
-
-        return true
     }
 }

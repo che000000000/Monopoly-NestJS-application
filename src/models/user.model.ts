@@ -5,6 +5,7 @@ import { PregameRoom } from "./pregame-room.model";
 import { ChatMember } from "./chat-members";
 import { Message } from "./message.model";
 import { Game } from "./game.model";
+import { Player } from "./player.model";
 
 export enum UserRole {
     regular = 'regular',
@@ -105,4 +106,7 @@ export class User extends Model {
 
     @HasOne(() => PregameRoom, { foreignKey: 'ownerId' })
     owningRoom: PregameRoom
+
+    @HasOne(() => Player)
+    player: Player
 }

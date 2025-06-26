@@ -20,6 +20,8 @@ import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RedisModule } from 'src/modules/redis/redis.module';
+import { Player } from 'src/models/player.model';
+import { PlayersModule } from '../players/players.module';
 
 @Module({
   imports: [
@@ -50,14 +52,15 @@ import { RedisModule } from 'src/modules/redis/redis.module';
           models: [
             User, Account, Token,
             Game, PregameRoom, Chat,
-            Message, ChatMember
+            Message, ChatMember, Player
           ]
         }
       }
     }),
-    RedisModule, AuthModule, AccountsModule, UsersModule,
-    PregameRoomsModule, GatewaysModule, ChatsModule,
-    ChatMembersModule, MessagesModule, GamesModule
+    RedisModule, AuthModule, AccountsModule,
+    UsersModule, PregameRoomsModule, GatewaysModule,
+    ChatsModule, ChatMembersModule, MessagesModule, 
+    GamesModule, PlayersModule
   ],
 })
 export class AppModule { }
