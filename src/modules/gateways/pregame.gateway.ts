@@ -1,4 +1,4 @@
-import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
+import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { Server } from "socket.io";
 import { forwardRef, Inject, UseFilters, UseGuards } from "@nestjs/common";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
@@ -7,6 +7,7 @@ import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
 import { ErrorTypes } from "./constants/error-types";
+import { JoinRoomDto } from "./dto/pregame/join-room.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -74,9 +75,7 @@ export class PregameGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('leave')
-    async leaveRoom(
-        @ConnectedSocket() socket: SocketWithSession
-    ) {
+    async leaveRoom(@ConnectedSocket() socket: SocketWithSession) {
         const userId = this.extractUserId(socket)
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
@@ -106,9 +105,7 @@ export class PregameGateway implements OnGatewayConnection {
                 event: 'remove',
                 removedRoom
             })
-        }
-
-        if (userId === foundRoom.id) {
+        } else if (userId === foundRoom.ownerId) {
             const newOwner = await this.pregameRoomsService.appointNewOwner({
                 roomId: foundRoom.id
             })
@@ -126,5 +123,26 @@ export class PregameGateway implements OnGatewayConnection {
                 }
             })
         }
+    }
+
+    @SubscribeMessage('join')
+    async joinRoom(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: JoinRoomDto
+    ) {
+        const userId = this.extractUserId(socket)
+
+        const joinedUserData = await this.pregameRoomsService.joinUserToRoom({
+            userId: userId,
+            roomId: dto.roomId
+        })
+
+        this.server.emit('pregame',
+            {
+                event: 'join',
+                pregameRoom: joinedUserData.pregameRoom,
+                joinedUser: joinedUserData.joinedUser
+            }
+        )
     }
 }
