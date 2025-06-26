@@ -7,7 +7,8 @@ import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
 import { ErrorTypes } from "./constants/error-types";
-import { JoinRoomDto } from "./dto/pregame/join-room.dto";
+import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
+import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame-room.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -52,30 +53,20 @@ export class PregameGateway implements OnGatewayConnection {
     async createPregameRoom(@ConnectedSocket() socket: SocketWithSession) {
         const userId = this.extractUserId(socket)
 
-        const isUserInTheRoom = await this.pregameRoomsService.findRoomByUserId(userId)
-        if (isUserInTheRoom) throw new WsException({
-            errorType: ErrorTypes.BadRequest,
-            message: `User is already in the room`,
-        })
-
-        const newPregameRoom = await this.pregameRoomsService.initRoom({
+        const createPregameRoom = await this.pregameRoomsService.createRoom({
             userId: userId
-        })
-
-        const pregameRoomMembers = await this.pregameRoomsService.findRoomMembers({
-            roomId: newPregameRoom.id
         })
 
         this.server.emit('pregame', {
             event: 'create',
-            newPregameRoom,
-            roomMembers: pregameRoomMembers
+            newPregameRoom: createPregameRoom.newRoom,
+            roomMembers: createPregameRoom.roomMembers
         })
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('leave')
-    async leaveRoom(@ConnectedSocket() socket: SocketWithSession) {
+    async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession) {
         const userId = this.extractUserId(socket)
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
@@ -126,13 +117,13 @@ export class PregameGateway implements OnGatewayConnection {
     }
 
     @SubscribeMessage('join')
-    async joinRoom(
+    async joinPregameRoom(
         @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: JoinRoomDto
+        @MessageBody() dto: JoinPregameRoomDto
     ) {
         const userId = this.extractUserId(socket)
 
-        const joinedUserData = await this.pregameRoomsService.joinUserToRoom({
+        const joinUserToRoom = await this.pregameRoomsService.joinUserToRoom({
             userId: userId,
             roomId: dto.roomId
         })
@@ -140,9 +131,28 @@ export class PregameGateway implements OnGatewayConnection {
         this.server.emit('pregame',
             {
                 event: 'join',
-                pregameRoom: joinedUserData.pregameRoom,
-                joinedUser: joinedUserData.joinedUser
+                pregameRoom: joinUserToRoom.pregameRoom,
+                joinedUser: joinUserToRoom.joinedUser
             }
         )
+    }
+
+    @SubscribeMessage('kick')
+    async kickUserFromPregameRoom(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: KickUserFromPregameRoomDto
+    ) {
+        const userId = this.extractUserId(socket)
+
+        const kickUserFromRoom = await this.pregameRoomsService.kickUserFromRoom({
+            userId,
+            kickedUserId: dto.userId
+        })
+
+        this.server.emit('pregame', {
+            event: 'kick',
+            pregameRoom: kickUserFromRoom.pregameRoom,
+            kickedUser: kickUserFromRoom.kickedUser
+        })
     }
 }
