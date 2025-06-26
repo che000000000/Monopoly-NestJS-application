@@ -3,5 +3,7 @@ export enum ErrorTypes {
   NotFound = 'NotFound',
   BadRequest = 'BadRequest',
   Forbidden = 'Forbidden',
-  Internal = 'Internal'
+  Internal = 'Internal',
+  Conflict = 'Conflict',
+  UnprocessableEntity = 'UnprocessableEntity',
 }

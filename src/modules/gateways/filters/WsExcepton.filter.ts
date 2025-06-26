@@ -1,13 +1,13 @@
-import { Catch, ArgumentsHost } from '@nestjs/common';
+import { Catch, ArgumentsHost, HttpException } from '@nestjs/common';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
-import { HttpException } from '@nestjs/common';
 import { ErrorTypes } from '../constants/error-types';
 import { WsExceptionData } from '../types/ws-exception-data.type';
+import { Socket } from 'socket.io';
 
 @Catch(WsException, HttpException)
 export class WsExceptionsFilter extends BaseWsExceptionFilter {
   catch(exception: WsException | HttpException, host: ArgumentsHost) {
-    const client = host.switchToWs().getClient()
+    const client = host.switchToWs().getClient<Socket>()
     let errorType: ErrorTypes = ErrorTypes.Internal
     let message = 'An error occurred'
 
@@ -15,24 +15,14 @@ export class WsExceptionsFilter extends BaseWsExceptionFilter {
       const status = exception.getStatus()
       const response = exception.getResponse()
 
-      switch (status) {
-        case 400: errorType = ErrorTypes.BadRequest; break
-        case 401: errorType = ErrorTypes.Unauthorized; break
-        case 403: errorType = ErrorTypes.Forbidden; break
-        case 404: errorType = ErrorTypes.NotFound; break
-        default: errorType = ErrorTypes.Internal
-      }
-
-      message = typeof response === 'object'
-        ? (response as any).message || exception.message
-        : exception.message
+      errorType = this.determineErrorType(status)
+      
+      message = this.extractErrorMessage(exception, response)
     } else {
-      const exceptionData = exception.getError();
-
-      if (typeof exceptionData === 'string') {
-        message = exceptionData;
-      } else if (this.isWsExceptionData(exceptionData)) {
-        message = exceptionData.message
+      const exceptionData = exception.getError()
+      message = this.extractWsExceptionMessage(exceptionData)
+      
+      if (this.isWsExceptionData(exceptionData)) {
         errorType = exceptionData.errorType
       }
     }
@@ -41,13 +31,52 @@ export class WsExceptionsFilter extends BaseWsExceptionFilter {
       event: 'Error',
       errorType,
       message,
+      timestamp: new Date().toISOString(),
     })
   }
 
+  private determineErrorType(status: number): ErrorTypes {
+    switch (status) {
+      case 400: return ErrorTypes.BadRequest
+      case 401: return ErrorTypes.Unauthorized
+      case 403: return ErrorTypes.Forbidden
+      case 404: return ErrorTypes.NotFound
+      case 409: return ErrorTypes.Conflict
+      case 422: return ErrorTypes.UnprocessableEntity
+      default: return ErrorTypes.Internal
+    }
+  }
+
+  private extractErrorMessage(exception: HttpException, response: any): string {
+    if (typeof response === 'string') {
+      return response
+    }
+    
+    if (typeof response === 'object' && response !== null) {
+      return response.message || exception.message
+    }
+    
+    return exception.message
+  }
+
+  private extractWsExceptionMessage(exceptionData: any): string {
+    if (typeof exceptionData === 'string') {
+      return exceptionData
+    }
+    
+    if (this.isWsExceptionData(exceptionData)) {
+      return exceptionData.message
+    }
+    
+    return 'WebSocket error occurred'
+  }
+
   private isWsExceptionData(data: unknown): data is WsExceptionData {
-    return typeof data === 'object' &&
+    return (
+      typeof data === 'object' &&
       data !== null &&
       'errorType' in data &&
       'message' in data
+    )
   }
 }

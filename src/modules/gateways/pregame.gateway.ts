@@ -6,8 +6,6 @@ import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
-import { EmitRemoveRoomDto } from "./dto/pregame/emit-remove-room.dto";
-import { EmitNewOwnerDto } from "./dto/pregame/emit-new-owner.dto";
 import { ErrorTypes } from "./constants/error-types";
 
 @UseFilters(WsExceptionsFilter)
@@ -20,37 +18,11 @@ import { ErrorTypes } from "./constants/error-types";
 })
 export class PregameGateway implements OnGatewayConnection {
     constructor(
-        @Inject(forwardRef(() => PregameRoomsService))private readonly pregameRoomsService: PregameRoomsService,
+        @Inject(forwardRef(() => PregameRoomsService)) private readonly pregameRoomsService: PregameRoomsService,
         private readonly usersService: UsersService
     ) { }
     @WebSocketServer()
     server: Server
-
-    emitRemoveRoom(dto: EmitRemoveRoomDto): void {
-        this.server.emit('pregame', {
-            event: 'remove',
-            pregameRoom: {
-                id: dto.pregameRoom.id,
-                createdAt: dto.pregameRoom.createdAt
-            }
-        })
-    }
-
-    emitNewOwner(dto: EmitNewOwnerDto): void {
-        this.server.emit('pregame', {
-            event: 'new-owner',
-            newOwner: {
-                id: dto.newOwner.id,
-                name: dto.newOwner.name,
-                avatarUrl: dto.newOwner.avatarUrl,
-                role: dto.newOwner.role
-            },
-            pregameRoom: {
-                id: dto.pregameRoom.id,
-                createdAt: dto.pregameRoom.createdAt
-            }
-        })
-    }
 
     private extractUserId(socket: SocketWithSession): string {
         const userId = socket.request.session.userId
@@ -59,7 +31,7 @@ export class PregameGateway implements OnGatewayConnection {
                 errorType: ErrorTypes.Internal,
                 message: `Failed to extract userId.`
             })
-            
+
         }
         return userId
     }
@@ -83,7 +55,6 @@ export class PregameGateway implements OnGatewayConnection {
         if (isUserInTheRoom) throw new WsException({
             errorType: ErrorTypes.BadRequest,
             message: `User is already in the room`,
-            from: `PregameGateway`
         })
 
         const newPregameRoom = await this.pregameRoomsService.initRoom({
@@ -93,7 +64,7 @@ export class PregameGateway implements OnGatewayConnection {
         const pregameRoomMembers = await this.pregameRoomsService.findRoomMembers({
             roomId: newPregameRoom.id
         })
-          
+
         this.server.emit('pregame', {
             event: 'create',
             newPregameRoom,
@@ -108,7 +79,13 @@ export class PregameGateway implements OnGatewayConnection {
     ) {
         const userId = this.extractUserId(socket)
 
-        const leftUser = await this.pregameRoomsService.removeFromRoom({
+        const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
+        if (!foundRoom) throw new WsException({
+            errorType: ErrorTypes.BadRequest,
+            message: `User isn't in the pregameRoom`,
+        })
+
+        const leftUser = await this.pregameRoomsService.removeUserFromRoom({
             userId: userId
         })
 
@@ -116,5 +93,38 @@ export class PregameGateway implements OnGatewayConnection {
             event: 'left',
             leftUser: leftUser
         })
+
+        const roomMembers = await this.usersService.findPregameRoomUsers({
+            roomId: foundRoom.id
+        })
+
+        if (roomMembers.length === 0) {
+            const removedRoom = await this.pregameRoomsService.removeRoom({
+                roomId: foundRoom.id
+            })
+            this.server.emit('pregame', {
+                event: 'remove',
+                removedRoom
+            })
+        }
+
+        if (userId === foundRoom.id) {
+            const newOwner = await this.pregameRoomsService.appointNewOwner({
+                roomId: foundRoom.id
+            })
+            this.server.emit('pregame', {
+                event: 'new-owner',
+                newOwner: {
+                    id: newOwner.id,
+                    name: newOwner.name,
+                    avatarUrl: newOwner.avatarUrl,
+                    role: newOwner.role
+                },
+                pregameRoom: {
+                    id: foundRoom.id,
+                    createdAt: foundRoom.createdAt
+                }
+            })
+        }
     }
 }
