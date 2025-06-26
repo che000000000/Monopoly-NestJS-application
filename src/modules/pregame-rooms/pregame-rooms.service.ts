@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
@@ -14,6 +14,8 @@ import { RemoveRoomDto } from './dto/remove-room.dto';
 import { AppointNewOwnerDto } from './dto/appiont-new-owner.dto';
 import { RemoveUserFromRoomDto } from './dto/remove-user-from-room.dto';
 import { JoinUserToRoom } from './dto/join-user-to-room.dto';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { KickUserFromRoomDto } from './dto/kick-user-from-room.dto';
 
 @Injectable()
 export class PregameRoomsService {
@@ -104,8 +106,8 @@ export class PregameRoomsService {
             this.usersService.findUserById(dto.userId),
             this.findRoomByUserId(dto.userId),
         ])
-        if (!foundUser) throw new InternalServerErrorException(`User not found.`)
-        if (!foundRoom) throw new InternalServerErrorException(`User isn't in the pregameRoom.`)
+        if (!foundUser) throw new BadRequestException(`User not found.`)
+        if (!foundRoom) throw new BadRequestException(`User isn't in the pregameRoom.`)
 
         await Promise.all([
             this.chatMembersService.deleteMember({
@@ -166,6 +168,28 @@ export class PregameRoomsService {
         }
     }
 
+    async createRoom(dto: CreateRoomDto): Promise<{ newRoom: FormatedRoom, roomMembers: FormatedUser[] }> {
+        const [foundUser, foundRoom] = await Promise.all([
+            this.usersService.findUserById(dto.userId),
+            this.findRoomByUserId(dto.userId)
+        ])
+        if (!foundUser) throw new InternalServerErrorException(`User not found.`)
+        if (foundRoom) throw new BadRequestException(`User is already in the room.`)
+
+        const newRoom = await this.initRoom({
+            userId: foundUser.id
+        })
+
+        const roomMembers = await this.findRoomMembers({
+            roomId: newRoom.id
+        })
+        
+        return {
+            newRoom,
+            roomMembers
+        }
+    }
+
     async joinUserToRoom(dto: JoinUserToRoom): Promise<{ joinedUser: FormatedUser, pregameRoom: FormatedRoom }> {
         const [foundUser, foundRoom] = await Promise.all([
             this.usersService.findUserById(dto.userId),
@@ -197,6 +221,29 @@ export class PregameRoomsService {
                 id: foundRoom.id,
                 createdAt: foundRoom.createdAt
             }
+        }
+    }
+
+    async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{kickedUser: FormatedUser, pregameRoom: FormatedRoom}> {
+         const [foundKickedUser, foundRoom] = await Promise.all([
+            this.usersService.findUserById(dto.kickedUserId),
+            this.findRoomByUserId(dto.userId),
+        ])
+        if(foundKickedUser?.id === dto.userId) throw new BadRequestException(`Trying to kick yourself.`) 
+        if(!foundKickedUser) throw new BadRequestException(`Kicked user does not exist.`)
+        if(foundRoom?.id !== foundKickedUser.pregameRoomId) throw new BadRequestException(`Kicked user not in this room.`)
+        if(foundRoom?.ownerId !== dto.userId) throw new BadRequestException(`Not enough rights to kick user from room.`)
+
+        const kickedUser = await this.removeUserFromRoom({
+            userId: foundKickedUser.id
+        })
+
+        return {
+            pregameRoom: {
+                id: foundRoom.id,
+                createdAt: foundRoom.createdAt
+            },
+            kickedUser
         }
     }
 }

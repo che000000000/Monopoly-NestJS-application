@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class JoinRoomDto {
+export class CreateRoomDto {
     @IsUUID()
     @IsNotEmpty()
-    roomId: string
+    userId: string
 }
