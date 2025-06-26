@@ -26,11 +26,17 @@ export class PregameRoomsService {
         private readonly chatMembersService: ChatMembersService
     ) { }
 
-    async findRoomById(room_id: string): Promise<PregameRoom | null> {
+    async findRoom(room_id: string): Promise<PregameRoom | null> {
         return await this.pregameRoomsRepository.findOne({
             where: { id: room_id },
             raw: true
         })
+    }
+
+    async getRoom(room_id: string): Promise<PregameRoom> {
+        const foundRoom = await this.findRoom(room_id)
+        if (!foundRoom) throw new BadRequestException(`Room doesn't exist.`)
+        return foundRoom
     }
 
     async findRoomByUserId(user_id: string): Promise<PregameRoom | null> {
@@ -38,11 +44,15 @@ export class PregameRoomsService {
         if (!foundUser) return null
 
         return await this.pregameRoomsRepository.findOne({
-            where: {
-                id: foundUser.pregameRoomId
-            },
+            where: { id: foundUser.pregameRoomId },
             raw: true
         })
+    }
+
+    async getRoomByUserId(user_id: string): Promise<PregameRoom> {
+        const foundRoom = await this.findRoomByUserId(user_id)
+        if (!foundRoom) throw new BadRequestException(`Room doesn't exist.`)
+        return foundRoom
     }
 
     async updateOwnerId(dto: UpdateOwnerIdDto): Promise<number> {
@@ -53,9 +63,9 @@ export class PregameRoomsService {
         return affectedCount
     }
 
-    async findRoomMembers(dto: FindRoomMembersDto): Promise<FormatedUser[]> {
-        const [foundRoom, foundMembers] = await Promise.all([
-            this.findRoomById(dto.roomId),
+    async getRoomMembers(dto: FindRoomMembersDto): Promise<FormatedUser[]> {
+        const [recievedRoom, foundMembers] = await Promise.all([
+            this.getRoom(dto.roomId),
             this.usersService.findPregameRoomUsers({
                 roomId: dto.roomId
             })
@@ -65,14 +75,13 @@ export class PregameRoomsService {
             id: user.id,
             name: user.name,
             avatarUrl: user.avatarUrl ?? null,
-            isOwner: foundRoom?.ownerId === user.id ? true : false,
+            isOwner: recievedRoom.ownerId === user.id ? true : false,
             role: user.role
         }))
     }
 
     async initRoom(dto: InitRoomDto): Promise<FormatedRoom> {
-        const foundUser = await this.usersService.findUserById(dto.userId)
-        if (!foundUser) throw new NotFoundException(`User not found.`)
+        const receivedUser = await this.usersService.getUser(dto.userId)
 
         const newChat = await this.chatsService.createChat({
             tiedTo: TiedTo.pregame
@@ -81,17 +90,17 @@ export class PregameRoomsService {
 
         const [newRoom] = await Promise.all([
             this.pregameRoomsRepository.create({
-                ownerId: foundUser.id,
+                ownerId: receivedUser.id,
                 chatId: newChat.id
             }),
             this.chatMembersService.createMember({
-                userId: foundUser.id,
+                userId: receivedUser.id,
                 chatId: newChat.id
             })
         ])
 
         await this.usersService.updatePregameRoomId({
-            userId: foundUser.id,
+            userId: receivedUser.id,
             newRoomId: newRoom.id
         })
 
@@ -102,11 +111,10 @@ export class PregameRoomsService {
     }
 
     async removeUserFromRoom(dto: RemoveUserFromRoomDto): Promise<FormatedUser> {
-        const [foundUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
+        const [receivedUser, foundRoom] = await Promise.all([
+            this.usersService.getUser(dto.userId),
             this.findRoomByUserId(dto.userId),
         ])
-        if (!foundUser) throw new BadRequestException(`User not found.`)
         if (!foundRoom) throw new BadRequestException(`User isn't in the pregameRoom.`)
 
         await Promise.all([
@@ -121,42 +129,40 @@ export class PregameRoomsService {
         ])
 
         return {
-            id: foundUser.id,
-            name: foundUser.name,
-            avatarUrl: foundUser.avatarUrl ?? null,
-            role: foundUser.role
+            id: receivedUser.id,
+            name: receivedUser.name,
+            avatarUrl: receivedUser.avatarUrl ?? null,
+            role: receivedUser.role
         }
     }
 
     async removeRoom(dto: RemoveRoomDto): Promise<FormatedRoom> {
-        const foundRoom = await this.findRoomById(dto.roomId)
-        if (!foundRoom) throw new InternalServerErrorException(`Room not found.`)
+        const pregameRoom = await this.getRoom(dto.roomId)
 
         await this.chatsService.deleteChat({
-            chatId: foundRoom.chatId
+            chatId: pregameRoom.chatId
         })
 
         return {
-            id: foundRoom.id,
-            createdAt: foundRoom.createdAt
+            id: pregameRoom.id,
+            createdAt: pregameRoom.createdAt
         }
     }
 
     async appointNewOwner(dto: AppointNewOwnerDto): Promise<FormatedUser> {
-        const [foundRoom, roomMembers] = await Promise.all([
-            this.findRoomById(dto.roomId),
+        const [receivedRoom, roomMembers] = await Promise.all([
+            this.getRoom(dto.roomId),
             this.usersService.findPregameRoomUsers({
                 roomId: dto.roomId
             })
         ])
-        if (!foundRoom) throw new InternalServerErrorException(`Room not found.`)
         if (roomMembers.length === 0) throw new InternalServerErrorException(`Room is empty. Can't appoint new owner.`)
 
         const randomIndex = Math.floor(Math.random() * roomMembers.length)
         const newOwner = roomMembers[randomIndex]
 
         await this.updateOwnerId({
-            roomId: foundRoom.id,
+            roomId: receivedRoom.id,
             newOwnerId: newOwner.id
         })
 
@@ -169,18 +175,17 @@ export class PregameRoomsService {
     }
 
     async createRoom(dto: CreateRoomDto): Promise<{ newRoom: FormatedRoom, roomMembers: FormatedUser[] }> {
-        const [foundUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
+        const [receivedUser, foundRoom] = await Promise.all([
+            this.usersService.getUser(dto.userId),
             this.findRoomByUserId(dto.userId)
         ])
-        if (!foundUser) throw new InternalServerErrorException(`User not found.`)
         if (foundRoom) throw new BadRequestException(`User is already in the room.`)
 
         const newRoom = await this.initRoom({
-            userId: foundUser.id
+            userId: receivedUser.id
         })
 
-        const roomMembers = await this.findRoomMembers({
+        const roomMembers = await this.getRoomMembers({
             roomId: newRoom.id
         })
         
@@ -191,51 +196,48 @@ export class PregameRoomsService {
     }
 
     async joinUserToRoom(dto: JoinUserToRoom): Promise<{ joinedUser: FormatedUser, pregameRoom: FormatedRoom }> {
-        const [foundUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.userId),
-            this.findRoomById(dto.roomId)
+        const [receivedUser, receivedRoom] = await Promise.all([
+            this.usersService.getUser(dto.userId),
+            this.getRoom(dto.roomId)
         ])
-        if (!foundUser) throw new InternalServerErrorException(`User not found.`)
-        if (foundUser.pregameRoomId) throw new BadRequestException(`User is already in the room.`)
-        if (!foundRoom) throw new BadRequestException(`Room doesn't exist.`)
+        if (receivedUser.pregameRoomId) throw new BadRequestException(`User is already in the room.`)
 
         await Promise.all([
             this.chatMembersService.createMember({
-                userId: foundUser.id,
-                chatId: foundRoom.chatId
+                userId: receivedUser.id,
+                chatId: receivedRoom.chatId
             }),
             this.usersService.updatePregameRoomId({
-                userId: foundUser.id,
-                newRoomId: foundRoom.id
+                userId: receivedUser.id,
+                newRoomId: receivedRoom.id
             })
         ])
 
         return {
             joinedUser: {
-                id: foundUser.id,
-                name: foundUser.name,
-                avatarUrl: foundUser.avatarUrl ?? null,
-                role: foundUser.role
+                id: receivedUser.id,
+                name: receivedUser.name,
+                avatarUrl: receivedUser.avatarUrl ?? null,
+                role: receivedUser.role
             },
             pregameRoom: {
-                id: foundRoom.id,
-                createdAt: foundRoom.createdAt
+                id: receivedRoom.id,
+                createdAt: receivedRoom.createdAt
             }
         }
     }
 
     async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{kickedUser: FormatedUser, pregameRoom: FormatedRoom}> {
-         const [foundKickedUser, foundRoom] = await Promise.all([
-            this.usersService.findUserById(dto.kickedUserId),
-            this.findRoomByUserId(dto.userId),
+         const [receivedKickedUser, foundRoom] = await Promise.all([
+            this.usersService.getUser(dto.kickedUserId),
+            this.getRoomByUserId(dto.userId),
         ])
-        if(foundKickedUser?.id === dto.userId) throw new BadRequestException(`Trying to kick yourself.`) 
-        if(!foundKickedUser) throw new BadRequestException(`Kicked user does not exist.`)
-        if(foundRoom?.id !== foundKickedUser.pregameRoomId) throw new BadRequestException(`Kicked user not in this room.`)
-        if(foundRoom?.ownerId !== dto.userId) throw new BadRequestException(`Not enough rights to kick user from room.`)
+        if(receivedKickedUser.id === dto.userId) throw new BadRequestException(`Trying to kick yourself.`)
+        if(foundRoom.id !== receivedKickedUser.pregameRoomId) throw new BadRequestException(`Kicked user not in this room.`)
+        if(foundRoom.ownerId !== dto.userId) throw new BadRequestException(`Not enough rights to kick user from room.`)
 
         const kickedUser = await this.removeUserFromRoom({
-            userId: foundKickedUser.id
+            userId: receivedKickedUser.id
         })
 
         return {

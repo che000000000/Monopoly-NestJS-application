@@ -13,10 +13,15 @@ export class UsersService {
     constructor(@InjectModel(User) private readonly usersRepository: typeof User) { }
 
     async findUserById(user_id: string): Promise<User | null> {
-        const foundUser = await this.usersRepository.findOne({
+        return await this.usersRepository.findOne({
             where: { id: user_id },
             raw: true
         })
+    }
+
+    async getUser(user_id: string): Promise<User> {
+        const foundUser = await this.findUserById(user_id)
+        if(!foundUser) throw new BadRequestException(`User doesn't exist.`)
         return foundUser
     }
 

@@ -10,29 +10,10 @@ import { FindChatMemberDto } from './dto/find-chat-member.dto';
 export class ChatMembersService {
     constructor(@InjectModel(ChatMember) private readonly chatMembersRepository: typeof ChatMember) { }
 
-    async findChatMemberById(member_id: string): Promise<ChatMember | null> {
+    async findMemberById(member_id: string): Promise<ChatMember | null> {
         return await this.chatMembersRepository.findOne({
             where: {
                 id: member_id
-            },
-            raw: true
-        })
-    }
-
-    async findChatMember(dto: FindChatMemberDto): Promise<ChatMember | null> {
-        return await this.chatMembersRepository.findOne({
-            where: {
-                userId: dto.userId,
-                chatId: dto.chatId
-            },
-            raw: true
-        })
-    }
-
-    async findChatMembers(dto: FindChatMembersDto): Promise<ChatMember[]> {
-        return await this.chatMembersRepository.findAll({
-            where: {
-                chatId: dto.chatId
             },
             raw: true
         })

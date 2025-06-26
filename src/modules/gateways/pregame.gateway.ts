@@ -146,7 +146,7 @@ export class PregameGateway implements OnGatewayConnection {
 
         const kickUserFromRoom = await this.pregameRoomsService.kickUserFromRoom({
             userId,
-            kickedUserId: dto.kickedUserId
+            kickedUserId: dto.userId
         })
 
         this.server.emit('pregame', {
