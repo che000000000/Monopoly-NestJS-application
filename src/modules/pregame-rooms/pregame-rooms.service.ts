@@ -16,6 +16,8 @@ import { RemoveUserFromRoomDto } from './dto/remove-user-from-room.dto';
 import { JoinUserToRoom } from './dto/join-user-to-room.dto';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { KickUserFromRoomDto } from './dto/kick-user-from-room.dto';
+import { RoomsPageItem } from './interfaces/rooms-page.interface';
+import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
 
 @Injectable()
 export class PregameRoomsService {
@@ -78,6 +80,39 @@ export class PregameRoomsService {
             isOwner: recievedRoom.ownerId === user.id ? true : false,
             role: user.role
         }))
+    }
+
+    async getRoomsCount(): Promise<number> {
+        return await this.pregameRoomsRepository.count()
+    }
+
+    async getRooms(dto: GetRoomsPageDto): Promise<PregameRoom[]> {
+        return await this.pregameRoomsRepository.findAll({
+            order: [['createdAt', 'DESC']],
+            limit: dto.pageSize,
+            offset: (dto.pageNumber - 1) * dto.pageSize,
+            raw: true
+        })
+    }
+
+    async getRoomsPage(dto: GetRoomsPageDto): Promise<RoomsPageItem[]> {
+        const receivedRooms = await this.getRooms({
+            pageSize: dto.pageSize ?? 12,
+            pageNumber: dto.pageNumber ?? 1 
+        })
+
+        return await Promise.all(
+            receivedRooms.map(async (room) => {
+                const roomMembers = await this.getRoomMembers({ roomId: room.id })
+                return {
+                    pregameRoom: {
+                        id: room.id,
+                        createdAt: room.createdAt
+                    },
+                    roomMembers
+                }
+            })
+        )
     }
 
     async initRoom(dto: InitRoomDto): Promise<FormatedRoom> {

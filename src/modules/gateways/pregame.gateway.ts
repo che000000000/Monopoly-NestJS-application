@@ -9,6 +9,7 @@ import { UsersService } from "../users/users.service";
 import { ErrorTypes } from "./constants/error-types";
 import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
 import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame-room.dto";
+import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -46,6 +47,28 @@ export class PregameGateway implements OnGatewayConnection {
         if (!foundRoom) return
 
         await socket.join([foundRoom.id, foundRoom.chatId])
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('rooms-page')
+    async getRoomsPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetRoomsPageDto
+    ) {
+        const userId = this.extractUserId(socket)
+
+        const [roomsPage, totalCount] = await Promise.all([
+            this.pregameRoomsService.getRoomsPage({
+                pageSize: dto.pageSize,
+                pageNumber: dto.pageNumber
+            }),
+            this.pregameRoomsService.getRoomsCount()
+        ])
+
+        socket.emit('pregame', {
+            roomsPage,
+            totalCount
+        })
     }
 
     @UseGuards(WsAuthGuard)
