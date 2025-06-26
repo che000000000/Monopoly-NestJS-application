@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class SetOwnerIdDto {
+export class JoinUserToRoom {
     @IsUUID()
     @IsNotEmpty()
     userId: string

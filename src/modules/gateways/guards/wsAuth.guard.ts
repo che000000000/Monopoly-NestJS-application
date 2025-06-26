@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, Inject } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { Redis } from 'ioredis';
-import { ErrorTypes } from '../filters/WsExcepton.filter';
+import { ErrorTypes } from '../constants/error-types';
 
 @Injectable()
 export class WsAuthGuard implements CanActivate {

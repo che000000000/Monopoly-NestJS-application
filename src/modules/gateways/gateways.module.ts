@@ -1,21 +1,15 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { PregameRoomsModule } from "../pregame-rooms/pregame-rooms.module";
-import { MessagesModule } from "../messages/messages.module";
 import { UsersModule } from "../users/users.module";
+import { PregameGateway } from "./pregame.gateway";
 import { GamesModule } from "../games/games.module";
-import { GamesGateway } from "./games-gateway/games.gateway";
-import { PregameGateway } from "./pregame-gateway/pregame.gateway";
-import { RedisModule } from "src/modules/redis/redis.module";
-import { ChatMembersModule } from "../chat-members/chat-members.module";
+import { GamesGateway } from "./game.gateway";
 
 @Module({
     imports: [
+        UsersModule,
         forwardRef(() => PregameRoomsModule),
-        forwardRef(() => UsersModule),
-        MessagesModule,
-        ChatMembersModule,
-        forwardRef(() => GamesModule),
-        RedisModule
+        forwardRef(() => GamesModule)
     ],
     providers: [PregameGateway, GamesGateway],
     exports: [PregameGateway, GamesGateway]

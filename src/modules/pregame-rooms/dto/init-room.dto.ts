@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class KickFromRoomDto {
+export class InitRoomDto {
     @IsUUID()
     @IsNotEmpty()
     userId: string

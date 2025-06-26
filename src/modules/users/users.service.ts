@@ -6,6 +6,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { UpdatePregameRoomIdDto } from './dto/update-pregame-room.dto';
 import { UpdateGameIdDto } from './dto/update-game-id.dto';
 import { FindPregameRoomUsersDto } from './dto/find-pregame-users.dto';
+import { FindGameUsersDto } from './dto/find-game-users.dto';
 
 @Injectable()
 export class UsersService {
@@ -33,9 +34,16 @@ export class UsersService {
         })
     }
 
+    async findGameUsers(dto: FindGameUsersDto): Promise<User[]> {
+        return await this.usersRepository.findAll({
+            where: { gameId: dto.gameId, },
+            raw: true
+        })
+    }
+
     async updatePregameRoomId(dto: UpdatePregameRoomIdDto): Promise<number> {
         const [affectedCount] = await this.usersRepository.update(
-            { pregameRoomId: dto.roomId },
+            { pregameRoomId: dto.newRoomId },
             { where: { id: dto.userId } }
         )
         return affectedCount

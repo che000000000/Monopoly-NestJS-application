@@ -1,17 +1,15 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PregameRoomsService } from './pregame-rooms.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersModule } from '../users/users.module';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
-import { GatewaysModule } from '../gateways/gateways.module';
 
 @Module({
     imports: [
         SequelizeModule.forFeature([PregameRoom]),
-        forwardRef(() => UsersModule),
-        forwardRef(() => GatewaysModule),
+        UsersModule,
         ChatsModule,
         ChatMembersModule,
     ],

@@ -1,39 +1,26 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Chat } from 'src/models/chat.model';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { DeleteChatDto } from './dto/delete-chat.dto';
-import { ChatMembersService } from '../chat-members/chat-members.service';
 
 @Injectable()
 export class ChatsService {
-    constructor(
-        @InjectModel(Chat) private readonly chatsRepository: typeof Chat,
-        @Inject(forwardRef(()=> ChatMembersService)) private readonly chatMembersService: ChatMembersService
-    ) { }
+    constructor(@InjectModel(Chat) private readonly chatsRepository: typeof Chat) { }
 
     async findChatById(chat_id: string): Promise<Chat | null> {
         return await this.chatsRepository.findOne({
             where: {
                 id: chat_id
-            }
+            },
+            raw: true
         })
     }
 
-    async createChat(dto: CreateChatDto): Promise<Chat | null> {
-        const newChat = await this.chatsRepository.create({
+    async createChat(dto: CreateChatDto): Promise<Chat> {
+        return await this.chatsRepository.create({
             tiedTo: dto.tiedTo
         })
-        if(!newChat) return null
-
-        await Promise.all(dto.usersIds.map(userId => {
-            this.chatMembersService.createMember({
-                userId: userId,
-                chatId: newChat.id
-            })
-        }))
-        
-        return newChat
     }
 
     async deleteChat(dto: DeleteChatDto): Promise<number> {
