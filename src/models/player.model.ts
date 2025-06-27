@@ -1,7 +1,9 @@
-import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Game } from "./game.model";
 import { User } from "./user.model";
+import { GameTurn } from "./game-turn.model";
+import { BoardField } from "./board-field.model";
 
 export enum PlayerColors {
     GREEN = 'green',
@@ -51,4 +53,10 @@ export class Player extends Model {
         allowNull: false,
     })
     declare userId: string
+
+    @HasOne(() => GameTurn)
+    gameTurn: GameTurn
+
+    @HasMany(() => BoardField)
+    ownFields: BoardField[]
 }

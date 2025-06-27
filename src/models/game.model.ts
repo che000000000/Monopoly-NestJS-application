@@ -3,6 +3,7 @@ import { v4 } from "uuid";
 import { Chat } from "./chat.model";
 import { User } from "./user.model";
 import { Player } from "./player.model";
+import { GameBoard } from "./game-board.model";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -20,6 +21,9 @@ export class Game extends Model {
         allowNull: false
     })
     declare chatId: string
+
+    @HasOne(() => GameBoard)
+    board: GameBoard
 
     @HasMany(() => User)
     users: User[]
