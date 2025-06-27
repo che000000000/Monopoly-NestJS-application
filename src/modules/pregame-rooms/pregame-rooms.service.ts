@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
@@ -18,6 +18,9 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { KickUserFromRoomDto } from './dto/kick-user-from-room.dto';
 import { RoomsPageItem } from './interfaces/rooms-page.interface';
 import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
+import { FormatedMessage } from './interfaces/formated-message.interface';
+import { SendMessageDto } from './dto/send-message.dto';
+import { MessagesService } from '../messages/messages.service';
 
 @Injectable()
 export class PregameRoomsService {
@@ -25,7 +28,8 @@ export class PregameRoomsService {
         @InjectModel(PregameRoom) private readonly pregameRoomsRepository: typeof PregameRoom,
         private readonly usersService: UsersService,
         private readonly chatsService: ChatsService,
-        private readonly chatMembersService: ChatMembersService
+        private readonly chatMembersService: ChatMembersService,
+        private readonly messagesService: MessagesService
     ) { }
 
     async findRoom(room_id: string): Promise<PregameRoom | null> {
@@ -281,6 +285,38 @@ export class PregameRoomsService {
                 createdAt: foundRoom.createdAt
             },
             kickedUser
+        }
+    }
+
+    async sendMessage(dto: SendMessageDto): Promise<{sentMessage: FormatedMessage, pregameRoom: FormatedRoom}> {
+        const recivedUser = await this.usersService.getUser(dto.userId)
+        if(!recivedUser.pregameRoomId) throw new BadRequestException(`User isn't in the room.`)
+
+        const recievedRoom = await this.getRoom(recivedUser.pregameRoomId)
+
+        const newMessage = await this.messagesService.createMessage({
+            userId: recivedUser.id,
+            chatId: recievedRoom.chatId,
+            messageText: dto.messageText
+        })
+
+        return {
+            sentMessage: {
+                id: newMessage.id,
+                text: newMessage.text,
+                sender: {
+                    id: recivedUser.id,
+                    name: recivedUser.name,
+                    avatarUrl: recivedUser.avatarUrl,
+                    isOwner: recievedRoom.ownerId === recivedUser.id ? true : false,
+                    role: recivedUser.role
+                },
+                createdAt: newMessage.createdAt
+            },
+            pregameRoom: {
+                id: recievedRoom.id,
+                createdAt: recievedRoom.createdAt
+            }
         }
     }
 }
