@@ -8,8 +8,8 @@ import { GamesGateway } from "./game.gateway";
 @Module({
     imports: [
         UsersModule,
-        forwardRef(() => PregameRoomsModule),
-        forwardRef(() => GamesModule)
+        PregameRoomsModule,
+        GamesModule
     ],
     providers: [PregameGateway, GamesGateway],
     exports: [PregameGateway, GamesGateway]
