@@ -3,6 +3,7 @@ import { v4 } from "uuid";
 import { Chat } from "./chat.model";
 import { User } from "./user.model";
 import { Player } from "./player.model";
+import { GameField } from "./game-field.model";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -26,4 +27,7 @@ export class Game extends Model {
 
     @HasMany(() => Player)
     players: Player[]
+
+    @HasMany(() => GameField)
+    fields: GameField[]
 }

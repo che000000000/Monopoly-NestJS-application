@@ -1,14 +1,9 @@
-import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Game } from "./game.model";
 import { User } from "./user.model";
-
-export enum PlayerColors {
-    GREEN = 'green',
-    BLUE = 'blue',
-    YELLOW = 'yellow',
-    PURPLE = 'purple'
-}
+import { GameTurn } from "./game-turn.model";
+import { GameField } from "./game-field.model";
 
 @Table({ tableName: 'Players' })
 export class Player extends Model {
@@ -30,13 +25,7 @@ export class Player extends Model {
         type: DataType.INTEGER,
         allowNull: false
     })
-    declare number: number
-
-    @Column({
-        type: DataType.ENUM(...Object.values(PlayerColors)),
-        allowNull: false
-    })
-    declare color: PlayerColors
+    declare turnNumber: number
 
     @ForeignKey(() => Game)
     @Column({
@@ -51,4 +40,17 @@ export class Player extends Model {
         allowNull: false,
     })
     declare userId: string
+
+    @ForeignKey(() => GameField)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false,
+    })
+    declare fieldId: string
+
+    @HasOne(() => GameTurn)
+    gameTurn: GameTurn
+
+    @HasMany(() => GameField)
+    ownFields: GameField[]
 }

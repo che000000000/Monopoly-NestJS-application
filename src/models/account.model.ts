@@ -16,38 +16,38 @@ export class Account extends Model {
         type: DataType.STRING,
         allowNull: false
     })
-    type: string
+    declare type: string
 
     @Column({
         type: DataType.STRING,
         allowNull: false
     })
-    provider: string
+    declare provider: string
 
     @Column({
         type: DataType.STRING,
         allowNull: true,
         unique: true,
     })
-    refreshToken?: string | null
+    declare refreshToken?: string | null
 
     @Column({
         type: DataType.STRING,
         allowNull: true,
         unique: true,
     })
-    accessToken?: string | null
+    declare accessToken?: string | null
 
     @Column({
         type: DataType.INTEGER,
         allowNull: true
     })
-    expires?: number | null
+    declare expires?: number | null
 
     @ForeignKey(() => User)
     @Column({
         type: DataType.UUID,
         allowNull: false
     })
-    userId: string
+    declare userId: string
 }

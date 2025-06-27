@@ -1,14 +1,15 @@
 import { UseFilters, UseGuards } from "@nestjs/common";
-import { OnGatewayConnection, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
+import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { Server } from "socket.io";
 import { GamesService } from "../games/games.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { ErrorTypes } from "./constants/error-types";
+import { WsAuthGuard } from "./guards/wsAuth.guard";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
-    namespace: 'game',
+    namespace: 'games',
     cors: {
         origin: true,
         credentials: true
@@ -37,5 +38,20 @@ export class GamesGateway implements OnGatewayConnection {
             socket.disconnect()
             return
         }
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('new-game')
+    async newGame(@ConnectedSocket() socket: SocketWithSession) {
+        const userId = this.extractUserId(socket)
+
+        const newGame = await this.gamesService.initGame({
+            userId: userId
+        })
+
+        this.server.emit('games', {
+            event: 'new-game',
+            newGame
+        })
     }
 }

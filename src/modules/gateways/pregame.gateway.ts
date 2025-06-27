@@ -1,5 +1,5 @@
-import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
-import { Server } from "socket.io";
+import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
+import { DefaultEventsMap, RemoteSocket, Server, Socket } from "socket.io";
 import { UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
@@ -21,7 +21,7 @@ import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
         credentials: true
     }
 })
-export class PregameGateway implements OnGatewayConnection {
+export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     constructor(
         private readonly pregameRoomsService: PregameRoomsService,
         private readonly usersService: UsersService
@@ -42,6 +42,22 @@ export class PregameGateway implements OnGatewayConnection {
         return userId
     }
 
+    private async findSocketById(user_id: string): Promise<RemoteSocket<DefaultEventsMap, any> | null> {
+        const allSockets = await this.server.fetchSockets()
+        const foundSocket = allSockets.find(socket => socket.data.userId === user_id)
+        return foundSocket || null
+    }
+
+    private async removeSocketFromRoom(user_id: string, room_id: string): Promise<void> {
+        const foundSocket = await this.findSocketById(user_id)
+        if(!foundSocket) throw new WsException({
+            errorType: ErrorTypes.Internal,
+            message: `Failed to get socket.`
+        })
+
+        foundSocket.leave(room_id)
+    }
+
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
         if (!userId) return
@@ -49,7 +65,12 @@ export class PregameGateway implements OnGatewayConnection {
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
         if (!foundRoom) return
 
-        await socket.join(foundRoom.id)
+        socket.join(foundRoom.id)
+    }
+
+    async handleDisconnect(socket: SocketWithSession) {
+        const allSocketRooms = Array.from(socket.rooms).filter(room => room !== socket.id)
+        allSocketRooms.forEach(room => socket.leave(room))
     }
 
     @UseGuards(WsAuthGuard)
@@ -197,6 +218,11 @@ export class PregameGateway implements OnGatewayConnection {
             userId,
             kickedUserId: dto.userId
         })
+
+        await this.removeSocketFromRoom(
+            kickUserFromRoom.kickedUser.id,
+            kickUserFromRoom.pregameRoom.id
+        )
 
         this.server.emit('pregame', {
             event: 'kick',

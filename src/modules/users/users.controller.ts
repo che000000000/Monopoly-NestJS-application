@@ -8,7 +8,7 @@ import { ExtractId } from '../auth/decorators/extract-id.decorator';
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
-    @Authorization(UserRole.regular)
+    @Authorization(UserRole.REGULAR)
     @Get('profile')
     getUserProfile(
         @ExtractId() myId: string,

@@ -165,7 +165,7 @@ export class PregameRoomsService {
         const receivedUser = await this.usersService.getUser(dto.userId)
 
         const newChat = await this.chatsService.createChat({
-            tiedTo: TiedTo.pregame
+            tiedTo: TiedTo.PREGAME
         })
         if (!newChat) throw new InternalServerErrorException(`Chat not created.`)
 

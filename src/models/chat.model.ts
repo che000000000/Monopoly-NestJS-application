@@ -6,9 +6,9 @@ import { Message } from "./message.model";
 import { ChatMember } from "./chat-members";
 
 export enum TiedTo {
-    global = 'global',
-    game = 'game',
-    pregame = 'pregame'
+    GLOBAL = 'GLOBAL',
+    GAME = 'GAME',
+    PREGAME = 'PREGAME'
 }
 
 @Table({ tableName: 'Chats' })
