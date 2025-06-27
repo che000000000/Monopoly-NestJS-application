@@ -3,13 +3,17 @@ import { v4 } from "uuid";
 import { Game } from "./game.model";
 import { User } from "./user.model";
 import { GameTurn } from "./game-turn.model";
-import { BoardField } from "./board-field.model";
+import { GameField } from "./game-field.model";
 
 export enum PlayerColors {
-    GREEN = 'green',
-    BLUE = 'blue',
-    YELLOW = 'yellow',
-    PURPLE = 'purple'
+    DARK = 'DARK',
+    BROWN = 'BROWN',
+    RED = 'RED',
+    ORANGE = 'ORANGE',
+    YELLOW = 'YELLOW',
+    GREEN = 'GREEN',
+    BLUE = 'BLUE',
+    PURPLE = 'PURPLE',
 }
 
 @Table({ tableName: 'Players' })
@@ -54,9 +58,16 @@ export class Player extends Model {
     })
     declare userId: string
 
+    @ForeignKey(() => GameField)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false,
+    })
+    declare onField: GameField
+
     @HasOne(() => GameTurn)
     gameTurn: GameTurn
 
-    @HasMany(() => BoardField)
-    ownFields: BoardField[]
+    @HasMany(() => GameField)
+    ownFields: GameField[]
 }

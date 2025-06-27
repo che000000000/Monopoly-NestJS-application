@@ -23,7 +23,7 @@ export class AuthService {
             name: dto.name,
             password: dto.password,
             avatarUrl: dto.avatarUrl,
-            authMethod: AuthMethod.credentials
+            authMethod: AuthMethod.CREDENTIALS
         })
     }
 

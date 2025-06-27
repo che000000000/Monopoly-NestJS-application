@@ -23,8 +23,7 @@ import { RedisModule } from 'src/modules/redis/redis.module';
 import { Player } from 'src/models/player.model';
 import { PlayersModule } from '../players/players.module';
 import { GameTurn } from 'src/models/game-turn.model';
-import { GameBoard } from 'src/models/game-board.model';
-import { BoardField } from 'src/models/board-field.model';
+import { GameField } from 'src/models/game-field.model';
 
 @Module({
   imports: [
@@ -56,7 +55,7 @@ import { BoardField } from 'src/models/board-field.model';
             User, Account, Token,
             PregameRoom, Chat, Message,
             ChatMember, Game, Player,
-            GameTurn, GameBoard, BoardField
+            GameTurn, GameField
           ]
         }
       }

@@ -8,13 +8,14 @@ import { Game } from "./game.model";
 import { Player } from "./player.model";
 
 export enum UserRole {
-    regular = 'regular',
-    admin = 'admin'
+    REGULAR = 'REGULAR',
+    ADMIN = 'ADMIN',
+    DEV = 'DEV'
 }
 
 export enum AuthMethod {
-    credentials = 'credentials',
-    google = 'google'
+    CREDENTIALS = 'CREDENTIALS',
+    GOOGLE = 'GOOGLE'
 }
 
 @Table({ tableName: 'Users' })
@@ -57,7 +58,7 @@ export class User extends Model {
     @Column({
         type: DataType.ENUM(...Object.values(UserRole)),
         allowNull: false,
-        defaultValue: UserRole.regular
+        defaultValue: UserRole.REGULAR
     })
     declare role: UserRole
 

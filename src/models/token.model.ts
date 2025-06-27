@@ -1,10 +1,10 @@
-import { Column, DataType, Default, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 
 export enum TokenType {
-    verification = 'verification',
-    twoFactor = 'two_factor',
-    passwordReset = 'password_reset'
+    VERIFICATION = 'VERIFICATION',
+    TWO_FACTOR = 'TWO_FACTOR',
+    PASSSWORD_RESET = 'PASSWORD_RESET'
 }
 
 @Table({ tableName: "Tokens" })
@@ -22,24 +22,24 @@ export class Token extends Model {
         allowNull: false,
         unique: true,
     })
-    email: string
+    declare email: string
 
     @Column({
         type: DataType.STRING,
         allowNull: false,
         unique: true,
     })
-    token: TokenType
+    declare token: TokenType
 
     @Column({
         type: DataType.ENUM(...Object.values(TokenType)),
         allowNull: false,
     })
-    tokenType: string
+    declare tokenType: string
 
     @Column({
         type: DataType.DATE,
         allowNull: false,
     })
-    expiresIn: Date
+    declare expiresIn: Date
 }   

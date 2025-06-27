@@ -89,7 +89,7 @@ export class UsersService {
             name: dto.name,
             password: dto.password ? await bcrypt.hash(dto.password, 10) : null,
             avatarUrl: dto.avatarUrl,
-            role: UserRole.regular,
+            role: UserRole.REGULAR,
             authMethod: dto.authMethod
         })
     }
