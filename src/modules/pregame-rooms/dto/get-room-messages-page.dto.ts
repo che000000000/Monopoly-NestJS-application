@@ -1,15 +1,15 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsUUID } from "class-validator";
 
-export class GetChatMessagesDto {
+export class GetRoomMessagesPageDto {
     @IsUUID()
     @IsNotEmpty()
-    chatId: string
-
-    @IsNumber()
-    @IsOptional()
-    pageSize: number
+    userId: string
 
     @IsNumber()
     @IsOptional()
     pageNumber: number
+
+    @IsNumber()
+    @IsOptional()
+    pageSize: number
 }

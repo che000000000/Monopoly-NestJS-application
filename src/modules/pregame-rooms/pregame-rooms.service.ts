@@ -21,6 +21,7 @@ import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
 import { FormatedMessage } from './interfaces/formated-message.interface';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessagesService } from '../messages/messages.service';
+import { GetRoomMessagesPageDto } from './dto/get-room-messages-page.dto';
 
 @Injectable()
 export class PregameRoomsService {
@@ -86,10 +87,6 @@ export class PregameRoomsService {
         }))
     }
 
-    async getRoomsCount(): Promise<number> {
-        return await this.pregameRoomsRepository.count()
-    }
-
     async getRooms(dto: GetRoomsPageDto): Promise<PregameRoom[]> {
         return await this.pregameRoomsRepository.findAll({
             order: [['createdAt', 'DESC']],
@@ -99,24 +96,69 @@ export class PregameRoomsService {
         })
     }
 
-    async getRoomsPage(dto: GetRoomsPageDto): Promise<RoomsPageItem[]> {
+    async getRoomsPage(dto: GetRoomsPageDto): Promise<{ roomsPage: RoomsPageItem[], totalCount: number }> {
         const receivedRooms = await this.getRooms({
             pageSize: dto.pageSize ?? 12,
-            pageNumber: dto.pageNumber ?? 1 
+            pageNumber: dto.pageNumber ?? 1
         })
 
-        return await Promise.all(
+        const totalCount = await this.pregameRoomsRepository.count()
+
+        const roomsPage = await Promise.all(
             receivedRooms.map(async (room) => {
                 const roomMembers = await this.getRoomMembers({ roomId: room.id })
+
                 return {
-                    pregameRoom: {
-                        id: room.id,
-                        createdAt: room.createdAt
-                    },
-                    roomMembers
+                    id: room.id,
+                    members: roomMembers,
+                    createdAt: room.createdAt
                 }
             })
         )
+
+        return {
+            roomsPage,
+            totalCount
+        }
+    }
+
+    async getRoomMessagesPage(dto: GetRoomMessagesPageDto): Promise<{ messagesPage: FormatedMessage[], totalCount: number }> {
+        const foundRoom = await this.findRoomByUserId(dto.userId)
+        if (!foundRoom) throw new BadRequestException(`User isn't in the pregame room.`)
+
+        const chatMessages = await this.messagesService.getChatMessages({
+            chatId: foundRoom.chatId,
+            pageSize: dto.pageSize ?? 12,
+            pageNumber: dto.pageNumber ?? 1
+        })
+
+        const totalCount = await this.messagesService.getChatMessagesCount({
+            chatId: foundRoom.chatId
+        })
+
+        const messagesPage = await Promise.all(
+            chatMessages.map(async (message) => {
+                const userSender = await this.usersService.findUserById(message.userId)
+
+                return {
+                    id: message.id,
+                    text: message.text,
+                    sender: userSender ? {
+                        id: userSender.id,
+                        name: userSender.name,
+                        avatarUrl: userSender.avatarUrl,
+                        isOwner: foundRoom.ownerId === userSender.id ? true : false,
+                        role: userSender.role
+                    } : null,
+                    createdAt: message.createdAt
+                }
+            }),
+        )
+
+        return {
+            messagesPage,
+            totalCount
+        }
     }
 
     async initRoom(dto: InitRoomDto): Promise<FormatedRoom> {
@@ -227,7 +269,7 @@ export class PregameRoomsService {
         const roomMembers = await this.getRoomMembers({
             roomId: newRoom.id
         })
-        
+
         return {
             newRoom,
             roomMembers
@@ -266,14 +308,14 @@ export class PregameRoomsService {
         }
     }
 
-    async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{kickedUser: FormatedUser, pregameRoom: FormatedRoom}> {
-         const [receivedKickedUser, foundRoom] = await Promise.all([
+    async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{ kickedUser: FormatedUser, pregameRoom: FormatedRoom }> {
+        const [receivedKickedUser, foundRoom] = await Promise.all([
             this.usersService.getUser(dto.kickedUserId),
             this.getRoomByUserId(dto.userId),
         ])
-        if(receivedKickedUser.id === dto.userId) throw new BadRequestException(`Trying to kick yourself.`)
-        if(foundRoom.id !== receivedKickedUser.pregameRoomId) throw new BadRequestException(`Kicked user not in this room.`)
-        if(foundRoom.ownerId !== dto.userId) throw new BadRequestException(`Not enough rights to kick user from room.`)
+        if (receivedKickedUser.id === dto.userId) throw new BadRequestException(`Trying to kick yourself.`)
+        if (foundRoom.id !== receivedKickedUser.pregameRoomId) throw new BadRequestException(`Kicked user not in this room.`)
+        if (foundRoom.ownerId !== dto.userId) throw new BadRequestException(`Not enough rights to kick user from room.`)
 
         const kickedUser = await this.removeUserFromRoom({
             userId: receivedKickedUser.id
@@ -288,9 +330,9 @@ export class PregameRoomsService {
         }
     }
 
-    async sendMessage(dto: SendMessageDto): Promise<{sentMessage: FormatedMessage, pregameRoom: FormatedRoom}> {
+    async sendMessage(dto: SendMessageDto): Promise<{ sentMessage: FormatedMessage, pregameRoom: FormatedRoom }> {
         const recivedUser = await this.usersService.getUser(dto.userId)
-        if(!recivedUser.pregameRoomId) throw new BadRequestException(`User isn't in the room.`)
+        if (!recivedUser.pregameRoomId) throw new BadRequestException(`User isn't in the room.`)
 
         const recievedRoom = await this.getRoom(recivedUser.pregameRoomId)
 
