@@ -4,7 +4,7 @@ import { Player } from "./player.model";
 import { Game } from "./game.model";
 
 export enum FieldType {
-    PROPERTY = 'PROPERTY',
+    STREET = 'PROPERTY',
     RAILROAD = 'RAILROAD',
     UTILITY = 'UTILITY',
     CHANCE = 'CHANCE',
@@ -14,6 +14,17 @@ export enum FieldType {
     GO_TO_JAIL = 'GO_TO_JAIL',
     FREE_PARKING = 'FREE_PARKING',
     GO = 'GO'
+}
+
+export enum FieldColor {
+    BROWN = 'BROWN',
+    WHITE_MOON = 'WHITE_MOON',
+    PURPLE = 'PURPLE',
+    ORANGE = 'ORANGE',
+    RED = 'RED',
+    YELLOW = 'YELLOW',
+    GREEN = 'GREEN',
+    BLUE = 'BLUE'
 }
 
 @Table({tableName: 'gameFields'})
@@ -39,10 +50,10 @@ export class GameField extends Model {
     declare position: number
 
     @Column({
-        type: DataType.INTEGER,
+        type: DataType.ARRAY(DataType.INTEGER),
         allowNull: true
     })
-    declare rent: number[]
+    declare rent: number[] | null
 
     @Column({
         type: DataType.STRING,
@@ -52,21 +63,21 @@ export class GameField extends Model {
 
     @Column({
         type: DataType.INTEGER,
-        allowNull: false
+        allowNull: true
     })
-    declare basePrice: Number
+    declare basePrice: number | null
 
     @Column({
         type: DataType.INTEGER,
-        allowNull: false
+        allowNull: true
     })
-    declare housePrice: Number
+    declare housePrice: number | null
 
     @Column({
         type: DataType.INTEGER,
-        allowNull: false
+        allowNull: true
     })
-    declare buildsCount: number
+    declare buildsCount: number | null
 
     @ForeignKey(() => Game)
     @Column({

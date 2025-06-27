@@ -5,17 +5,6 @@ import { User } from "./user.model";
 import { GameTurn } from "./game-turn.model";
 import { GameField } from "./game-field.model";
 
-export enum PlayerColors {
-    DARK = 'DARK',
-    BROWN = 'BROWN',
-    RED = 'RED',
-    ORANGE = 'ORANGE',
-    YELLOW = 'YELLOW',
-    GREEN = 'GREEN',
-    BLUE = 'BLUE',
-    PURPLE = 'PURPLE',
-}
-
 @Table({ tableName: 'Players' })
 export class Player extends Model {
     @PrimaryKey
@@ -36,13 +25,7 @@ export class Player extends Model {
         type: DataType.INTEGER,
         allowNull: false
     })
-    declare number: number
-
-    @Column({
-        type: DataType.ENUM(...Object.values(PlayerColors)),
-        allowNull: false
-    })
-    declare color: PlayerColors
+    declare turnNumber: number
 
     @ForeignKey(() => Game)
     @Column({
@@ -63,7 +46,7 @@ export class Player extends Model {
         type: DataType.UUID,
         allowNull: false,
     })
-    declare onField: GameField
+    declare fieldId: string
 
     @HasOne(() => GameTurn)
     gameTurn: GameTurn

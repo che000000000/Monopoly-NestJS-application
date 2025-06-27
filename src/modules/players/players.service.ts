@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Player, PlayerColors } from 'src/models/player.model';
+import { Player } from 'src/models/player.model';
 import { CreatePlayerDto } from './dto/create-player.dto';
 
 @Injectable()
@@ -18,22 +18,13 @@ export class PlayersService {
         })
     }
 
-    async createGamePlayers(dto: CreatePlayerDto): Promise<Player[]> {
-        let selectableColors: PlayerColors[] = [
-            PlayerColors.BLUE,
-            PlayerColors.GREEN,
-            PlayerColors.PURPLE,
-            PlayerColors.YELLOW
-        ]
-
-        return await Promise.all(dto.usersIds.map((userId, index) => {
-            return this.playersRepository.create({
-                hisTurn: false,
-                number: index + 1,
-                color: selectableColors[index],
-                gameId: dto.gameId,
-                userId: userId
-            })
-        }))
+    async createPlayer(dto: CreatePlayerDto): Promise<Player> {
+        return await this.playersRepository.create({
+            hisTurn: false,
+            turnNumber: dto.turnNumber,
+            fieldId: dto.fieldId,
+            gameId: dto.gameId,
+            userId: dto.userId
+        })
     }
 }

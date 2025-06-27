@@ -9,4 +9,4 @@ import { GameFieldsService } from './game-fields.service';
   exports: [GameFieldsService]
 })
 
-export class BoardFieldsModule {}
+export class GameFieldsModule {}

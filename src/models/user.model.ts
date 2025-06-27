@@ -44,16 +44,17 @@ export class User extends Model {
     @Column({
         type: DataType.STRING,
         allowNull: true,
-        defaultValue: null
+        defaultValue: null,
+        field: 'password'
     })
-    declare password?: string
+    declare password: string
 
     @Column({
         type: DataType.STRING,
         allowNull: true,
         defaultValue: null
     })
-    declare avatarUrl?: string
+    declare avatarUrl: string
 
     @Column({
         type: DataType.ENUM(...Object.values(UserRole)),
@@ -105,7 +106,7 @@ export class User extends Model {
     @HasOne(() => Account)
     account: Account
 
-    @HasOne(() => PregameRoom, { foreignKey: 'ownerId' })
+    @HasOne(() => PregameRoom)
     owningRoom: PregameRoom
 
     @HasOne(() => Player)
