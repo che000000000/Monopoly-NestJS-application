@@ -1,6 +1,6 @@
 import { FormattedUser } from "src/modules/users/interfaces/formatted-user.interface";
 
-export interface FormatedMessage {
+export interface FormattedMessage {
     id: string,
     text: string,
     sender: FormattedUser | null,

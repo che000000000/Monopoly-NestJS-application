@@ -5,12 +5,15 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { DestroyPlayerDto } from './dto/destroy-player.dto';
 import { UsersService } from '../users/users.service';
 import { FormattedPlayer } from './interfaces/formatted-player.interface';
+import { UpdateFieldIdDto } from './dto/update-field-id.dto';
+import { GameFieldsService } from '../game-fields/game-fields.service';
 
 @Injectable()
 export class PlayersService {
     constructor(
         @InjectModel(Player) private readonly playersRepository: typeof Player,
-        private readonly usersService: UsersService
+        private readonly usersService: UsersService,
+        private readonly gameFieldsService: GameFieldsService
     ) { }
 
     async formatPlayer(player: Player): Promise<FormattedPlayer> {
@@ -79,5 +82,23 @@ export class PlayersService {
         return await this.playersRepository.destroy({
             where: { id: dto.playerId }
         })
+    }
+
+    async movePlayer(dto: UpdateFieldIdDto): Promise<Player> {
+        const receivedPlayer = await this.getPlayer(dto.playerId)
+        const currentField = await this.gameFieldsService.getField(receivedPlayer.fieldId)
+
+        const nextFieldPosition = ((currentField.position - 1 + dto.dices.summ) % 40) + 1
+        const nextField = await this.gameFieldsService.getFieldByPosition(
+            receivedPlayer.gameId,
+            nextFieldPosition
+        )
+
+        await this.playersRepository.update(
+            { fieldId: nextField.id },
+            { where: { id: receivedPlayer.id } }
+        )
+
+        return await this.getPlayer(receivedPlayer.id)
     }
 }

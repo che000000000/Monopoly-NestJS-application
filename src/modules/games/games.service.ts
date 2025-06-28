@@ -13,6 +13,9 @@ import { GameTurnsService } from '../game-turns/game-turns.service';
 import { NextTurnDto } from './dto/next-turn.dto';
 import { FormattedGame } from './interfaces/formatted-game.interface';
 import { FormattedPlayer } from '../players/interfaces/formatted-player.interface';
+import { Dices } from './interfaces/dices.interface';
+import { MoveDto } from './dto/move.dto';
+import { GameField } from 'src/models/game-field.model';
 
 @Injectable()
 export class GamesService {
@@ -55,6 +58,17 @@ export class GamesService {
         const foundGame = await this.findGame(gameId)
         if (!foundGame) throw new NotFoundException(`Game doesn't exist.`)
         return foundGame
+    }
+
+    throwDices(): Dices {
+        let dices = [0, 0]
+        dices = dices.map(() => Math.floor(Math.random() * 6) + 1)
+
+        return {
+            dices,
+            summ: dices[0] + dices[1],
+            isDouble: dices[0] === dices[1] ? true : false
+        }
     }
 
     async createGame(dto: CreateGameDto): Promise<Game> {
@@ -118,7 +132,7 @@ export class GamesService {
         const [formattedPlayers, formattedGame] = await Promise.all([
             Promise.all(newPlayers.map(player => this.playersService.formatPlayer(player))),
             this.formatGame(newGame)
-        ]);
+        ])
 
         return {
             game: formattedGame,
@@ -137,7 +151,7 @@ export class GamesService {
 
         const turnOwner = gamePlayers.find(player => player.id === gameTurn.playerId)
         if (!turnOwner) throw new NotFoundException(`Player who has turn not found.`)
-
+ 
         let newTurnOwner
         let nextTurnNumber = turnOwner.turnNumber + 1
         while (true) {
@@ -162,5 +176,36 @@ export class GamesService {
         )
 
         return this.playersService.formatPlayer(newTurnOwner)
+    }
+
+    async move(dto: MoveDto): Promise<{ player: FormattedPlayer; gameField: GameField ; thrownDices: Dices }> {
+        const [receivedPlayer, gameTurn] = await Promise.all([
+            this.playersService.getPlayer(dto.playerId),
+            this.gameTurnsService.getTurnByGame(dto.gameId)
+        ])
+        if(receivedPlayer.id !== gameTurn.playerId) throw new BadRequestException(`User doesn't have right to move.`)
+
+        let thrownDices: Dices
+        do {
+            thrownDices = this.throwDices()
+        } while (thrownDices.isDouble)
+
+        const updatedPlayer = await this.playersService.movePlayer({
+            playerId: dto.playerId,
+            dices: thrownDices
+        })
+
+        const [formattedPlayer, gameField] = await Promise.all([
+            this.playersService.formatPlayer(updatedPlayer),
+            this.gameFieldsService.getField(
+                updatedPlayer.fieldId
+            )
+        ])
+
+        return {
+            player: formattedPlayer,
+            gameField,
+            thrownDices
+        }
     }
 }

@@ -7,7 +7,6 @@ import { ChatMembersService } from '../chat-members/chat-members.service';
 import { InitRoomDto } from './dto/init-room.dto';
 import { TiedTo } from 'src/models/chat.model';
 import { FindRoomMembersDto } from './dto/find-room-members.dto';
-import { FormatedRoom } from './interfaces/formated-room.interface';
 import { UpdateOwnerIdDto } from './dto/update-owner-id.dto';
 import { RemoveRoomDto } from './dto/remove-room.dto';
 import { AppointNewOwnerDto } from './dto/appiont-new-owner.dto';
@@ -17,11 +16,12 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { KickUserFromRoomDto } from './dto/kick-user-from-room.dto';
 import { RoomsPageItem } from './interfaces/rooms-page.interface';
 import { GetRoomsPageDto } from './dto/get-rooms-page.dto';
-import { FormatedMessage } from './interfaces/formated-message.interface';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessagesService } from '../messages/messages.service';
 import { GetRoomMessagesPageDto } from './dto/get-room-messages-page.dto';
 import { FormattedUser } from '../users/interfaces/formatted-user.interface';
+import { FormattedMessage } from '../messages/interfaces/formated-message.interface';
+import { FormattedRoom } from './interfaces/formatted-room.interface';
 
 @Injectable()
 export class PregameRoomsService {
@@ -35,7 +35,7 @@ export class PregameRoomsService {
 
     async findRoom(roomId: string): Promise<PregameRoom | null> {
         return await this.pregameRoomsRepository.findOne({
-            where: { roomId },
+            where: { id: roomId },
             raw: true
         })
     }
@@ -77,6 +77,10 @@ export class PregameRoomsService {
                 roomId: dto.roomId
             })
         ])
+
+        console.log(recievedRoom)
+        console.log(foundMembers)
+        
         if (foundMembers.length === 0) throw new NotFoundException(`Room members not found`)
         return foundMembers.map(user => ({
             id: user.id,
@@ -122,7 +126,7 @@ export class PregameRoomsService {
         }
     }
 
-    async getRoomMessagesPage(dto: GetRoomMessagesPageDto): Promise<{ messagesPage: FormatedMessage[], totalCount: number }> {
+    async getRoomMessagesPage(dto: GetRoomMessagesPageDto): Promise<{ messagesPage: FormattedMessage[], totalCount: number }> {
         const foundRoom = await this.findRoomByUserId(dto.userId)
         if (!foundRoom) throw new BadRequestException(`User isn't in the pregame room.`)
 
@@ -161,12 +165,13 @@ export class PregameRoomsService {
         }
     }
 
-    async initRoom(dto: InitRoomDto): Promise<FormatedRoom> {
+    async initRoom(dto: InitRoomDto): Promise<FormattedRoom> {
         const receivedUser = await this.usersService.getUser(dto.userId)
 
         const newChat = await this.chatsService.createChat({
             tiedTo: TiedTo.PREGAME
         })
+
         if (!newChat) throw new InternalServerErrorException(`Chat not created.`)
 
         const [newRoom] = await Promise.all([
@@ -217,7 +222,7 @@ export class PregameRoomsService {
         }
     }
 
-    async removeRoom(dto: RemoveRoomDto): Promise<FormatedRoom> {
+    async removeRoom(dto: RemoveRoomDto): Promise<FormattedRoom> {
         const pregameRoom = await this.getRoom(dto.roomId)
 
         await this.chatsService.deleteChat({
@@ -255,11 +260,12 @@ export class PregameRoomsService {
         }
     }
 
-    async createRoom(dto: CreateRoomDto): Promise<{ newRoom: FormatedRoom, roomMembers: FormattedUser[] }> {
+    async createRoom(dto: CreateRoomDto): Promise<{ newRoom: FormattedRoom, roomMembers: FormattedUser[] }> {
         const [receivedUser, foundRoom] = await Promise.all([
             this.usersService.getUser(dto.userId),
             this.findRoomByUserId(dto.userId)
         ])
+        
         if (foundRoom) throw new BadRequestException(`User is already in the room.`)
 
         const newRoom = await this.initRoom({
@@ -276,7 +282,7 @@ export class PregameRoomsService {
         }
     }
 
-    async joinUserToRoom(dto: JoinUserToRoom): Promise<{ joinedUser: FormattedUser, pregameRoom: FormatedRoom }> {
+    async joinUserToRoom(dto: JoinUserToRoom): Promise<{ joinedUser: FormattedUser, pregameRoom: FormattedRoom }> {
         const [receivedUser, receivedRoom] = await Promise.all([
             this.usersService.getUser(dto.userId),
             this.getRoom(dto.roomId)
@@ -308,7 +314,7 @@ export class PregameRoomsService {
         }
     }
 
-    async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{ kickedUser: FormattedUser, pregameRoom: FormatedRoom }> {
+    async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{ kickedUser: FormattedUser, pregameRoom: FormattedRoom }> {
         const [receivedKickedUser, foundRoom] = await Promise.all([
             this.usersService.getUser(dto.kickedUserId),
             this.getRoomByUserId(dto.userId),
@@ -330,7 +336,7 @@ export class PregameRoomsService {
         }
     }
 
-    async sendMessage(dto: SendMessageDto): Promise<{ sentMessage: FormatedMessage, pregameRoom: FormatedRoom }> {
+    async sendMessage(dto: SendMessageDto): Promise<{ sentMessage: FormattedMessage, pregameRoom: FormattedRoom }> {
         const recivedUser = await this.usersService.getUser(dto.userId)
         if (!recivedUser.pregameRoomId) throw new BadRequestException(`User isn't in the room.`)
 

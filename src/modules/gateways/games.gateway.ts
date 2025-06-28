@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
 import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
@@ -10,8 +10,9 @@ import { PregameGateway } from "./pregame.gateway";
 import { RemovePlayer } from "./dto/game/remove-player.dto";
 import { PlayersService } from "../players/players.service";
 import { RemovePlayerSocket } from "./dto/game/remove-player-socket.dto";
-import { emit } from "process";
 import { UsersService } from "../users/users.service";
+import { Dices } from "../games/interfaces/dices.interface";
+import { GameTurnsService } from "../game-turns/game-turns.service";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -23,10 +24,11 @@ import { UsersService } from "../users/users.service";
 })
 export class GamesGateway implements OnGatewayConnection {
     constructor(
-        private readonly gamesService: GamesService,
         private readonly usersService: UsersService,
-        private readonly pregameGamteway: PregameGateway,
-        private readonly playersService: PlayersService
+        private readonly gamesService: GamesService,
+        private readonly gameTurnsService: GameTurnsService,
+        private readonly playersService: PlayersService,
+        private readonly pregameGamteway: PregameGateway
     ) { }
 
     @WebSocketServer()
@@ -75,10 +77,14 @@ export class GamesGateway implements OnGatewayConnection {
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
-        if(!userId) {
+        if (!userId) {
             socket.disconnect()
             return
         }
+
+        const foundGame = await this.gamesService.findGameByUser(userId)
+        if(!foundGame) return
+        else socket.join(foundGame.id)
     }
 
     async removePlayer(dto: RemovePlayer): Promise<void> {
@@ -132,25 +138,45 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('move')
-    async takeTurn(
+    async move(
         @ConnectedSocket() socket: SocketWithSession
     ) {
         const userId = this.extractUserId(socket)
 
+
         const [userAsPlayer, foundGame] = await Promise.all([
             this.playersService.findPlayerByUser(userId),
-            this.gamesService.findGameByUser(userId)
+            this.gamesService.findGameByUser(userId),
         ])
         if (!userAsPlayer || !foundGame) throw new BadRequestException(`User not in the game.`)
 
-        const newTurnOwner = await this.gamesService.nextTurn({
-            gameId: foundGame.id,
-            playerId: userAsPlayer.id
+        const moveResult = await this.gamesService.move({ 
+            playerId: userAsPlayer.id,
+            gameId: foundGame.id
         })
 
-        this.server.to(foundGame.id).emit('games', {
-            event: 'take',
-            newTurnOwner
+        console.log(moveResult)
+
+        this.server.to(foundGame.id).emit('game-master', {
+            event: 'move',
+            moveResult
         })
+
+        if (moveResult.thrownDices.isDouble === true) {
+            this.server.to(foundGame.id).emit('games', {
+                event: 'double',
+                turnOwner: moveResult.player
+            })
+        } else {
+            const newTurnOwner = await this.gamesService.nextTurn({
+                gameId: foundGame.id,
+                playerId: userAsPlayer.id
+            })
+
+            this.server.to(foundGame.id).emit('games', {
+                event: 'next-rurn',
+                newTurnOwner
+            })
+        }
     }
 }
