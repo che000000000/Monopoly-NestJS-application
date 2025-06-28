@@ -12,7 +12,7 @@ import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame
 import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 import { SendMessageDto } from "./dto/pregame/send-message.dto";
 import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
-import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.dto";
+import { RemovePregameSocketDto } from "./dto/pregame/remove-pregame-socket.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -43,13 +43,12 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         return userId
     }
 
-    private async findSocketById(user_id: string): Promise<RemoteSocket<DefaultEventsMap, any> | null> {
+    private async findSocketById(user_id: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
         const allSockets = await this.server.fetchSockets()
-        const foundSocket = allSockets.find(socket => socket.data.userId === user_id)
-        return foundSocket || null
+        return allSockets.find(socket => socket.data.userId === user_id)
     }
 
-    async removeSocketFromRooms(dto: RemoveSocketFromRoomDto): Promise<void> {
+    async removeSocketFromRooms(dto: RemovePregameSocketDto): Promise<void> {
         const foundSocket = await this.findSocketById(dto.userId)
         if(!foundSocket) throw new WsException({
             errorType: ErrorTypes.Internal,

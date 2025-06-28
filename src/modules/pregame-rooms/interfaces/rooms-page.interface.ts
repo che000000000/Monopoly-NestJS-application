@@ -1,7 +1,7 @@
-import { FormatedUser } from "./formated-user.interface";
+import { FormattedUser } from "src/modules/users/interfaces/formatted-user.interface";
 
 export interface RoomsPageItem {
     id: string,
-    members: FormatedUser[],
+    members: FormattedUser[],
     createdAt: Date
 }

@@ -1,7 +1,7 @@
-export interface FormatedUser {
+export interface FormattedUser {
     id: string,
     name: string,
     avatarUrl: string | null,
-    isOwner?: boolean
+    isOwner?: boolean,
     role: string
 }

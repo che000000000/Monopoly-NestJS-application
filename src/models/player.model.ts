@@ -16,12 +16,6 @@ export class Player extends Model {
     declare id: string
 
     @Column({
-        type: DataType.BOOLEAN,
-        allowNull: false,
-    })
-    declare hisTurn: boolean
-
-    @Column({
         type: DataType.INTEGER,
         allowNull: false
     })
