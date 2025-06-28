@@ -1,7 +1,8 @@
 import { FormattedUser } from "src/modules/users/interfaces/formatted-user.interface";
 
-export interface RoomsPageItem {
+export interface FormattedMessage {
     id: string,
-    members: FormattedUser[],
+    text: string,
+    sender: FormattedUser | null,
     createdAt: Date
 }

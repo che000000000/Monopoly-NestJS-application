@@ -4,6 +4,7 @@ import { Chat } from "./chat.model";
 import { User } from "./user.model";
 import { Player } from "./player.model";
 import { GameField } from "./game-field.model";
+import { GameTurn } from "./game-turn.model";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -30,4 +31,7 @@ export class Game extends Model {
 
     @HasMany(() => GameField)
     fields: GameField[]
+
+    @HasOne(() => GameTurn)
+    turn: GameTurn
 }

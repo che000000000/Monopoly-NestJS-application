@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { GameField } from 'src/models/game-field.model';
 import { CreateFieldsDto } from './dto/create-fields.dto';
@@ -10,6 +10,32 @@ export class GameFieldsService {
     constructor(
         @InjectModel(GameField) private readonly gameFieldsRepository: typeof GameField
     ) { }
+
+    async findField(fieldId: string): Promise<GameField | null> {
+        return await this.gameFieldsRepository.findOne({
+            where: { id: fieldId },
+            raw: true
+        })
+    }
+
+    async findFieldByPosition(gameId: string, position: number): Promise<GameField | null> {
+        return await this.gameFieldsRepository.findOne({
+            where: { gameId, position },
+            raw: true
+        })
+    }
+
+    async getField(fieldId: string): Promise<GameField> {
+        const foundField = await this.findField(fieldId)
+        if(!foundField) throw new NotFoundException('Game field not found.')
+        return foundField
+    }
+
+    async getFieldByPosition(gameId: string, position: number): Promise<GameField> {
+        const foundField = await this.findFieldByPosition(gameId, position)
+        if (!foundField) throw new NotFoundException(`Game field not found.`)
+        return foundField
+    }
 
     async createField(dto: CreateFieldDto): Promise<GameField> {
         return await this.gameFieldsRepository.create({
@@ -38,6 +64,7 @@ export class GameFieldsService {
                         basePrice: field.basePrice,
                         housePrice: field.housePrice,
                         buildsCount: field.buildsCount,
+                        ownerPlayerId: null
                     }
                 })
             })

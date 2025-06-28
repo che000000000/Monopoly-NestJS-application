@@ -4,7 +4,7 @@ import { Player } from "./player.model";
 import { Game } from "./game.model";
 
 export enum FieldType {
-    STREET = 'PROPERTY',
+    PROPERTY = 'PROPERTY',
     RAILROAD = 'RAILROAD',
     UTILITY = 'UTILITY',
     CHANCE = 'CHANCE',

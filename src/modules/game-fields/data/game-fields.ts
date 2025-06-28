@@ -3,7 +3,7 @@ import { FieldType } from "src/models/game-field.model";
 export const gameFieldsData = [
   {
     type: FieldType.GO,
-    position: 0,
+    position: 1,
     name: "Старт",
     basePrice: null,
     housePrice: null,
@@ -11,8 +11,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 1,
+    type: FieldType.PROPERTY,
+    position: 2,
     name: "Арбат",
     basePrice: 60,
     housePrice: 50,
@@ -21,7 +21,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.COMMUNITY_CHEST,
-    position: 2,
+    position: 3,
     name: "Общественная казна",
     basePrice: null,
     housePrice: null,
@@ -29,8 +29,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 3,
+    type: FieldType.PROPERTY,
+    position: 4,
     name: "Поварская",
     basePrice: 60,
     housePrice: 50,
@@ -39,7 +39,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.TAX,
-    position: 4,
+    position: 5,
     name: "Подоходный налог",
     basePrice: null,
     housePrice: null,
@@ -48,7 +48,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.RAILROAD,
-    position: 5,
+    position: 6,
     name: "Ленинградский вокзал",
     basePrice: 200,
     housePrice: null,
@@ -56,8 +56,8 @@ export const gameFieldsData = [
     rent: [25, 50, 100, 200]
   },
   {
-    type: FieldType.STREET,
-    position: 6,
+    type: FieldType.PROPERTY,
+    position: 7,
     name: "Тверская",
     basePrice: 100,
     housePrice: 50,
@@ -66,7 +66,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.CHANCE,
-    position: 7,
+    position: 8,
     name: "Шанс",
     basePrice: null,
     housePrice: null,
@@ -74,8 +74,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 8,
+    type: FieldType.PROPERTY,
+    position: 9,
     name: "Кузнецкий мост",
     basePrice: 100,
     housePrice: 50,
@@ -83,8 +83,8 @@ export const gameFieldsData = [
     rent: [6, 30, 90, 270, 400, 550]
   },
   {
-    type: FieldType.STREET,
-    position: 9,
+    type: FieldType.PROPERTY,
+    position: 10,
     name: "Пушкинская",
     basePrice: 120,
     housePrice: 50,
@@ -93,7 +93,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.JAIL,
-    position: 10,
+    position: 11,
     name: "Тюрьма",
     basePrice: null,
     housePrice: null,
@@ -101,8 +101,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 11,
+    type: FieldType.PROPERTY,
+    position: 12,
     name: "Китай-город",
     basePrice: 140,
     housePrice: 100,
@@ -111,7 +111,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.UTILITY,
-    position: 12,
+    position: 13,
     name: "Мосэнерго",
     basePrice: 150,
     housePrice: null,
@@ -119,8 +119,8 @@ export const gameFieldsData = [
     rent: [4, 10]
   },
   {
-    type: FieldType.STREET,
-    position: 13,
+    type: FieldType.PROPERTY,
+    position: 14,
     name: "Лубянка",
     basePrice: 140,
     housePrice: 100,
@@ -128,8 +128,8 @@ export const gameFieldsData = [
     rent: [10, 50, 150, 450, 625, 750]
   },
   {
-    type: FieldType.STREET,
-    position: 14,
+    type: FieldType.PROPERTY,
+    position: 15,
     name: "Охотный ряд",
     basePrice: 160,
     housePrice: 100,
@@ -138,7 +138,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.RAILROAD,
-    position: 15,
+    position: 16,
     name: "Киевский вокзал",
     basePrice: 200,
     housePrice: null,
@@ -146,8 +146,8 @@ export const gameFieldsData = [
     rent: [25, 50, 100, 200]
   },
   {
-    type: FieldType.STREET,
-    position: 16,
+    type: FieldType.PROPERTY,
+    position: 17,
     name: "Новый Арбат",
     basePrice: 180,
     housePrice: 100,
@@ -156,7 +156,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.COMMUNITY_CHEST,
-    position: 17,
+    position: 18,
     name: "Общественная казна",
     basePrice: null,
     housePrice: null,
@@ -164,8 +164,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 18,
+    type: FieldType.PROPERTY,
+    position: 19,
     name: "Смоленская",
     basePrice: 180,
     housePrice: 100,
@@ -173,8 +173,8 @@ export const gameFieldsData = [
     rent: [14, 70, 200, 550, 750, 950]
   },
   {
-    type: FieldType.STREET,
-    position: 19,
+    type: FieldType.PROPERTY,
+    position: 20,
     name: "Маяковская",
     basePrice: 200,
     housePrice: 100,
@@ -183,7 +183,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.FREE_PARKING,
-    position: 20,
+    position: 21,
     name: "Бесплатная стоянка",
     basePrice: null,
     housePrice: null,
@@ -191,8 +191,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 21,
+    type: FieldType.PROPERTY,
+    position: 22,
     name: "Таганская",
     basePrice: 220,
     housePrice: 150,
@@ -201,7 +201,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.CHANCE,
-    position: 22,
+    position: 23,
     name: "Шанс",
     basePrice: null,
     housePrice: null,
@@ -209,8 +209,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 23,
+    type: FieldType.PROPERTY,
+    position: 24,
     name: "Павелецкая",
     basePrice: 220,
     housePrice: 150,
@@ -218,8 +218,8 @@ export const gameFieldsData = [
     rent: [18, 90, 250, 700, 875, 1050]
   },
   {
-    type: FieldType.STREET,
-    position: 24,
+    type: FieldType.PROPERTY,
+    position: 25,
     name: "Серпуховская",
     basePrice: 240,
     housePrice: 150,
@@ -228,7 +228,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.RAILROAD,
-    position: 25,
+    position: 26,
     name: "Казанский вокзал",
     basePrice: 200,
     housePrice: null,
@@ -236,8 +236,8 @@ export const gameFieldsData = [
     rent: [25, 50, 100, 200]
   },
   {
-    type: FieldType.STREET,
-    position: 26,
+    type: FieldType.PROPERTY,
+    position: 27,
     name: "Добрынинская",
     basePrice: 260,
     housePrice: 150,
@@ -245,8 +245,8 @@ export const gameFieldsData = [
     rent: [22, 110, 330, 800, 975, 1150]
   },
   {
-    type: FieldType.STREET,
-    position: 27,
+    type: FieldType.PROPERTY,
+    position: 28,
     name: "Октябрьская",
     basePrice: 260,
     housePrice: 150,
@@ -255,7 +255,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.UTILITY,
-    position: 28,
+    position: 29,
     name: "Мосводоканал",
     basePrice: 150,
     housePrice: null,
@@ -263,8 +263,8 @@ export const gameFieldsData = [
     rent: [4, 10]
   },
   {
-    type: FieldType.STREET,
-    position: 29,
+    type: FieldType.PROPERTY,
+    position: 30,
     name: "Полянка",
     basePrice: 280,
     housePrice: 150,
@@ -273,7 +273,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.GO_TO_JAIL,
-    position: 30,
+    position: 31,
     name: "Отправляйтесь в тюрьму",
     basePrice: null,
     housePrice: null,
@@ -281,8 +281,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 31,
+    type: FieldType.PROPERTY,
+    position: 32,
     name: "Красная Пресня",
     basePrice: 300,
     housePrice: 200,
@@ -290,8 +290,8 @@ export const gameFieldsData = [
     rent: [26, 130, 390, 900, 1100, 1275]
   },
   {
-    type: FieldType.STREET,
-    position: 32,
+    type: FieldType.PROPERTY,
+    position: 33,
     name: "Баррикадная",
     basePrice: 300,
     housePrice: 200,
@@ -300,7 +300,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.COMMUNITY_CHEST,
-    position: 33,
+    position: 34,
     name: "Общественная казна",
     basePrice: null,
     housePrice: null,
@@ -308,8 +308,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 34,
+    type: FieldType.PROPERTY,
+    position: 35,
     name: "Красные Ворота",
     basePrice: 320,
     housePrice: 200,
@@ -318,7 +318,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.RAILROAD,
-    position: 35,
+    position: 36,
     name: "Ярославский вокзал",
     basePrice: 200,
     housePrice: null,
@@ -327,7 +327,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.CHANCE,
-    position: 36,
+    position: 37,
     name: "Шанс",
     basePrice: null,
     housePrice: null,
@@ -335,8 +335,8 @@ export const gameFieldsData = [
     rent: null
   },
   {
-    type: FieldType.STREET,
-    position: 37,
+    type: FieldType.PROPERTY,
+    position: 38,
     name: "Комсомольская",
     basePrice: 350,
     housePrice: 200,
@@ -345,7 +345,7 @@ export const gameFieldsData = [
   },
   {
     type: FieldType.TAX,
-    position: 38,
+    position: 39,
     name: "Налог на роскошь",
     basePrice: null,
     housePrice: null,
@@ -353,8 +353,8 @@ export const gameFieldsData = [
     rent: [100]
   },
   {
-    type: FieldType.STREET,
-    position: 39,
+    type: FieldType.PROPERTY,
+    position: 40,
     name: "Москва-Сити",
     basePrice: 400,
     housePrice: 200,

@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class FindGameUsersDto {
+export class RemovePlayerSocket {
     @IsUUID()
     @IsNotEmpty()
-    gameId: string
+    playerId: string
 }
