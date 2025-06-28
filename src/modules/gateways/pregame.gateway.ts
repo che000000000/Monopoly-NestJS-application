@@ -12,6 +12,7 @@ import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame
 import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 import { SendMessageDto } from "./dto/pregame/send-message.dto";
 import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
+import { RemoveSocketFromRoomDto } from "./dto/pregame/remove-socket-from-room.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -48,18 +49,19 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         return foundSocket || null
     }
 
-    private async removeSocketFromRoom(user_id: string, room_id: string): Promise<void> {
-        const foundSocket = await this.findSocketById(user_id)
+    async removeSocketFromRooms(dto: RemoveSocketFromRoomDto): Promise<void> {
+        const foundSocket = await this.findSocketById(dto.userId)
         if(!foundSocket) throw new WsException({
             errorType: ErrorTypes.Internal,
-            message: `Failed to get socket.`
+            message: `Socket not found.`
         })
 
-        foundSocket.leave(room_id)
+        const allSocketRooms = Array.from(foundSocket.rooms).filter(room => room !== foundSocket.id)
+        allSocketRooms.forEach(room => foundSocket.leave(room))
     }
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
-        const userId = socket.request.session.userId
+        const userId = this.extractUserId(socket)
         if (!userId) return
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
@@ -219,10 +221,9 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
             kickedUserId: dto.userId
         })
 
-        await this.removeSocketFromRoom(
-            kickUserFromRoom.kickedUser.id,
-            kickUserFromRoom.pregameRoom.id
-        )
+        await this.removeSocketFromRooms({
+            userId: kickUserFromRoom.kickedUser.id
+        })
 
         this.server.emit('pregame', {
             event: 'kick',

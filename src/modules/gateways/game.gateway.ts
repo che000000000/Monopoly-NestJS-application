@@ -6,6 +6,7 @@ import { GamesService } from "../games/games.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { ErrorTypes } from "./constants/error-types";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
+import { PregameGateway } from "./pregame.gateway";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -16,7 +17,10 @@ import { WsAuthGuard } from "./guards/wsAuth.guard";
     }
 })
 export class GamesGateway implements OnGatewayConnection {
-    constructor(private readonly gamesService: GamesService) { }
+    constructor(
+        private readonly gamesService: GamesService,
+        private readonly pregameGamteway: PregameGateway
+    ) { }
 
     @WebSocketServer()
     server: Server
@@ -48,6 +52,16 @@ export class GamesGateway implements OnGatewayConnection {
         const newGame = await this.gamesService.initGame({
             userId: userId
         })
+
+        await Promise.all(
+            newGame.players.map(async (player) => {
+                const userId = player.user ? player.user.id : null
+                if (!userId) return
+                await this.pregameGamteway.removeSocketFromRooms({
+                    userId
+                })
+            })
+        )
 
         this.server.emit('games', {
             event: 'new-game',

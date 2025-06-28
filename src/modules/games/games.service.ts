@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Game } from 'src/models/game.model';
 import { UsersService } from '../users/users.service';
@@ -71,15 +71,24 @@ export class GamesService {
             gameId: newGame.id
         })
 
+        await this.pregamesRoomsService.removeRoom({
+            roomId: receivedUser.pregameRoomId
+        })
+
         const newPlayers = await Promise.all(
             pregameUsers.map(async (user, index) => {
+                await this.usersService.updateGameId({
+                    userId: user.id,
+                    gameId: newGame.id
+                })
+
                 return this.playersService.createPlayer({
                     turnNumber: index + 1,
                     fieldId: gameFields[0].id,
                     gameId: newGame.id,
                     userId: user.id
                 })
-            })
+            }),
         )
 
         const formatedPlayers = await Promise.all(
