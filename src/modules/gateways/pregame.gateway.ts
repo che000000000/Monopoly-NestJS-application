@@ -1,12 +1,11 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { DefaultEventsMap, RemoteSocket, Server, Socket } from "socket.io";
-import { UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, InternalServerErrorException, NotFoundException, UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
-import { ErrorTypes } from "./constants/error-types";
 import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
 import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame-room.dto";
 import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
@@ -33,13 +32,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     private extractUserId(socket: SocketWithSession): string {
         const userId = socket.request.session.userId
-        if (!userId) {
-            throw new WsException({
-                errorType: ErrorTypes.Internal,
-                message: `Failed to extract userId.`
-            })
-
-        }
+        if (!userId) throw new InternalServerErrorException(`Failed to extract userId.`)
         return userId
     }
 
@@ -50,10 +43,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     async removeSocketFromRooms(dto: RemovePregameSocketDto): Promise<void> {
         const foundSocket = await this.findSocketById(dto.userId)
-        if(!foundSocket) throw new WsException({
-            errorType: ErrorTypes.Internal,
-            message: `Socket not found.`
-        })
+        if(!foundSocket) throw new NotFoundException(`Socket not found.`)
 
         const allSocketRooms = Array.from(foundSocket.rooms).filter(room => room !== foundSocket.id)
         allSocketRooms.forEach(room => foundSocket.leave(room))
@@ -135,10 +125,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         const userId = this.extractUserId(socket)
 
         const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
-        if (!foundRoom) throw new WsException({
-            errorType: ErrorTypes.BadRequest,
-            message: `User isn't in the pregameRoom`,
-        })
+        if (!foundRoom) throw new BadRequestException(`User isn't in the pregameRoom`)
 
         const leftUser = await this.pregameRoomsService.removeUserFromRoom({
             userId: userId

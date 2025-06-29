@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, InternalServerErrorException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
 import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
@@ -37,10 +37,7 @@ export class GamesGateway implements OnGatewayConnection {
     extractUserId(socket: SocketWithSession): string {
         const exctractedUserId = socket.request.session.userId
         if (!exctractedUserId) {
-            throw new WsException({
-                errorType: ErrorTypes.Internal,
-                message: `UserId doesn't extracted.`
-            })
+            throw new InternalServerErrorException(`UserId doesn't extracted.`)
         }
         return exctractedUserId
     }
@@ -83,7 +80,7 @@ export class GamesGateway implements OnGatewayConnection {
         }
 
         const foundGame = await this.gamesService.findGameByUser(userId)
-        if(!foundGame) return
+        if (!foundGame) return
         else socket.join(foundGame.id)
     }
 
@@ -103,7 +100,7 @@ export class GamesGateway implements OnGatewayConnection {
         ])
 
         this.server.emit('games', {
-            event: 'remove-player',
+            event: 'remove',
             removedPlayer: foundPlayer,
             game: playerGame
         })
@@ -131,7 +128,7 @@ export class GamesGateway implements OnGatewayConnection {
         await this.joinSocketsToGame(newGame.game.id)
 
         this.server.emit('games', {
-            event: 'new-game',
+            event: 'start',
             newGame
         })
     }
@@ -143,38 +140,30 @@ export class GamesGateway implements OnGatewayConnection {
     ) {
         const userId = this.extractUserId(socket)
 
-
         const [userAsPlayer, foundGame] = await Promise.all([
             this.playersService.findPlayerByUser(userId),
             this.gamesService.findGameByUser(userId),
         ])
         if (!userAsPlayer || !foundGame) throw new BadRequestException(`User not in the game.`)
 
-        const moveResult = await this.gamesService.move({ 
+        const moveResult = await this.gamesService.move({
             playerId: userAsPlayer.id,
             gameId: foundGame.id
         })
 
-        console.log(moveResult)
-
-        this.server.to(foundGame.id).emit('game-master', {
+        this.server.to(foundGame.id).emit('games', {
             event: 'move',
-            moveResult
+            moveResult,
         })
 
-        if (moveResult.thrownDices.isDouble === true) {
-            this.server.to(foundGame.id).emit('games', {
-                event: 'double',
-                turnOwner: moveResult.player
-            })
-        } else {
+        if (moveResult.thrownDices.isDouble !== true) {
             const newTurnOwner = await this.gamesService.nextTurn({
                 gameId: foundGame.id,
                 playerId: userAsPlayer.id
             })
 
             this.server.to(foundGame.id).emit('games', {
-                event: 'next-rurn',
+                event: 'next',
                 newTurnOwner
             })
         }
