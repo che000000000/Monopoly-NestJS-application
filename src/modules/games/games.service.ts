@@ -14,9 +14,8 @@ import { NextTurnDto } from './dto/next-turn.dto';
 import { FormattedGame } from './interfaces/formatted-game.interface';
 import { FormattedPlayer } from '../players/interfaces/formatted-player.interface';
 import { Dices } from './interfaces/dices.interface';
-import { MoveDto } from './dto/move.dto';
-import { GameField } from 'src/models/game-field.model';
 import { Player } from 'src/models/player.model';
+import { MakeMoveDto } from './dto/make-move.dto';
 
 @Injectable()
 export class GamesService {
@@ -177,7 +176,7 @@ export class GamesService {
         return this.playersService.formatPlayer(newTurnOwner)
     }
 
-    async move(dto: MoveDto): Promise<{ player: FormattedPlayer; thrownDices: Dices }> {
+    async makeMove(dto: MakeMoveDto): Promise<{ player: FormattedPlayer; thrownDices: Dices }> {
         const [receivedPlayer, gameTurn] = await Promise.all([
             this.playersService.getPlayer(dto.playerId),
             this.gameTurnsService.getTurnByGame(dto.gameId)

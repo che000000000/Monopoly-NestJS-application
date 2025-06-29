@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class MoveDto {
+export class MakeMoveDto {
     @IsUUID()
     @IsNotEmpty()
     playerId: string

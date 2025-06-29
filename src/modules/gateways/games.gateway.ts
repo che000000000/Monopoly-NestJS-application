@@ -11,7 +11,6 @@ import { RemovePlayer } from "./dto/game/remove-player.dto";
 import { PlayersService } from "../players/players.service";
 import { RemovePlayerSocket } from "./dto/game/remove-player-socket.dto";
 import { UsersService } from "../users/users.service";
-import { Dices } from "../games/interfaces/dices.interface";
 import { GameTurnsService } from "../game-turns/game-turns.service";
 
 @UseFilters(WsExceptionsFilter)
@@ -30,6 +29,8 @@ export class GamesGateway implements OnGatewayConnection {
         private readonly playersService: PlayersService,
         private readonly pregameGamteway: PregameGateway
     ) { }
+
+    private turnTimers: Map<string, NodeJS.Timeout> = new Map()
 
     @WebSocketServer()
     server: Server
@@ -70,6 +71,39 @@ export class GamesGateway implements OnGatewayConnection {
         )
 
         gameSockets.map(socket => socket?.join(gameId))
+    }
+
+    private async turnTimeout(gameId: string, playerId: string) {
+        const nextTurnOwner = await this.gamesService.nextTurn({
+            playerId,
+            gameId
+        })
+
+        this.startTurn(gameId, nextTurnOwner.id)
+    }
+
+    private async startTurn(gameId: string, playerId: string) {
+        this.clearTurnTimer(gameId)
+
+        const receivedPlayer = await this.playersService.getPlayer(playerId)
+        const formattedPlayer = await this.playersService.formatPlayer(receivedPlayer)
+
+        const turnTimer = setTimeout(() => {
+            this.turnTimeout(gameId, playerId)
+        }, 60 * 1000)
+
+        this.turnTimers.set(gameId, turnTimer)
+
+        this.server.to(gameId).emit('games', {
+            event: 'next-turn',
+            turnOwner: formattedPlayer
+        })
+    }
+
+    private clearTurnTimer(gameId: string) {
+        const turnTimer = this.turnTimers.get(gameId)
+        clearTimeout(turnTimer)
+        this.turnTimers.delete(gameId)
     }
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
@@ -131,11 +165,16 @@ export class GamesGateway implements OnGatewayConnection {
             event: 'start',
             newGame
         })
+
+        const gameTurn = await this.gameTurnsService.getTurnByGame(newGame.game.id)
+        const firstTurnOwner = await this.playersService.getPlayer(gameTurn.playerId)
+
+        this.startTurn(newGame.game.id, firstTurnOwner.id)
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('move')
-    async move(
+    async makeMove(
         @ConnectedSocket() socket: SocketWithSession
     ) {
         const userId = this.extractUserId(socket)
@@ -146,7 +185,7 @@ export class GamesGateway implements OnGatewayConnection {
         ])
         if (!userAsPlayer || !foundGame) throw new BadRequestException(`User not in the game.`)
 
-        const moveResult = await this.gamesService.move({
+        const moveResult = await this.gamesService.makeMove({
             playerId: userAsPlayer.id,
             gameId: foundGame.id
         })
@@ -162,10 +201,7 @@ export class GamesGateway implements OnGatewayConnection {
                 playerId: userAsPlayer.id
             })
 
-            this.server.to(foundGame.id).emit('games', {
-                event: 'next',
-                newTurnOwner
-            })
+            this.startTurn(foundGame.id, newTurnOwner.id)
         }
     }
 }

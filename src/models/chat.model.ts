@@ -8,7 +8,8 @@ import { ChatMember } from "./chat-members";
 export enum TiedTo {
     GLOBAL = 'GLOBAL',
     GAME = 'GAME',
-    PREGAME = 'PREGAME'
+    PREGAME = 'PREGAME',
+    PRIVATE = 'PRIVATE'
 }
 
 @Table({ tableName: 'Chats' })
