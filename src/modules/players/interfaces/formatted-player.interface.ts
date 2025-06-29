@@ -5,5 +5,6 @@ export interface FormattedPlayer {
     turnNumber: number,
     playerHaveTurn: boolean
     user: FormattedUser | null,
+    balance: number
     fieldId: string
 }

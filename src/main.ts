@@ -5,13 +5,10 @@ import { ConfigService } from '@nestjs/config';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
 import { SessionSocketAdapter } from './webSocketAdapter';
-import { WsExceptionsFilter } from './modules/gateways/filters/WsExcepton.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const appLogger = new Logger()
-
-  app.useGlobalFilters(new WsExceptionsFilter())
 
   const configService = app.get(ConfigService)
 

@@ -33,6 +33,7 @@ export class PlayersService {
                 avatarUrl: receivedUser.avatarUrl,
                 role: receivedUser.role
             },
+            balance: player.balance,
             fieldId: player.fieldId
         }
     }
@@ -82,7 +83,8 @@ export class PlayersService {
             turnNumber: dto.turnNumber,
             fieldId: dto.fieldId,
             gameId: dto.gameId,
-            userId: dto.userId
+            userId: dto.userId,
+            balance: 1500
         })
     }
 

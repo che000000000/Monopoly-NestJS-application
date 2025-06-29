@@ -21,6 +21,12 @@ export class Player extends Model {
     })
     declare turnNumber: number
 
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false
+    })
+    declare balance: number
+
     @ForeignKey(() => Game)
     @Column({
         type: DataType.UUID,

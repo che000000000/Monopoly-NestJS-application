@@ -163,7 +163,7 @@ export class GamesGateway implements OnGatewayConnection {
             })
 
             this.server.to(foundGame.id).emit('games', {
-                event: 'next-turn',
+                event: 'next',
                 newTurnOwner
             })
         }

@@ -6,7 +6,6 @@ import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
-import { ErrorTypes } from "./constants/error-types";
 import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
 import { KickUserFromPregameRoomDto } from "./dto/pregame/kick-user-from-pregame-room.dto";
 import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";

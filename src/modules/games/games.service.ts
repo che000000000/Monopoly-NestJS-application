@@ -16,6 +16,7 @@ import { FormattedPlayer } from '../players/interfaces/formatted-player.interfac
 import { Dices } from './interfaces/dices.interface';
 import { MoveDto } from './dto/move.dto';
 import { GameField } from 'src/models/game-field.model';
+import { Player } from 'src/models/player.model';
 
 @Injectable()
 export class GamesService {
@@ -150,7 +151,7 @@ export class GamesService {
         const turnOwner = gamePlayers.find(player => player.id === gameTurn.playerId)
         if (!turnOwner) throw new NotFoundException(`Player who has turn not found.`)
 
-        let newTurnOwner
+        let newTurnOwner: Player | null
         let nextTurnNumber = turnOwner.turnNumber + 1
         while (true) {
             if (nextTurnNumber >= gamePlayers.length) {
