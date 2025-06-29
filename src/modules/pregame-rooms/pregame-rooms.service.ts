@@ -78,9 +78,6 @@ export class PregameRoomsService {
             })
         ])
 
-        console.log(recievedRoom)
-        console.log(foundMembers)
-        
         if (foundMembers.length === 0) throw new NotFoundException(`Room members not found`)
         return foundMembers.map(user => ({
             id: user.id,

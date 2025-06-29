@@ -7,26 +7,31 @@ import { UsersService } from '../users/users.service';
 import { FormattedPlayer } from './interfaces/formatted-player.interface';
 import { UpdateFieldIdDto } from './dto/update-field-id.dto';
 import { GameFieldsService } from '../game-fields/game-fields.service';
+import { GameTurnsService } from '../game-turns/game-turns.service';
 
 @Injectable()
 export class PlayersService {
     constructor(
         @InjectModel(Player) private readonly playersRepository: typeof Player,
         private readonly usersService: UsersService,
-        private readonly gameFieldsService: GameFieldsService
+        private readonly gameFieldsService: GameFieldsService,
+        private readonly gameTurnsService: GameTurnsService
     ) { }
 
     async formatPlayer(player: Player): Promise<FormattedPlayer> {
-        const recivedUser = await this.usersService.getUser(player.userId)
+        const [receivedUser, gameTurn] = await Promise.all([
+            this.usersService.getUser(player.userId),
+            this.gameTurnsService.findTurnByGame(player.gameId)
+        ])
         return {
             id: player.id,
             turnNumber: player.turnNumber,
-            playerHaveTurn: false,
+            playerHaveTurn: gameTurn?.playerId === player.id ? true : false,
             user: {
-                id: recivedUser.id,
-                name: recivedUser.name,
-                avatarUrl: recivedUser.avatarUrl,
-                role: recivedUser.role
+                id: receivedUser.id,
+                name: receivedUser.name,
+                avatarUrl: receivedUser.avatarUrl,
+                role: receivedUser.role
             },
             fieldId: player.fieldId
         }
@@ -34,7 +39,8 @@ export class PlayersService {
 
     async findPlayer(playerId: string): Promise<Player | null> {
         return await this.playersRepository.findOne({
-            where: { id: playerId }
+            where: { id: playerId },
+            raw: true
         })
     }
 
@@ -46,16 +52,18 @@ export class PlayersService {
 
     async getGamePlayers(gameId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({
-            where: { gameId }
+            where: { gameId },
+            raw: true
         })
     }
 
-    async findGamePlayerByTurn(gameId: string, turnNumber: number): Promise<Player | null> {
+    async findPlayerByTurn(gameId: string, turnNumber: number): Promise<Player | null> {
         return await this.playersRepository.findOne({
             where: {
                 gameId,
                 turnNumber
-            }
+            },
+            raw: true
         })
     }
 
