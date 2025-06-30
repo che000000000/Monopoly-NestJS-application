@@ -19,14 +19,14 @@ export class PlayersService {
     ) { }
 
     async formatPlayer(player: Player): Promise<FormattedPlayer> {
-        const [receivedUser, gameTurn] = await Promise.all([
+        const [receivedUser, onField] = await Promise.all([
             this.usersService.getUser(player.userId),
-            this.gameTurnsService.findTurnByGame(player.gameId)
+            this.gameFieldsService.getField(player.fieldId)
         ])
+
         return {
             id: player.id,
             turnNumber: player.turnNumber,
-            playerHaveTurn: gameTurn?.playerId === player.id ? true : false,
             user: {
                 id: receivedUser.id,
                 name: receivedUser.name,
@@ -34,7 +34,12 @@ export class PlayersService {
                 role: receivedUser.role
             },
             balance: player.balance,
-            fieldId: player.fieldId
+            onField: {
+                id: onField.id,
+                name: onField.name,
+                type: onField.type,
+                positon: onField.position
+            }
         }
     }
 
