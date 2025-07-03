@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { GameTurn } from 'src/models/game-turn.model';
-import { CreateTurnDto } from './dto/create-turn.dto';
 
 @Injectable()
 export class GameTurnsService {
@@ -9,30 +8,20 @@ export class GameTurnsService {
         @InjectModel(GameTurn) private readonly gameTurnsRepository: typeof GameTurn
     ) { }
 
-    async findTurnByGame(gameId: string): Promise<GameTurn | null> {
-        return await this.gameTurnsRepository.findOne({
-            where: { gameId }
-        })
+    async find(turnId: string): Promise<GameTurn | null> {
+        return await this.gameTurnsRepository.findOne({ where: { id: turnId } })
     }
 
-    async getTurnByGame(gameId: string): Promise<GameTurn> {
-        const foundTurn = await this.findTurnByGame(gameId)
-        if (!foundTurn) throw new NotFoundException(`Game turn doesn't exist.`)
-        return foundTurn
+    async getOrThrow(turnId: string): Promise<GameTurn> {
+        const gameTurn = await this.find(turnId)
+        if (!gameTurn) throw new NotFoundException(`Failed to get game turn. Turn doesn't exist.`)
+        return gameTurn
     }
 
-    async createTurn(dto: CreateTurnDto): Promise<GameTurn> {
+    async create(gameId: string, playerId: string): Promise<GameTurn> {
         return await this.gameTurnsRepository.create({
-            gameId: dto.gameId,
-            playerId: dto.playerId
+            gameId,
+            playerId
         })
-    }
-
-    async updatePlayerId(turnId: string, playerId: string): Promise<number> {
-        const [affectedCount] = await this.gameTurnsRepository.update(
-            { playerId },
-            { where: { id: turnId } }
-        )
-        return affectedCount
     }
 }

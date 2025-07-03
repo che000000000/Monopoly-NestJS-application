@@ -16,7 +16,7 @@ export class AuthService {
 
     async registerUser(dto: RegisterDto): Promise<void> {
         if (dto.password !== dto.repeatPassword) throw new BadRequestException(`Passwords don't match.`)
-        const foundUser = await this.usersService.findUserByEmail(dto.email)
+        const foundUser = await this.usersService.findByEmail(dto.email)
         if (foundUser) throw new BadRequestException(`This email is using already.`)
             
         await this.usersService.createUser({
@@ -29,7 +29,7 @@ export class AuthService {
     }
 
     async login(req: Request, dto: LoginDto): Promise<void> {
-        const foundUser = await this.usersService.findUserByEmail(dto.email)
+        const foundUser = await this.usersService.findByEmail(dto.email)
         if (!foundUser || !foundUser.password) throw new NotFoundException('Incorrect email or password')
 
         const isValidPassword = await bcrypt.compare(dto.password, foundUser.password)

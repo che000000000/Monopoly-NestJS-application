@@ -50,10 +50,10 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     }
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
+        const userId = socket.request.session.userId
         if (!userId) return
 
-        const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
+        const foundRoom = await this.pregameRoomsService.findByUser(userId)
         if (!foundRoom) return
 
         socket.join(foundRoom.id)
@@ -124,7 +124,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession) {
         const userId = this.extractUserId(socket)
 
-        const foundRoom = await this.pregameRoomsService.findRoomByUserId(userId)
+        const foundRoom = await this.pregameRoomsService.findByUser(userId)
         if (!foundRoom) throw new BadRequestException(`User isn't in the pregameRoom`)
 
         const leftUser = await this.pregameRoomsService.removeUserFromRoom({
@@ -138,9 +138,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
             leftUser: leftUser
         })
 
-        const roomMembers = await this.usersService.findPregameRoomUsers({
-            roomId: foundRoom.id
-        })
+        const roomMembers = await this.usersService.findPregameRoomUsers(foundRoom.id)
 
         if (roomMembers.length === 0) {
             const removedRoom = await this.pregameRoomsService.removeRoom({

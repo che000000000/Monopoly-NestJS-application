@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsUUID } from "class-validator";
 
-export class RemovePlayer {
+export class RemovePlayerDto {
     @IsUUID()
     @IsNotEmpty()
     playerId: string

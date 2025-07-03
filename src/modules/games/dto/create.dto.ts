@@ -1,7 +1,7 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class CreateFieldsDto {
+export class CreateGameDto {
     @IsUUID()
     @IsNotEmpty()
-    gameId: string
+    userId: string
 }

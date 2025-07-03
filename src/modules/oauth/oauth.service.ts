@@ -23,7 +23,7 @@ export class OauthService {
     }
 
     async oauthRegister(req: Request, dto: OauthRegisterDto) {
-        const userExists = await this.usersService.findUserByEmail(dto.email)
+        const userExists = await this.usersService.findByEmail(dto.email)
         if (!userExists) {
             await this.usersService.createUser({
                 email: dto.email,
@@ -33,7 +33,7 @@ export class OauthService {
             })
         }
 
-        const newUser = await this.usersService.findUserByEmail(dto.email)
+        const newUser = await this.usersService.findByEmail(dto.email)
         if (!newUser) {
             throw new NotFoundException(`Can't create user by oauth respone data.`)
         }
