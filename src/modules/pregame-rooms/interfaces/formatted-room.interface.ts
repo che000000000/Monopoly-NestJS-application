@@ -1,4 +1,4 @@
-export interface FormatedRoom {
+export interface FormattedRoom {
     id: string,
     createdAt: Date
 }

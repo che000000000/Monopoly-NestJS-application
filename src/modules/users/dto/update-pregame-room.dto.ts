@@ -6,6 +6,6 @@ export class UpdatePregameRoomIdDto {
     userId: string
 
     @IsUUID()
-    @IsOptional()
-    roomId: string | null
+    @IsNotEmpty()
+    newRoomId: string | null
 }

@@ -15,15 +15,16 @@ export class AuthService {
     ) { }
 
     async registerUser(dto: RegisterDto): Promise<void> {
-        if (!(dto.password === dto.repeatPassword)) {
-            throw new BadRequestException(`Passwords don't match.`)
-        }
+        if (dto.password !== dto.repeatPassword) throw new BadRequestException(`Passwords don't match.`)
+        const foundUser = await this.usersService.findUserByEmail(dto.email)
+        if (foundUser) throw new BadRequestException(`This email is using already.`)
+            
         await this.usersService.createUser({
             email: dto.email,
             name: dto.name,
             password: dto.password,
             avatarUrl: dto.avatarUrl,
-            authMethod: AuthMethod.credentials
+            authMethod: AuthMethod.CREDENTIALS
         })
     }
 

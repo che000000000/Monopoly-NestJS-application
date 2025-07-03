@@ -22,6 +22,8 @@ import { MessagesModule } from '../messages/messages.module';
 import { RedisModule } from 'src/modules/redis/redis.module';
 import { Player } from 'src/models/player.model';
 import { PlayersModule } from '../players/players.module';
+import { GameTurn } from 'src/models/game-turn.model';
+import { GameField } from 'src/models/game-field.model';
 
 @Module({
   imports: [
@@ -51,8 +53,9 @@ import { PlayersModule } from '../players/players.module';
           logging: false,
           models: [
             User, Account, Token,
-            Game, PregameRoom, Chat,
-            Message, ChatMember, Player
+            PregameRoom, Chat, Message,
+            ChatMember, Game, Player,
+            GameTurn, GameField
           ]
         }
       }

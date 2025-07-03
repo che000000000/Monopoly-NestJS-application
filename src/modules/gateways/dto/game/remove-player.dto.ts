@@ -1,11 +1,11 @@
 import { IsNotEmpty, IsString, IsUUID } from "class-validator";
 
-export class LeaveFromGameDto {
+export class RemovePlayer {
     @IsUUID()
     @IsNotEmpty()
-    userId: string
+    playerId: string
 
-    @IsUUID()
     @IsString()
-    gameId: string
+    @IsNotEmpty()
+    cause: string
 }

@@ -6,6 +6,8 @@ import { UsersModule } from '../users/users.module';
 import { ChatsModule } from '../chats/chats.module';
 import { PlayersModule } from '../players/players.module';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
+import { GameFieldsModule } from '../game-fields/game-fields.module';
+import { GameTurnsModule } from '../game-turns/game-turns.module';
 
 @Module({
   imports: [
@@ -13,7 +15,9 @@ import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
     forwardRef(() => UsersModule),
     PregameRoomsModule,
     PlayersModule,
-    ChatsModule
+    GameTurnsModule,
+    ChatsModule,
+    GameFieldsModule
   ],
   providers: [GamesService],
   exports: [GamesService]

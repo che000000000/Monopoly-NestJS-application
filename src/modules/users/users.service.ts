@@ -6,23 +6,27 @@ import { InjectModel } from '@nestjs/sequelize';
 import { UpdatePregameRoomIdDto } from './dto/update-pregame-room.dto';
 import { UpdateGameIdDto } from './dto/update-game-id.dto';
 import { FindPregameRoomUsersDto } from './dto/find-pregame-users.dto';
-import { FindGameUsersDto } from './dto/find-game-users.dto';
 
 @Injectable()
 export class UsersService {
     constructor(@InjectModel(User) private readonly usersRepository: typeof User) { }
 
-    async findUserById(user_id: string): Promise<User | null> {
-        const foundUser = await this.usersRepository.findOne({
-            where: { id: user_id },
+    async findUser(userId: string): Promise<User | null> {
+        return await this.usersRepository.findOne({
+            where: { id: userId },
             raw: true
         })
+    }
+
+    async getUser(userId: string): Promise<User> {
+        const foundUser = await this.findUser(userId)
+        if(!foundUser) throw new BadRequestException(`User doesn't exist.`)
         return foundUser
     }
 
-    async findUserByEmail(user_email: string): Promise<User | null> {
+    async findUserByEmail(userEmail: string): Promise<User | null> {
         return await this.usersRepository.findOne({
-            where: { email: user_email },
+            where: { email: userEmail },
             raw: true
         })
     }
@@ -34,16 +38,16 @@ export class UsersService {
         })
     }
 
-    async findGameUsers(dto: FindGameUsersDto): Promise<User[]> {
+    async findGameUsers(gameId: string): Promise<User[]> {
         return await this.usersRepository.findAll({
-            where: { gameId: dto.gameId, },
+            where: { gameId },
             raw: true
         })
     }
 
     async updatePregameRoomId(dto: UpdatePregameRoomIdDto): Promise<number> {
         const [affectedCount] = await this.usersRepository.update(
-            { pregameRoomId: dto.roomId },
+            { pregameRoomId: dto.newRoomId },
             { where: { id: dto.userId } }
         )
         return affectedCount
@@ -57,8 +61,8 @@ export class UsersService {
         return affectedCount
     }
 
-    async getUserProfile(user_id: string) {
-        const foundUser = await this.findUserById(user_id)
+    async getUserProfile(userId: string) {
+        const foundUser = await this.findUser(userId)
         if (!foundUser) throw new BadRequestException('User not found.')
         return {
             id: foundUser.id,
@@ -84,7 +88,7 @@ export class UsersService {
             name: dto.name,
             password: dto.password ? await bcrypt.hash(dto.password, 10) : null,
             avatarUrl: dto.avatarUrl,
-            role: UserRole.regular,
+            role: UserRole.REGULAR,
             authMethod: dto.authMethod
         })
     }

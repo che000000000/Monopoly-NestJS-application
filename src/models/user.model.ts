@@ -8,13 +8,14 @@ import { Game } from "./game.model";
 import { Player } from "./player.model";
 
 export enum UserRole {
-    regular = 'regular',
-    admin = 'admin'
+    REGULAR = 'REGULAR',
+    ADMIN = 'ADMIN',
+    DEV = 'DEV'
 }
 
 export enum AuthMethod {
-    credentials = 'credentials',
-    google = 'google'
+    CREDENTIALS = 'CREDENTIALS',
+    GOOGLE = 'GOOGLE'
 }
 
 @Table({ tableName: 'Users' })
@@ -43,21 +44,22 @@ export class User extends Model {
     @Column({
         type: DataType.STRING,
         allowNull: true,
-        defaultValue: null
+        defaultValue: null,
+        field: 'password'
     })
-    declare password?: string
+    declare password: string
 
     @Column({
         type: DataType.STRING,
         allowNull: true,
         defaultValue: null
     })
-    declare avatarUrl?: string
+    declare avatarUrl: string
 
     @Column({
         type: DataType.ENUM(...Object.values(UserRole)),
         allowNull: false,
-        defaultValue: UserRole.regular
+        defaultValue: UserRole.REGULAR
     })
     declare role: UserRole
 
@@ -104,7 +106,7 @@ export class User extends Model {
     @HasOne(() => Account)
     account: Account
 
-    @HasOne(() => PregameRoom, { foreignKey: 'ownerId' })
+    @HasOne(() => PregameRoom)
     owningRoom: PregameRoom
 
     @HasOne(() => Player)
