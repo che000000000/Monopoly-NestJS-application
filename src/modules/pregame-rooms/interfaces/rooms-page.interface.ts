@@ -1,7 +1,7 @@
-import { FormattedUser } from "src/modules/users/interfaces/formatted-user.interface";
+import { PregameRoomMember } from "./pregame-room-member.interface";
 
-export interface RoomsPageItem {
+export interface PregameRoomsWithMembers {
     id: string,
-    members: FormattedUser[],
+    members: PregameRoomMember[],
     createdAt: Date
 }

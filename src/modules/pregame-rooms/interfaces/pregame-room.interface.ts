@@ -1,4 +1,4 @@
-export interface FormattedRoom {
+export interface CommonPregameRoom {
     id: string,
     createdAt: Date
 }

@@ -1,4 +1,4 @@
-export interface FormattedUser {
+export interface PregameRoomMember {
     id: string,
     name: string,
     avatarUrl: string | null,
