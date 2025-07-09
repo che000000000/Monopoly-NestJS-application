@@ -1,6 +1,6 @@
 import { PregameRoom } from "src/models/pregame-room.model";
 import { User } from "src/models/user.model";
-import { PregameRoomMember } from "./interfaces/pregame-room-member.interface";
+import { PregameRoomMember } from "./interfaces/pregame-room-member";
 
 export function convertPregameRoomMember(user: User, pregameRoom: PregameRoom): PregameRoomMember {
     return {

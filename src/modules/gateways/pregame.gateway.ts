@@ -8,7 +8,8 @@ import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
 import { convertPregameRoomMember } from "./converters/pregameRoomMember";
 import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
-import { convertCommonPregameRoom } from "./converters/pregameRoom";
+import { convertCommonPregameRoom, convertPregameRoomWithMembers } from "./converters/pregameRoom";
+import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -61,14 +62,30 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         allSocketRooms.forEach(room => socket.leave(room))
     }
 
-    // @UseGuards(WsAuthGuard)
-    // @SubscribeMessage('rooms-page')
-    // async getRoomsPage(
-    //     @ConnectedSocket() socket: SocketWithSession,
-    //     @MessageBody(new ValidationPipe()) dto: GetRoomsPageDto
-    // ) {
-        
-    // }
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('rooms-page')
+    async getRoomsPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody(new ValidationPipe()) dto: GetRoomsPageDto
+    ) {
+        const [pregameRoomsPage, pregameRoomsCount] = await Promise.all([
+            this.pregameRoomsService.getPregameRoomsPage(dto.pageNumber, dto.pageSize),
+            this.pregameRoomsService.getPregameRoomsCount()
+        ])
+
+        const convertedPregameRooms = await Promise.all(
+            pregameRoomsPage.map(async (pregameRoom) => {
+                const pregameRoomMembers = await this.pregameRoomsService.getPregameRoomMembers(pregameRoom.id)
+                return await convertPregameRoomWithMembers(pregameRoom, pregameRoomMembers)
+            })
+        )
+
+        socket.emit('pregame', {
+            event: 'rooms-page',
+            pregameRoomsPage: convertedPregameRooms,
+            totalCount: pregameRoomsCount
+        })
+    }
 
     // @UseGuards(WsAuthGuard)
     // @SubscribeMessage('messages-page')

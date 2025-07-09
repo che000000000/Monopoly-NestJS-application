@@ -61,16 +61,25 @@ export class PregameRoomsService {
         return affectedCount
     }
 
-    async getRooms(pageNumber: number, pageSize: number): Promise<PregameRoom[]> {
+    async getPregameRoomsCount(): Promise<number> {
+        return await this.pregameRoomsRepository.count()
+    }
+
+    async getPregameRoomsPage(pageNumber: number | undefined | null, pageSize: number | undefined | null): Promise<PregameRoom[]> {
+        const options = {
+            pageNumber: pageNumber ? pageNumber : 1,
+            pageSize: pageSize ? pageSize : 10
+        }
+
         return await this.pregameRoomsRepository.findAll({
             order: [['createdAt', 'DESC']],
-            limit: pageSize,
-            offset: (pageNumber - 1) * pageSize,
+            limit: options.pageSize,
+            offset: (options.pageNumber - 1) * options.pageSize,
             raw: true
         })
     }
 
-    async getRoomMembers(roomId: string): Promise<User[]> {
+    async getPregameRoomMembers(roomId: string): Promise<User[]> {
         return await this.usersService.findPregameRoomUsers(roomId)
     }
 
