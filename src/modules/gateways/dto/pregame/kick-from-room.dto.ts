@@ -1,11 +1,7 @@
 import { IsNotEmpty, IsUUID } from "class-validator";
 
-export class DeleteChatMemberDto {
+export class KickFromRoomDto {
     @IsUUID()
     @IsNotEmpty()
     userId: string
-
-    @IsUUID()
-    @IsNotEmpty()
-    chatId: string    
 }

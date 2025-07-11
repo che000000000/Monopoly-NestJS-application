@@ -23,10 +23,10 @@ export class ChatsService {
         })
     }
 
-    async deleteChat(dto: DeleteChatDto): Promise<number> {
+    async deleteChat(chatId: string): Promise<number> {
         return await this.chatsRepository.destroy({
             where: {
-                id: dto.chatId
+                id: chatId
             }
         })
     }

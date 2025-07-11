@@ -33,42 +33,42 @@ export class GamesGateway implements OnGatewayConnection {
     @WebSocketServer()
     server: Server
 
-    // extractUserId(socket: SocketWithSession): string {
-    //     const exctractedUserId = socket.request.session.userId
-    //     if (!exctractedUserId) {
-    //         throw new InternalServerErrorException(`UserId doesn't extracted.`)
-    //     }
-    //     return exctractedUserId
-    // }
+    extractUserId(socket: SocketWithSession): string {
+        const exctractedUserId = socket.request.session.userId
+        if (!exctractedUserId) {
+            throw new InternalServerErrorException(`UserId doesn't extracted.`)
+        }
+        return exctractedUserId
+    }
 
-    // private async findSocketByUser(userId: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
-    //     const allSockets = await this.server.fetchSockets()
-    //     return allSockets.find(socket => socket.data.userId === userId)
-    // }
+    private async findSocketByUser(userId: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
+        const allSockets = await this.server.fetchSockets()
+        return allSockets.find(socket => socket.data.userId === userId)
+    }
 
-    // private async findSocketsByUsers(usersIds: string[]): Promise<RemoteSocket<DefaultEventsMap, any>[] | undefined> {
-    //     const allSockets = await this.server.fetchSockets()
-    //     return allSockets.filter(socket => usersIds.includes(socket.data.userId))
-    // }
+    private async findSocketsByUsers(usersIds: string[]): Promise<RemoteSocket<DefaultEventsMap, any>[] | undefined> {
+        const allSockets = await this.server.fetchSockets()
+        return allSockets.filter(socket => usersIds.includes(socket.data.userId))
+    }
 
-    // private async addSocketsToRoom(usersIds: string[], roomId: string): Promise<void> {
-    //     const sockets = await this.findSocketsByUsers(usersIds)
-    //     if (!sockets) throw new NotFoundException(`Failed to add sockets to game room. Sockets not found`)
-    //     sockets.forEach(socket => {
-    //         socket.join(roomId)
-    //     })
-    // }
+    private async addSocketsToRoom(usersIds: string[], roomId: string): Promise<void> {
+        const sockets = await this.findSocketsByUsers(usersIds)
+        if (!sockets) throw new NotFoundException(`Failed to add sockets to game room. Sockets not found`)
+        sockets.forEach(socket => {
+            socket.join(roomId)
+        })
+    }
 
-    // async removeSocketFromRooms(userId: string): Promise<void> {
-    //     const foundSocket = await this.findSocketByUser(userId)
-    //     if (!foundSocket) throw new WsException({
-    //         errorType: ErrorTypes.Internal,
-    //         message: `Socket not found.`
-    //     })
+    async removeSocketFromRooms(userId: string): Promise<void> {
+        const foundSocket = await this.findSocketByUser(userId)
+        if (!foundSocket) throw new WsException({
+            errorType: ErrorTypes.Internal,
+            message: `Socket not found.`
+        })
 
-    //     const allSocketRooms = Array.from(foundSocket.rooms).filter(room => room !== foundSocket.id)
-    //     allSocketRooms.forEach(room => foundSocket.leave(room))
-    // }
+        const allSocketRooms = Array.from(foundSocket.rooms).filter(room => room !== foundSocket.id)
+        allSocketRooms.forEach(room => foundSocket.leave(room))
+    }
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId

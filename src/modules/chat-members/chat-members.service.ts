@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { ChatMember } from 'src/models/chat-members';
-import { DeleteChatMemberDto } from './dto/delete-chat-member.dto';
 
 @Injectable()
 export class ChatMembersService {
@@ -23,11 +22,11 @@ export class ChatMembersService {
         })
     }
 
-    async destroy(dto: DeleteChatMemberDto): Promise<number> {
+    async destroy(chatId: string, userId: string): Promise<number> {
         return await this.chatMembersRepository.destroy({
             where: {
-                userId: dto.userId,
-                chatId: dto.chatId
+                userId,
+                chatId
             }
         })
     }

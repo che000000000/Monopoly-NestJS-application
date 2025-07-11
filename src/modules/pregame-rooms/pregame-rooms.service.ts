@@ -7,6 +7,7 @@ import { ChatMembersService } from '../chat-members/chat-members.service';
 import { TiedTo } from 'src/models/chat.model';
 import { MessagesService } from '../messages/messages.service';
 import { User } from 'src/models/user.model';
+import { Message } from 'src/models/message.model';
 @Injectable()
 export class PregameRoomsService {
     constructor(
@@ -65,39 +66,39 @@ export class PregameRoomsService {
         return await this.pregameRoomsRepository.count()
     }
 
-    async getPregameRoomsPage(pageNumber: number | undefined | null, pageSize: number | undefined | null): Promise<PregameRoom[]> {
+    async getPregameRoomsPage(pageNumber: number | undefined | null, pageSize: number | undefined | null): Promise<{page: PregameRoom[], totalCount: number}> {
         const options = {
             pageNumber: pageNumber ? pageNumber : 1,
             pageSize: pageSize ? pageSize : 10
         }
 
-        return await this.pregameRoomsRepository.findAll({
-            order: [['createdAt', 'DESC']],
-            limit: options.pageSize,
-            offset: (options.pageNumber - 1) * options.pageSize,
-            raw: true
-        })
+        return {
+            page: await this.pregameRoomsRepository.findAll({
+                order: [['createdAt', 'DESC']],
+                limit: options.pageSize,
+                offset: (options.pageNumber - 1) * options.pageSize,
+                raw: true
+            }),
+            totalCount: await this.getPregameRoomsCount()
+        }
     }
 
-    async getPregameRoomMembers(roomId: string): Promise<User[]> {
-        return await this.usersService.findPregameRoomUsers(roomId)
+    async getPregameRoomMessagesPage(pregameRoom: PregameRoom, pageNumber: number | undefined | null, pageSize: number | undefined | null): Promise<{page: Message[], totalCount: number}> {
+        const options = {
+            pageNumber: pageNumber ? pageNumber : 1,
+            pageSize: pageSize ? pageSize : 10
+        }
+
+        const [messagesPage, totalCount] = await Promise.all([
+            this.messagesService.getChatMessagesPage(pregameRoom.chatId, options.pageNumber, options.pageSize),
+            this.messagesService.getChatMessagesCount(pregameRoom.chatId)
+        ])
+
+        return {
+            page: messagesPage,
+            totalCount
+        }
     }
-
-    // async formatPregameRoomMember(pregameRoom: PregameRoom, user: User): Promise<PregameRoomMember> {
-        
-    // }
-
-    // async getRoomsPage(dto: GetRoomsPageDto): Promise<{ page: PregameRoomsWithMembers[], totalCount: number }> {
-        
-    // }
-
-    // async formatPregameRoomMessages(pregameRoom: PregameRoom, messages: Message[]): Promise<PregameRoomWithMessages> {
-        
-    // }
-
-    // async getRoomMessagesPage(dto: GetRoomMessagesPageDto): Promise<{ page: PregameRoomWithMessages, totalCount: number }> {
-        
-    // }
 
     async initPregameRoom(userId: string): Promise<PregameRoom> {
         const newPregameRoomChat = await this.chatsService.createChat(TiedTo.PREGAME)
@@ -112,17 +113,32 @@ export class PregameRoomsService {
         return newPregameRoom
     }
 
-    // async removeUserFromRoom(userId: string): Promise<{user: PregameRoomMember, room: CommonPregameRoom}> {
-        
-    // }
+    async removeRoom(pregameRoom: PregameRoom): Promise<number> {
+        return await this.chatsService.deleteChat(pregameRoom.chatId)
+    }
 
-    // async removeRoom(dto: RemoveRoomDto): Promise<CommonPregameRoom> {
-        
-    // }
+    async removeUserFromRoom(user: User, pregameRoom: PregameRoom): Promise<{destroyChatMemberCount: number, affectedPregameRoomIdCount: number}> {
+        const [destroyChatMemberCount, affectedPregameRoomIdCount] = await Promise.all([
+            this.chatMembersService.destroy(pregameRoom.chatId, user.id),
+            this.usersService.updatePregameRoomId(user.id, null)
+        ])
 
-    // async chooseNewOwner(dto: AppointNewOwnerDto): Promise<User> {
-        
-    // }
+        return {
+            destroyChatMemberCount,
+            affectedPregameRoomIdCount
+        }
+    }
+
+    async chooseNewOwner(pregameRoom: PregameRoom): Promise<User> {
+        const pregameRoomMembers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
+        const randomIndex = Math.floor(Math.random() * pregameRoomMembers.length)
+
+        const newOwner = await this.usersService.find(pregameRoomMembers[randomIndex].id)
+        if (!newOwner) throw new InternalServerErrorException(`Failed to choose new pregame room owner. New pregame room owner not found.`)
+
+        await this.updateOwnerId(newOwner.id, pregameRoom.id)
+        return newOwner
+    }
 
     async joinUserToRoom(user: User, pregameRoom: PregameRoom): Promise<void> {
         await Promise.all([
@@ -131,11 +147,7 @@ export class PregameRoomsService {
         ])
     }
 
-    // async kickUserFromRoom(dto: KickUserFromRoomDto): Promise<{ kickedUser: PregameRoomMember, fromRoom: CommonPregameRoom }> {
-        
-    // }
-
-    // async sendMessage(dto: SendMessageDto): Promise<{ message: PregameRoomMessage, room: CommonPregameRoom }> {
-
-    // }
+    async sendMessage(user: User, pregameRoom: PregameRoom, messageText: string): Promise<Message> {
+        return await this.messagesService.createMessage(user.id, pregameRoom.chatId, messageText)
+    }
 }

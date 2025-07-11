@@ -37,7 +37,7 @@ export class UsersService {
         })
     }
 
-    async updatePregameRoomId(userId: string, pregameRoomId: string): Promise<number> {
+    async updatePregameRoomId(userId: string, pregameRoomId: string | null): Promise<number> {
         const [affectedCount] = await this.usersRepository.update(
             { pregameRoomId },
             { where: { id: userId } }
