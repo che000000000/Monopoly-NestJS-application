@@ -6,15 +6,16 @@ import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { UsersService } from "../users/users.service";
-import { convertPregameRoomMember } from "./converters/pregame-room-member";
 import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
-import { convertCommonPregameRoom, convertPregameRoomWithMembers } from "./converters/pregame-room";
+import { formatCommonPregameRoom, formatPregameRoomWithMembers } from "./formatters/pregame/pregame-room";
 import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
 import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
 import { SendMessageDto } from "./dto/pregame/send-message.dto";
-import { MessagesService } from "../messages/messages.service";
-import { convertPregameRoomMessage } from "./converters/pregame-room-message";
 import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
+import { formatPregameRoomMember } from "./formatters/pregame/pregame-room-member";
+import { formatPregameRoomMessage } from "./formatters/pregame/pregame-room-message";
+import { User } from "src/models/user.model";
+import { PregameRoom } from "src/models/pregame-room.model";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -44,7 +45,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         return allSockets.find(socket => socket.data.userId === user_id)
     }
 
-    async removeSocketFromRooms(userId: string): Promise<void> {
+    private async removeSocketFromRooms(userId: string): Promise<void> {
         const foundSocket = await this.findSocketById(userId)
         if(!foundSocket) throw new NotFoundException(`Socket not found.`)
 
@@ -52,6 +53,16 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         allSocketRooms.forEach(room => foundSocket.leave(room))
     }
 
+    private async removeSocketsFromRooms(users: User[]): Promise<void> {
+        if (users.length === 0) throw new InternalServerErrorException(`Failed to remove sockets from rooms. Users not defined.`)
+
+        await Promise.all(
+            users.map(async (user) => {
+                await this.removeSocketFromRooms(user.id)
+            })
+        )
+    }
+ 
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
         if (!userId) return
@@ -67,18 +78,27 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         allSocketRooms.forEach(room => socket.leave(room))
     }
 
+    async removePregameRoom(pregameRoom: PregameRoom): Promise<void> {
+        if (!pregameRoom) throw new InternalServerErrorException(`Failed to remove pregame room. Pregame room not defined.`)
+
+        this.pregameRoomsService.removeRoom(pregameRoom)
+        
+        const pregameRoomUsers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
+        await this.removeSocketsFromRooms(pregameRoomUsers)
+    }
+
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('rooms-page')
     async getRoomsPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: GetRoomsPageDto
-    ) {
+    ): Promise<void> {
         const pregameRoomsPage = await this.pregameRoomsService.getPregameRoomsPage(dto.pageNumber, dto.pageSize)
 
         const convertedPregameRooms = await Promise.all(
             pregameRoomsPage.page.map(async (pregameRoom) => {
                 const pregameRoomMembers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
-                return await convertPregameRoomWithMembers(pregameRoom, pregameRoomMembers)
+                return await formatPregameRoomWithMembers(pregameRoom, pregameRoomMembers)
             })
         )
 
@@ -94,7 +114,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     async getMessagesPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: GetMessagesPageDto
-    ) {
+    ): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const pregameRoom = await this.pregameRoomsService.findByUser(userId)
@@ -104,8 +124,8 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
         const convertedMessagesPage = await Promise.all(
             messagesPage.page.map(async (message) => {
-                const userSender = await this.usersService.getOrThrow(message.userId)
-                return convertPregameRoomMessage(userSender, pregameRoom, message)
+                const userSender = await this.usersService.find(message.userId)
+                return formatPregameRoomMessage(userSender, pregameRoom, message)
             })
         )
 
@@ -118,7 +138,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('create')
-    async create(@ConnectedSocket() socket: SocketWithSession) {
+    async create(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const receivedUser = await this.usersService.getOrThrow(userId)
@@ -131,7 +151,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
             event: 'create-pregame-room',
             newPregameRoom: {
                 id: newPregameRoom.id,
-                members: [convertPregameRoomMember(receivedUser, newPregameRoom)],
+                members: [formatPregameRoomMember(receivedUser, newPregameRoom)],
                 createdAt: newPregameRoom.createdAt
             }
         })
@@ -139,7 +159,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('leave')
-    async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession) {
+    async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const [user, pregameRoom] = await Promise.all([
@@ -154,8 +174,8 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
         this.server.emit('pregame', {
             event: 'left-user',
-            pregameRoom: convertCommonPregameRoom(pregameRoom),
-            leftUser: convertPregameRoomMember(user, pregameRoom)
+            pregameRoom: formatCommonPregameRoom(pregameRoom),
+            leftUser: formatPregameRoomMember(user, pregameRoom)
         })
 
         const pregameRoomMembers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
@@ -164,7 +184,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
             this.server.emit('pregame', {
                 event: 'remove-pregame-room',
-                pregameRoom: convertCommonPregameRoom(pregameRoom)
+                pregameRoom: formatCommonPregameRoom(pregameRoom)
             })
 
             return
@@ -175,8 +195,8 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
             this.server.emit('pregame', {
                 event: 'new-pregame-room-owner',
-                pregameRoom: convertCommonPregameRoom(pregameRoom),
-                newOwner: convertPregameRoomMember(newOwner, pregameRoom)
+                pregameRoom: formatCommonPregameRoom(pregameRoom),
+                newOwner: formatPregameRoomMember(newOwner, pregameRoom)
             })
         }
     }
@@ -186,7 +206,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     async joinPregameRoom(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: JoinPregameRoomDto
-    ) {
+    ): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const [user, pregameRoom] = await Promise.all([
@@ -201,8 +221,8 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         
         this.server.emit('pregame', {
             event: 'joined-user',
-            pregameRoom: convertCommonPregameRoom(pregameRoom),
-            joinedUser: convertPregameRoomMember(user, pregameRoom)
+            pregameRoom: formatCommonPregameRoom(pregameRoom),
+            joinedUser: formatPregameRoomMember(user, pregameRoom)
         })
     }
 
@@ -211,12 +231,14 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     async kickUserFromPregameRoom(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: KickFromRoomDto
-    ) {
+    ): Promise<void> {
         const userId = this.extractUserId(socket)
+
+        if (userId === dto.kickedUserId) throw new BadRequestException(`Failed to kick user. You're can't kick yourself.`)
 
         const [pregameRoom, kickedUser] = await Promise.all([
             this.pregameRoomsService.findByUser(userId),
-            this.usersService.find(dto.userId)
+            this.usersService.find(dto.kickedUserId)
         ])
         if (!pregameRoom) throw new BadRequestException(`Failed to kick user from pregame room. You're not in the pregame room`)
         if (pregameRoom.ownerId !== userId) throw new ForbiddenException(`Failed to kick user from pregame room. Must be owner of this pregame room.`)
@@ -227,13 +249,13 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
         this.server.except(pregameRoom.id).emit('pregame', {
             event: 'left-user',
-            pregameRoom: convertCommonPregameRoom(pregameRoom),
-            leftUser: convertPregameRoomMember(kickedUser, pregameRoom)
+            pregameRoom: formatCommonPregameRoom(pregameRoom),
+            leftUser: formatPregameRoomMember(kickedUser, pregameRoom)
         })
         this.server.to(pregameRoom.id).emit('pregame', {
             event: 'kick-user',
-            pregameRoom: convertCommonPregameRoom(pregameRoom),
-            leftUser: convertPregameRoomMember(kickedUser, pregameRoom)
+            pregameRoom: formatCommonPregameRoom(pregameRoom),
+            leftUser: formatPregameRoomMember(kickedUser, pregameRoom)
         })
     }
 
@@ -242,7 +264,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
     async sendMessage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: SendMessageDto
-    ) {
+    ): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const user = await this.usersService.find(userId)
@@ -254,7 +276,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         const newMessage = await this.pregameRoomsService.sendMessage(user, pregameRoom, dto.messageText)
         this.server.to(pregameRoom.id).emit('pregame', {
             event: 'send-message',
-            newMessage: convertPregameRoomMessage(user, pregameRoom, newMessage)
+            newMessage: formatPregameRoomMessage(user, pregameRoom, newMessage)
         })
     }
 }

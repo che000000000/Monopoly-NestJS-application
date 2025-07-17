@@ -17,13 +17,13 @@ export class ChatsService {
         })
     }
 
-    async createChat(tiedTo: TiedTo): Promise<Chat> {
+    async create(tiedTo: TiedTo): Promise<Chat> {
         return await this.chatsRepository.create({
             tiedTo
         })
     }
 
-    async deleteChat(chatId: string): Promise<number> {
+    async destroy(chatId: string): Promise<number> {
         return await this.chatsRepository.destroy({
             where: {
                 id: chatId

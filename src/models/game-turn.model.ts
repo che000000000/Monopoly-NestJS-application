@@ -26,4 +26,10 @@ export class GameTurn extends Model {
         allowNull: false
     })
     declare playerId: string
+
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false
+    })
+    declare expires: number
 }

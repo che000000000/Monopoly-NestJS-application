@@ -101,7 +101,7 @@ export class PregameRoomsService {
     }
 
     async initPregameRoom(userId: string): Promise<PregameRoom> {
-        const newPregameRoomChat = await this.chatsService.createChat(TiedTo.PREGAME)
+        const newPregameRoomChat = await this.chatsService.create(TiedTo.PREGAME)
 
         const [newPregameRoom, PregameRoomChatMembers] = await Promise.all([
             this.create(userId, newPregameRoomChat.id),
@@ -114,7 +114,7 @@ export class PregameRoomsService {
     }
 
     async removeRoom(pregameRoom: PregameRoom): Promise<number> {
-        return await this.chatsService.deleteChat(pregameRoom.chatId)
+        return await this.chatsService.destroy(pregameRoom.chatId)
     }
 
     async removeUserFromRoom(user: User, pregameRoom: PregameRoom): Promise<{destroyChatMemberCount: number, affectedPregameRoomIdCount: number}> {
