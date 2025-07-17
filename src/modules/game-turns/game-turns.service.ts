@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { GameTurn } from 'src/models/game-turn.model';
-import { CreateTurnDto } from './dto/create-turn.dto';
+import { Game } from 'src/models/game.model';
+import { Player } from 'src/models/player.model';
 
 @Injectable()
 export class GameTurnsService {
@@ -9,29 +10,38 @@ export class GameTurnsService {
         @InjectModel(GameTurn) private readonly gameTurnsRepository: typeof GameTurn
     ) { }
 
-    async findTurnByGame(gameId: string): Promise<GameTurn | null> {
-        return await this.gameTurnsRepository.findOne({
-            where: { gameId }
-        })
+    async find(turnId: string): Promise<GameTurn | null> {
+        return await this.gameTurnsRepository.findOne({ where: { id: turnId } })
     }
 
-    async getTurnByGame(gameId: string): Promise<GameTurn> {
-        const foundTurn = await this.findTurnByGame(gameId)
-        if (!foundTurn) throw new NotFoundException(`Game turn doesn't exist.`)
-        return foundTurn
+    async findByGame(game: Game): Promise<GameTurn | null> {
+        return await this.gameTurnsRepository.findOne({ where: { gameId: game.id } })
     }
 
-    async createTurn(dto: CreateTurnDto): Promise<GameTurn> {
+    async getOrThrow(turnId: string): Promise<GameTurn> {
+        const gameTurn = await this.find(turnId)
+        if (!gameTurn) throw new NotFoundException(`Failed to get game turn. Turn doesn't exist.`)
+        return gameTurn
+    }
+
+    async getByGameOrThrow(game: Game): Promise<GameTurn> {
+        const foundGameTurn = await this.findByGame(game)
+        if (!foundGameTurn) throw new NotFoundException(`Failed to get game turn by game.`)
+        return foundGameTurn
+    }
+
+    async create(gameId: string, playerId: string, expires: number): Promise<GameTurn> {
         return await this.gameTurnsRepository.create({
-            gameId: dto.gameId,
-            playerId: dto.playerId
+            gameId,
+            playerId,
+            expires
         })
     }
 
-    async updatePlayerId(turnId: string, playerId: string): Promise<number> {
+    async updatePlayerId(gameTurn: GameTurn, player: Player): Promise<number> {
         const [affectedCount] = await this.gameTurnsRepository.update(
-            { playerId },
-            { where: { id: turnId } }
+            { playerId: player.id },
+            { where: { id: gameTurn.id } }
         )
         return affectedCount
     }

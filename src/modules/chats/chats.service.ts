@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Chat } from 'src/models/chat.model';
+import { Chat, TiedTo } from 'src/models/chat.model';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { DeleteChatDto } from './dto/delete-chat.dto';
 
@@ -17,16 +17,16 @@ export class ChatsService {
         })
     }
 
-    async createChat(dto: CreateChatDto): Promise<Chat> {
+    async create(tiedTo: TiedTo): Promise<Chat> {
         return await this.chatsRepository.create({
-            tiedTo: dto.tiedTo
+            tiedTo
         })
     }
 
-    async deleteChat(dto: DeleteChatDto): Promise<number> {
+    async destroy(chatId: string): Promise<number> {
         return await this.chatsRepository.destroy({
             where: {
-                id: dto.chatId
+                id: chatId
             }
         })
     }

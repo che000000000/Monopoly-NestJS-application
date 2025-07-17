@@ -1,17 +1,21 @@
-import { BadRequestException, ForbiddenException, InternalServerErrorException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
+import { InternalServerErrorException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
 import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
-import { GamesService } from "../games/games.service";
 import { SocketWithSession } from "./interfaces/socket-with-session.interface";
 import { ErrorTypes } from "./constants/error-types";
 import { WsAuthGuard } from "./guards/wsAuth.guard";
 import { PregameGateway } from "./pregame.gateway";
-import { RemovePlayer } from "./dto/game/remove-player.dto";
-import { PlayersService } from "../players/players.service";
-import { RemovePlayerSocket } from "./dto/game/remove-player-socket.dto";
 import { UsersService } from "../users/users.service";
-import { GameTurnsService } from "../game-turns/game-turns.service";
+import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
+import { GamesService } from "../games/games.service";
+import { Game } from "src/models/game.model";
+import { User } from "src/models/user.model";
+import { Player } from "src/models/player.model";
+import { formatPlayer } from "./formatters/games/player";
+import { formatCommonGame, formatGameWithPlayers } from "./formatters/games/game";
+import { formatGameTurn } from "./formatters/games/game-turn";
+import { GameTurn } from "src/models/game-turn.model";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -23,11 +27,10 @@ import { GameTurnsService } from "../game-turns/game-turns.service";
 })
 export class GamesGateway implements OnGatewayConnection {
     constructor(
+        private readonly pregameGateway: PregameGateway,
         private readonly usersService: UsersService,
         private readonly gamesService: GamesService,
-        private readonly gameTurnsService: GameTurnsService,
-        private readonly playersService: PlayersService,
-        private readonly pregameGamteway: PregameGateway
+        private readonly pregameRoomsService: PregameRoomsService
     ) { }
 
     private turnTimers: Map<string, NodeJS.Timeout> = new Map()
@@ -43,13 +46,26 @@ export class GamesGateway implements OnGatewayConnection {
         return exctractedUserId
     }
 
-    private async findSocketById(userId: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
+    private async findSocketByUser(userId: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
         const allSockets = await this.server.fetchSockets()
         return allSockets.find(socket => socket.data.userId === userId)
     }
 
-    async removeSocketFromRooms(dto: RemovePlayerSocket): Promise<void> {
-        const foundSocket = await this.findSocketById(dto.playerId)
+    private async findSocketsByUsers(usersIds: string[]): Promise<RemoteSocket<DefaultEventsMap, any>[] | undefined> {
+        const allSockets = await this.server.fetchSockets()
+        return allSockets.filter(socket => usersIds.includes(socket.data.userId))
+    }
+
+    private async addSocketsToRoom(usersIds: string[], roomId: string): Promise<void> {
+        const sockets = await this.findSocketsByUsers(usersIds)
+        if (!sockets) throw new NotFoundException(`Failed to add sockets to game room. Sockets not found`)
+        sockets.forEach(socket => {
+            socket.join(roomId)
+        })
+    }
+
+    async removeSocketFromRooms(userId: string): Promise<void> {
+        const foundSocket = await this.findSocketByUser(userId)
         if (!foundSocket) throw new WsException({
             errorType: ErrorTypes.Internal,
             message: `Socket not found.`
@@ -59,149 +75,67 @@ export class GamesGateway implements OnGatewayConnection {
         allSocketRooms.forEach(room => foundSocket.leave(room))
     }
 
-    async joinSocketsToGame(gameId: string): Promise<void> {
-        const [gameUsers] = await Promise.all([
-            this.usersService.findGameUsers(gameId)
-        ])
+    private async turnTimeout(gameTurn: GameTurn, currentPlayer: Player): Promise<void> {
+        const nextTurnOwnerPlayer = await this.gamesService.getNextPlayer(currentPlayer)
+        const setGameTurn = await this.gamesService.setTurn(gameTurn, nextTurnOwnerPlayer)
 
-        const gameSockets = await Promise.all(
-            gameUsers.map(async (user) => {
-                return this.findSocketById(user.id)
-            })
-        )
-
-        gameSockets.map(socket => socket?.join(gameId))
+        this.startTurnTimer(setGameTurn.gameTurn, setGameTurn.owner)
     }
 
-    private async turnTimeout(gameId: string, playerId: string) {
-        const nextTurnOwner = await this.gamesService.nextTurn({
-            playerId,
-            gameId
-        })
-
-        this.startTurn(gameId, nextTurnOwner.id)
-    }
-
-    private async startTurn(gameId: string, playerId: string) {
-        this.clearTurnTimer(gameId)
-
-        const receivedPlayer = await this.playersService.getPlayer(playerId)
-        const formattedPlayer = await this.playersService.formatPlayer(receivedPlayer)
+    private async startTurnTimer(gameTurn: GameTurn, player: Player) {
+        this.removeTurnTimer(gameTurn)
 
         const turnTimer = setTimeout(() => {
-            this.turnTimeout(gameId, playerId)
-        }, 60 * 1000)
+            this.turnTimeout(gameTurn, player)
+        }, gameTurn.expires * 1000)
 
-        this.turnTimers.set(gameId, turnTimer)
+        this.turnTimers.set(gameTurn.id, turnTimer)
 
-        this.server.to(gameId).emit('games', {
-            event: 'next-turn',
-            turnOwner: formattedPlayer
+        const turnOwnerUser = await this.usersService.getOrThrow(player.userId)
+        this.server.to(gameTurn.gameId).emit('games', {
+            event: 'new-game-turn',
+            gameTurn: formatGameTurn(gameTurn, formatPlayer(player, turnOwnerUser)) 
         })
     }
 
-    private clearTurnTimer(gameId: string) {
-        const turnTimer = this.turnTimers.get(gameId)
-        clearTimeout(turnTimer)
-        this.turnTimers.delete(gameId)
+    private removeTurnTimer(gameTurn: GameTurn): void {
+        const turnTimer = this.turnTimers.get(gameTurn.id)
+        if (turnTimer) this.turnTimers.delete(gameTurn.id)
     }
 
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
-        if (!userId) {
-            socket.disconnect()
-            return
-        }
-
-        const foundGame = await this.gamesService.findGameByUser(userId)
-        if (!foundGame) return
-        else socket.join(foundGame.id)
-    }
-
-    async removePlayer(dto: RemovePlayer): Promise<void> {
-        const foundPlayer = await this.playersService.findPlayer(dto.playerId)
-        if (!foundPlayer) throw new NotFoundException(`Failed to remove. Player not found`)
-
-        const playerGame = await this.gamesService.getGame(foundPlayer.gameId)
-
-        await Promise.all([
-            this.playersService.destroyPlayer({
-                playerId: foundPlayer.id
-            }),
-            this.removeSocketFromRooms({
-                playerId: foundPlayer.id
-            })
-        ])
-
-        this.server.emit('games', {
-            event: 'remove',
-            removedPlayer: foundPlayer,
-            game: playerGame
-        })
+        if (!userId) return
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('start')
-    async startGame(@ConnectedSocket() socket: SocketWithSession) {
+    async startGame(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
+        const pregameRoom = await this.pregameRoomsService.findByUser(userId)
 
-        const newGame = await this.gamesService.initGame({
-            userId: userId
-        })
+        const newGame = await this.gamesService.initGame(userId)
 
-        await Promise.all(
+        const playersUsersIds = newGame.players.map(player => player.userId)
+        await Promise.all([
+            this.addSocketsToRoom(playersUsersIds, newGame.game.id),
+            pregameRoom ? await this.pregameGateway.removePregameRoom(pregameRoom) : null
+        ])
+
+        const formattedPlayers = await Promise.all(
             newGame.players.map(async (player) => {
-                const userId = player.user ? player.user.id : null
-                if (!userId) return
-                await this.pregameGamteway.removeSocketFromRooms({
-                    userId
-                })
+                const playerUser = await this.usersService.getOrThrow(player.userId)
+                return formatPlayer(player, playerUser)
             })
         )
 
-        await this.joinSocketsToGame(newGame.game.id)
-
-        this.server.emit('games', {
-            event: 'start',
-            newGame
+        const formattedGameWithPlayers = formatGameWithPlayers(newGame.game, formattedPlayers) 
+        this.server.emit('games',{
+            event: 'new-game',
+            game: formattedGameWithPlayers
         })
 
-        const gameTurn = await this.gameTurnsService.getTurnByGame(newGame.game.id)
-        const firstTurnOwner = await this.playersService.getPlayer(gameTurn.playerId)
-
-        this.startTurn(newGame.game.id, firstTurnOwner.id)
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('move')
-    async makeMove(
-        @ConnectedSocket() socket: SocketWithSession
-    ) {
-        const userId = this.extractUserId(socket)
-
-        const [userAsPlayer, foundGame] = await Promise.all([
-            this.playersService.findPlayerByUser(userId),
-            this.gamesService.findGameByUser(userId),
-        ])
-        if (!userAsPlayer || !foundGame) throw new BadRequestException(`User not in the game.`)
-
-        const moveResult = await this.gamesService.makeMove({
-            playerId: userAsPlayer.id,
-            gameId: foundGame.id
-        })
-
-        this.server.to(foundGame.id).emit('games', {
-            event: 'move',
-            moveResult,
-        })
-
-        if (moveResult.thrownDices.isDouble !== true) {
-            const newTurnOwner = await this.gamesService.nextTurn({
-                gameId: foundGame.id,
-                playerId: userAsPlayer.id
-            })
-
-            this.startTurn(foundGame.id, newTurnOwner.id)
-        }
+        const gameTurnWithOwner = await this.gamesService.getTurnWithPlayer(newGame.game)
+        this.startTurnTimer(gameTurnWithOwner.gameTurn, gameTurnWithOwner.player)
     }
 }
