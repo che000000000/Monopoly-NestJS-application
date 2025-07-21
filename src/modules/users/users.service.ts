@@ -45,10 +45,10 @@ export class UsersService {
         return affectedCount
     }
 
-    async updateGameId(dto: UpdateGameIdDto): Promise<number> {
+    async updateGameId(userId: string, gameId: string | null): Promise<number> {
         const [affectedCount] = await this.usersRepository.update(
-            { gameId: dto.gameId },
-            { where: { id: dto.userId } }
+            { gameId },
+            { where: { id: userId } }
         )
         return affectedCount
     }
