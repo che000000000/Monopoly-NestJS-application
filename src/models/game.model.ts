@@ -16,6 +16,12 @@ export class Game extends Model {
     })
     declare id: string
 
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false
+    })
+    declare playersSize: number
+
     @ForeignKey(() => Chat)
     @Column({
         type: DataType.UUID,
