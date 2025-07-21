@@ -10,7 +10,6 @@ import { UsersService } from "../users/users.service";
 import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
 import { GamesService } from "../games/games.service";
 import { Game } from "src/models/game.model";
-import { User } from "src/models/user.model";
 import { Player } from "src/models/player.model";
 import { formatPlayer } from "./formatters/games/player";
 import { formatCommonGame, formatGameWithPlayers } from "./formatters/games/game";
@@ -76,10 +75,22 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     private async turnTimeout(gameTurn: GameTurn, currentPlayer: Player): Promise<void> {
-        const nextTurnOwnerPlayer = await this.gamesService.getNextPlayer(currentPlayer)
+        const [game, nextTurnOwnerPlayer] = await Promise.all([
+            this.gamesService.getOrThrow(gameTurn.gameId),
+            this.gamesService.getNextPlayer(currentPlayer)
+        ])
+
         const setGameTurn = await this.gamesService.setTurn(gameTurn, nextTurnOwnerPlayer)
 
-        this.startTurnTimer(setGameTurn.gameTurn, setGameTurn.owner)
+        await this.removePlayer(currentPlayer, 'Turn timeout.')
+
+        const remainingPlayers = await this.gamesService.getGamePlayers(game)
+        if (remainingPlayers.length < 2) {
+            this.endGame(game)
+            this.removeTurnTimer(gameTurn)
+        } else {
+            this.startTurnTimer(setGameTurn.gameTurn, setGameTurn.owner)
+        }
     }
 
     private async startTurnTimer(gameTurn: GameTurn, player: Player) {
@@ -94,7 +105,7 @@ export class GamesGateway implements OnGatewayConnection {
         const turnOwnerUser = await this.usersService.getOrThrow(player.userId)
         this.server.to(gameTurn.gameId).emit('games', {
             event: 'new-game-turn',
-            gameTurn: formatGameTurn(gameTurn, formatPlayer(player, turnOwnerUser)) 
+            gameTurn: formatGameTurn(gameTurn, formatPlayer(player, turnOwnerUser))
         })
     }
 
@@ -106,6 +117,37 @@ export class GamesGateway implements OnGatewayConnection {
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
         if (!userId) return
+    }
+
+    async removePlayer(player: Player, reason: string): Promise<Player> {
+        const [playerAsUser, game] = await Promise.all([
+            this.usersService.getOrThrow(player.userId),
+            this.gamesService.getOrThrow(player.gameId),
+            this.gamesService.removePlayerFromGame(player),
+            this.removeSocketFromRooms(player.userId)
+        ])
+
+        this.server.emit('games', {
+            event: 'left-user',
+            leftPlayer: formatPlayer(player, playerAsUser),
+            from: formatCommonGame(game),
+            reason
+        })
+
+        return player
+    }
+
+    async endGame(game: Game): Promise<Player> {
+        const winnerPlayer = await this.gamesService.endGame(game)
+        const winnerPlayerAsUser = await this.usersService.getOrThrow(winnerPlayer.userId)
+
+        this.server.emit('games', {
+            event: 'game-end',
+            game: formatCommonGame(game),
+            winner: formatPlayer(winnerPlayer, winnerPlayerAsUser)
+        })
+
+        return winnerPlayer
     }
 
     @UseGuards(WsAuthGuard)
@@ -129,8 +171,8 @@ export class GamesGateway implements OnGatewayConnection {
             })
         )
 
-        const formattedGameWithPlayers = formatGameWithPlayers(newGame.game, formattedPlayers) 
-        this.server.emit('games',{
+        const formattedGameWithPlayers = formatGameWithPlayers(newGame.game, formattedPlayers)
+        this.server.emit('games', {
             event: 'new-game',
             game: formattedGameWithPlayers
         })

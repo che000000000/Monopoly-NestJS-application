@@ -56,7 +56,7 @@ export class GamesService {
         const newPlayer = await this.playersService.create(gameId, user.id, fieldId, turnNumber)
         if (!newPlayer) throw new InternalServerErrorException(`Failed to create player.`)
 
-        await this.usersService.updateGameId({ userId: user.id, gameId: gameId })
+        await this.usersService.updateGameId( user.id, gameId )
         return newPlayer
     }
 
@@ -108,6 +108,10 @@ export class GamesService {
         }
     }
 
+    async removeGame(game: Game): Promise<void> {
+        await this.chatsService.destroy(game.chatId)
+    }
+
     async getTurnWithPlayer(game: Game): Promise<{gameTurn: GameTurn, player: Player}> {
         const gameTurn = await this.gameTurnsService.getByGameOrThrow(game)
         const turnOwnerPlayer = await this.playersService.getOrThrow(gameTurn.playerId)
@@ -143,5 +147,26 @@ export class GamesService {
             gameTurn: updatedGameTurn,
             owner: player
         }
+    }
+
+    async removePlayerFromGame(player: Player): Promise<void> {
+        await Promise.all([
+            this.playersService.dstroy(player.id),
+            this.usersService.updateGameId(player.userId, null)
+        ])
+    }
+
+    async getGamePlayers(game: Game): Promise<Player[]> {
+        return await this.playersService.findPlayersByGame(game)
+    }
+
+    async endGame(game: Game): Promise<Player> {
+        const remainingPlayers = await this.getGamePlayers(game)
+        if (remainingPlayers.length !== 1) throw new InternalServerErrorException(`Failed to end game. Remaineng players doesn't match.`)
+
+        const winnerPlayer = remainingPlayers[0]
+
+        await this.removeGame(game)
+        return winnerPlayer
     }
 }

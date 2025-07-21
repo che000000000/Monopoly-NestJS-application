@@ -47,4 +47,8 @@ export class PlayersService {
             balance: 1500,
         })
     }
+
+    async dstroy(playerId: string): Promise<number> {
+        return await this.playersRepository.destroy({ where: { id: playerId } })
+    }
 }
