@@ -7,6 +7,7 @@ export function formatPlayer(player: Player, user: User): FormattedPlayer {
         id: player.id,
         name: user.name,
         avatarUrl: user.avatarUrl,
-        role: user.role
+        role: user.role,
+        balance: player.balance
     }
 }

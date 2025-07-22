@@ -19,8 +19,12 @@ export class PlayersService {
         return await this.playersRepository.findOne({ where: { id: playerId } })
     }
 
-    async findPlayersByGame(game: Game): Promise<Player[]> {
-        return await this.playersRepository.findAll({ where: { gameId: game.id } })
+    async findByUserId(userId: string): Promise<Player | null> {
+        return await this.playersRepository.findOne({ where: { userId } })
+    }
+
+    async findPlayersByGameId(gameId: string): Promise<Player[]> {
+        return await this.playersRepository.findAll({ where: { gameId } })
     }
 
     async findPlayerByTurn(gameId: string, turnNumber: string): Promise<Player | null> {
@@ -50,5 +54,23 @@ export class PlayersService {
 
     async dstroy(playerId: string): Promise<number> {
         return await this.playersRepository.destroy({ where: { id: playerId } })
+    }
+
+    async updateFieldId(playerId: string, fieldId: string): Promise<Player | null> {
+        const [affectedCount] = await this.playersRepository.update(
+            { fieldId },
+            { where: { id: playerId } }
+        )
+        if (affectedCount !== 0) return await this.getOrThrow(playerId)
+        else return null
+    }
+
+    async updateBalance(playerId: string, balance: number): Promise<Player | null> {
+        const [affectedCount] = await this.playersRepository.update(
+            { balance },
+            { where: { id: playerId } }
+        )
+        if(affectedCount !== 0) return await this.getOrThrow(playerId)
+        else return null
     }
 }

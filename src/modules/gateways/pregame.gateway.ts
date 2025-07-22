@@ -130,7 +130,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         )
 
         socket.emit('pregame', {
-            event: 'pregame-room-messages-page',
+            event: 'messages-page',
             messagesPage: convertedMessagesPage,
             totalCount: messagesPage.totalCount
         })
@@ -148,7 +148,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         socket.join(newPregameRoom.id)
 
         this.server.emit('pregame', {
-            event: 'create-pregame-room',
+            event: 'create',
             newPregameRoom: {
                 id: newPregameRoom.id,
                 members: [formatPregameRoomMember(receivedUser, newPregameRoom)],
@@ -173,7 +173,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         socket.leave(pregameRoom.id)
 
         this.server.emit('pregame', {
-            event: 'left-user',
+            event: 'left',
             pregameRoom: formatCommonPregameRoom(pregameRoom),
             leftUser: formatPregameRoomMember(user, pregameRoom)
         })
@@ -183,7 +183,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
             await this.pregameRoomsService.removeRoom(pregameRoom)
 
             this.server.emit('pregame', {
-                event: 'remove-pregame-room',
+                event: 'remove',
                 pregameRoom: formatCommonPregameRoom(pregameRoom)
             })
 
@@ -194,7 +194,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
             const newOwner = await this.pregameRoomsService.chooseNewOwner(pregameRoom)
 
             this.server.emit('pregame', {
-                event: 'new-pregame-room-owner',
+                event: 'new-owner',
                 pregameRoom: formatCommonPregameRoom(pregameRoom),
                 newOwner: formatPregameRoomMember(newOwner, pregameRoom)
             })
@@ -220,7 +220,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         socket.join(pregameRoom.id)
         
         this.server.emit('pregame', {
-            event: 'joined-user',
+            event: 'join',
             pregameRoom: formatCommonPregameRoom(pregameRoom),
             joinedUser: formatPregameRoomMember(user, pregameRoom)
         })
@@ -248,12 +248,12 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
         await this.pregameRoomsService.removeUserFromRoom(kickedUser, pregameRoom)
 
         this.server.except(pregameRoom.id).emit('pregame', {
-            event: 'left-user',
+            event: 'left',
             pregameRoom: formatCommonPregameRoom(pregameRoom),
             leftUser: formatPregameRoomMember(kickedUser, pregameRoom)
         })
         this.server.to(pregameRoom.id).emit('pregame', {
-            event: 'kick-user',
+            event: 'kick',
             pregameRoom: formatCommonPregameRoom(pregameRoom),
             leftUser: formatPregameRoomMember(kickedUser, pregameRoom)
         })
@@ -275,7 +275,7 @@ export class PregameGateway implements OnGatewayConnection, OnGatewayDisconnect 
 
         const newMessage = await this.pregameRoomsService.sendMessage(user, pregameRoom, dto.messageText)
         this.server.to(pregameRoom.id).emit('pregame', {
-            event: 'send-message',
+            event: 'new-message',
             newMessage: formatPregameRoomMessage(user, pregameRoom, newMessage)
         })
     }

@@ -12,8 +12,8 @@ import { GameTurnsModule } from "../game-turns/game-turns.module";
         UsersModule,
         PregameRoomsModule,
         GamesModule,
-        GameTurnsModule,
-        PlayersModule
+        PlayersModule,
+        GameTurnsModule
     ],
     providers: [PregameGateway, GamesGateway],
     exports: [PregameGateway, GamesGateway]

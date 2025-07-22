@@ -52,6 +52,27 @@ export class GamesService {
         })
     }
 
+    private throwDices(): {dices: number[], summ: number, isDouble: boolean} {
+        const maxDicesValue = 6
+        const dicesCount = 2
+
+        let dices: number[] = []
+        let summ: number = 0
+        
+        for(let i = 0; i < dicesCount; i++) {
+            dices[i] = Math.floor(Math.random() * maxDicesValue) + 1
+        }
+        for(let i = 0; i < dicesCount; i++) {
+            summ += dices[i]
+        }
+
+        return {
+            dices,
+            summ,
+            isDouble: dices[0] === dices[1] ? true : false 
+        }
+    }
+
     private async createPlayerForGame(gameId: string, user: User, fieldId: string, turnNumber: number): Promise<Player> {
         const newPlayer = await this.playersService.create(gameId, user.id, fieldId, turnNumber)
         if (!newPlayer) throw new InternalServerErrorException(`Failed to create player.`)
@@ -71,7 +92,7 @@ export class GamesService {
         if(players.length === 0) throw new InternalServerErrorException(`Failed to define turn. Players not defined.`)
 
         const turnOwner = await this.getRandomPlayer(players)
-        return this.gameTurnsService.create(game.id, turnOwner.id, 15)
+        return this.gameTurnsService.create(game.id, turnOwner.id, 30)
     }
 
     private async createPlayersForNewGame(pregameRoomUsers: User[], game: Game, gameField: GameField): Promise<Player[]> {
@@ -88,8 +109,7 @@ export class GamesService {
 
     async initGame(userId: string): Promise<{ game: Game, players: Player[] }> {
         const pregameRoom = await this.pregamesRoomsService.findByUser(userId)
-        if (!pregameRoom) throw new BadRequestException(`Failed to create game. User isn't in the pregame room.`)
-        if (pregameRoom.ownerId !== userId) throw new ForbiddenException(`Failed to create game. User isn't owner of the pregame room.`)
+        if (!pregameRoom) throw new NotFoundException(`Failed to init game. Pregame room not found.`)
 
         const pregameRoomUsers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
         if (pregameRoomUsers.length < 2) throw new BadRequestException(`Failed to create game. Minimum 2 users required`)
@@ -123,7 +143,7 @@ export class GamesService {
 
     async getNextPlayer(currentPlayer: Player): Promise<Player> {
         const receivedGame = await this.getOrThrow(currentPlayer.gameId)
-        const players = await this.playersService.findPlayersByGame(receivedGame)
+        const players = await this.playersService.findPlayersByGameId(receivedGame.id)
         if (players.length <= 1) throw new InternalServerErrorException(`Failed to define next player. Game players not found or remained one player.`)
 
         const sortedPlayers = [...players].sort((a, b) => a.turnNumber - b.turnNumber)
@@ -157,7 +177,7 @@ export class GamesService {
     }
 
     async getGamePlayers(game: Game): Promise<Player[]> {
-        return await this.playersService.findPlayersByGame(game)
+        return await this.playersService.findPlayersByGameId(game.id)
     }
 
     async endGame(game: Game): Promise<Player> {
@@ -168,5 +188,34 @@ export class GamesService {
 
         await this.removeGame(game)
         return winnerPlayer
+    }
+
+    async movePlayer(player: Player): Promise<{player: Player, gameField: GameField, dices: number[], summ: number, isDouble: boolean}> {
+        const thrownDices = this.throwDices()
+
+        const [game, currentPlayerField] = await Promise.all([
+            this.getOrThrow(player.gameId),
+            this.gameFieldsService.getOrThrow(player.fieldId)
+        ])
+
+        let newPlayerPosition = currentPlayerField.position + thrownDices.summ
+        let balancePlayer
+        if(newPlayerPosition > 40) {
+            newPlayerPosition = newPlayerPosition - 40
+            balancePlayer = await this.playersService.updateBalance(player.id, player.balance + 200)
+        }
+
+        
+        const newPlayerField = await this.gameFieldsService.getByPositionOrThrow(game, newPlayerPosition)
+        const updatedPlayer = await this.playersService.updateFieldId(player.id, newPlayerField.id)
+        if (!updatedPlayer) throw new InternalServerErrorException(`Failed to update player filed.`)
+        
+        return {
+            player: updatedPlayer,
+            gameField: newPlayerField,
+            dices: thrownDices.dices,
+            summ: thrownDices.summ,
+            isDouble: thrownDices.isDouble
+        }
     }
 }
