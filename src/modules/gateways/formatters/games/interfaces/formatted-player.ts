@@ -4,5 +4,6 @@ export interface FormattedPlayer {
     id: string,
     name: string,
     avatarUrl: string | null,
-    role: UserRole
+    role: UserRole,
+    balance: number
 }

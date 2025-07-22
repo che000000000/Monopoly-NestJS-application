@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { GameField } from 'src/models/game-field.model';
 import { gameFieldsData } from './data/game-fields'
 import { CreateFieldDto } from './dto/create-field.dto';
+import { Game } from 'src/models/game.model';
 
 @Injectable()
 export class GameFieldsService {
@@ -14,9 +15,24 @@ export class GameFieldsService {
         return await this.gameFieldsRepository.findOne({ where: { id: gameFieldId } })
     }
 
+    async findByPosition(game: Game, position: number): Promise<GameField | null> {
+        return await this.gameFieldsRepository.findOne({
+            where: {
+                gameId: game.id,
+                position
+            }
+        })
+    }
+
     async getOrThrow(gameFieldId: string): Promise<GameField> {
         const gameField = await this.find(gameFieldId)
         if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)
+        return gameField
+    }
+
+    async getByPositionOrThrow(game: Game, position: number): Promise<GameField> {
+        const gameField = await this.findByPosition(game, position)
+        if (!gameField) throw new NotFoundException(`Failed to get game fiedl by position.`)
         return gameField
     }
 
