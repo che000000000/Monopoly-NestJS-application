@@ -29,6 +29,7 @@ export class OauthService {
         if (!userExists) {
             await this.usersService.createUser({
                 email: dto.email,
+                name: dto.name,
                 authMethod: AuthMethod.GOOGLE
             })
         }

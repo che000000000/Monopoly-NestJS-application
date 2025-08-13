@@ -5,6 +5,10 @@ export class CreateUserDto {
     @IsNotEmpty({ message: 'email is not received' })
     email: string
 
+    @IsString({ message: 'name should be string' })
+    @IsNotEmpty({ message: 'name is not received' })
+    name: string
+
     @IsString({ message: 'password should be string' })
     @IsOptional()
     password?: string | null

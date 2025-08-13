@@ -53,6 +53,6 @@ export class AuthController {
 
         await this.oauthService.oauthRegister(req, oauthData)
 
-        return  res.redirect(`http://localhost:7507`)
+        return res.redirect(`http://localhost:3000`)
     }
 }
