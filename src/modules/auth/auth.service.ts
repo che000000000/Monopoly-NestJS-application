@@ -6,6 +6,8 @@ import { Request, Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { formatUser } from './formatters/user';
+import { FormattedUser } from './formatters/interfaces/user';
 
 @Injectable()
 export class AuthService {
@@ -18,24 +20,24 @@ export class AuthService {
         if (dto.password !== dto.repeatPassword) throw new BadRequestException(`Passwords don't match.`)
         const foundUser = await this.usersService.findByEmail(dto.email)
         if (foundUser) throw new BadRequestException(`This email is using already.`)
-            
+
         await this.usersService.createUser({
             email: dto.email,
-            name: dto.name,
             password: dto.password,
-            avatarUrl: dto.avatarUrl,
             authMethod: AuthMethod.CREDENTIALS
         })
     }
 
-    async login(req: Request, dto: LoginDto): Promise<void> {
+    async login(req: Request, dto: LoginDto): Promise<FormattedUser> {
         const foundUser = await this.usersService.findByEmail(dto.email)
-        if (!foundUser || !foundUser.password) throw new NotFoundException('Incorrect email or password')
 
+        if (!foundUser) throw new NotFoundException('Incorrect email or password.')
+        if (foundUser?.authMethod === AuthMethod.GOOGLE && !foundUser.password ) throw new BadRequestException('Failed to login. Wrong auth method.')
         const isValidPassword = await bcrypt.compare(dto.password, foundUser.password)
-        if (!isValidPassword) throw new NotFoundException('Incorrect email or password')
+        if (!isValidPassword) throw new NotFoundException('Incorrect email or password.')
 
         await this.saveSession(req, foundUser)
+        return formatUser(foundUser)
     }
 
     async logout(req: Request, res: Response): Promise<void> {

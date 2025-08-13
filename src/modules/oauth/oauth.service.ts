@@ -6,6 +6,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { OauthRegisterDto } from './dto/oauthRegister.dto';
 import { AuthService } from '../auth/auth.service';
 import { Request } from 'express';
+import { AuthMethod } from 'src/models/user.model';
 
 @Injectable()
 export class OauthService {
@@ -24,12 +25,11 @@ export class OauthService {
 
     async oauthRegister(req: Request, dto: OauthRegisterDto) {
         const userExists = await this.usersService.findByEmail(dto.email)
+
         if (!userExists) {
             await this.usersService.createUser({
                 email: dto.email,
-                name: dto.name,
-                avatarUrl: dto.picture,
-                authMethod: dto.provider
+                authMethod: AuthMethod.GOOGLE
             })
         }
 
