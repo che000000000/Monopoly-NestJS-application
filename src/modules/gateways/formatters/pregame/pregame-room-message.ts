@@ -11,4 +11,4 @@ export function formatPregameRoomMessage(user: User | null, pregameRoom: Pregame
         sender: user ? formatPregameRoomMember(user, pregameRoom) : null,
         createdAt: message.createdAt
     }
-}
+}  

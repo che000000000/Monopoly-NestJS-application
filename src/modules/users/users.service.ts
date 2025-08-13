@@ -77,9 +77,9 @@ export class UsersService {
 
         return await this.usersRepository.create({
             email: dto.email,
-            name: dto.name,
+            name: dto.email,
             password: dto.password ? await bcrypt.hash(dto.password, 10) : null,
-            avatarUrl: dto.avatarUrl,
+            avatarUrl: null,
             role: UserRole.REGULAR,
             authMethod: dto.authMethod
         })

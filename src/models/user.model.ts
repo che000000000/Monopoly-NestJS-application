@@ -45,9 +45,8 @@ export class User extends Model {
         type: DataType.STRING,
         allowNull: true,
         defaultValue: null,
-        field: 'password'
     })
-    declare password: string
+    declare password: string | null
 
     @Column({
         type: DataType.STRING,
