@@ -23,6 +23,7 @@ export class AuthService {
 
         await this.usersService.createUser({
             email: dto.email,
+            name: 'unnamed',
             password: dto.password,
             authMethod: AuthMethod.CREDENTIALS
         })
