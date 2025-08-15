@@ -30,6 +30,7 @@ export class OauthService {
             await this.usersService.createUser({
                 email: dto.email,
                 name: dto.name,
+                avatarUrl: dto.picture,
                 authMethod: AuthMethod.GOOGLE
             })
         }
