@@ -24,6 +24,9 @@ import { Player } from 'src/models/player.model';
 import { PlayersModule } from '../players/players.module';
 import { GameTurn } from 'src/models/game-turn.model';
 import { GameField } from 'src/models/game-field.model';
+import { PregameRoomMember } from 'src/models/pregame-room-member.model';
+import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
+import { DataFormatterModule } from '../data-formatter/data-formatter.module';
 
 @Module({
   imports: [
@@ -53,17 +56,19 @@ import { GameField } from 'src/models/game-field.model';
           logging: false,
           models: [
             User, Account, Token,
-            PregameRoom, Chat, Message,
-            ChatMember, Game, Player,
-            GameTurn, GameField
+            PregameRoom, PregameRoomMember,
+            Chat, Message, ChatMember,
+            Game, Player, GameTurn,
+            GameField
           ]
         }
       }
     }),
     RedisModule, AuthModule, AccountsModule,
-    UsersModule, PregameRoomsModule, GatewaysModule,
-    ChatsModule, ChatMembersModule, MessagesModule, 
-    GamesModule, PlayersModule
+    UsersModule, PregameRoomsModule, PregameRoomMembersModule,
+    GatewaysModule, ChatsModule, ChatMembersModule,
+    MessagesModule, GamesModule, PlayersModule,
+    DataFormatterModule
   ],
 })
 export class AppModule { }

@@ -10,7 +10,7 @@ export enum FieldType {
     CHANCE = 'CHANCE',
     COMMUNITY_CHEST = 'COMMUNITY_CHEST',
     TAX = 'TAX',
-    JAIL = 'JAIL',
+    JUST_VISITING = 'JUST_VISITING',
     GO_TO_JAIL = 'GO_TO_JAIL',
     FREE_PARKING = 'FREE_PARKING',
     GO = 'GO'
@@ -27,7 +27,7 @@ export enum FieldColor {
     BLUE = 'BLUE'
 }
 
-@Table({tableName: 'gameFields'})
+@Table({tableName: 'GameFields'})
 export class GameField extends Model {
     @PrimaryKey
     @Column({

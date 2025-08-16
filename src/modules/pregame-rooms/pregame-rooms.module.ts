@@ -6,10 +6,12 @@ import { UsersModule } from '../users/users.module';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
 import { MessagesModule } from '../messages/messages.module';
+import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
 
 @Module({
     imports: [
         SequelizeModule.forFeature([PregameRoom]),
+        PregameRoomMembersModule,
         UsersModule,
         ChatsModule,
         ChatMembersModule,

@@ -12,7 +12,7 @@ export class AuthGuard implements CanActivate {
             throw new UnauthorizedException('User not authorized.')
         }
 
-        const foundUser = await this.usersService.find(request.session.userId)
+        const foundUser = await this.usersService.findOne(request.session.userId)
         if(!foundUser) throw new UnauthorizedException(`Can't find user.`)
 
         request.user = foundUser

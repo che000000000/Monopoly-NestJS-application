@@ -1,7 +1,11 @@
-import { IsNotEmpty, IsUUID } from "class-validator";
+import { IsNotEmpty, IsNumber, IsUUID } from "class-validator";
 
 export class JoinPregameRoomDto {
     @IsUUID()
     @IsNotEmpty()
     pregameRoomId: string
+
+    @IsNumber()
+    @IsNotEmpty()
+    slot: number
 }
