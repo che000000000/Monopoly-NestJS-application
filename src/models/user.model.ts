@@ -1,11 +1,10 @@
-import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Account } from "./account.model";
-import { PregameRoom } from "./pregame-room.model";
 import { ChatMember } from "./chat-members";
 import { Message } from "./message.model";
-import { Game } from "./game.model";
 import { Player } from "./player.model";
+import { PregameRoomMember } from "./pregame-room-member.model";
 
 export enum UserRole {
     REGULAR = 'REGULAR',
@@ -82,20 +81,6 @@ export class User extends Model {
     })
     declare isTwoFactorEnabled: boolean
 
-    @ForeignKey(() => PregameRoom)
-    @Column({
-        type: DataType.UUID,
-        allowNull: true
-    })
-    declare pregameRoomId: string | null
-
-    @ForeignKey(() => Game)
-    @Column({
-        type: DataType.UUID,
-        allowNull: true
-    })
-    declare gameId: string | null
-
     @HasMany(() => ChatMember)
     chatMembers: ChatMember[]
 
@@ -105,8 +90,8 @@ export class User extends Model {
     @HasOne(() => Account)
     account: Account
 
-    @HasOne(() => PregameRoom)
-    owningRoom: PregameRoom
+    @HasOne(() => PregameRoomMember)
+    pregameRoomMember: PregameRoomMember
 
     @HasOne(() => Player)
     player: Player

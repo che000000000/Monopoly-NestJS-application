@@ -10,15 +10,15 @@ import { UpdateGameIdDto } from './dto/update-game-id.dto';
 export class UsersService {
     constructor(@InjectModel(User) private readonly usersRepository: typeof User) { }
 
-    async find(userId: string): Promise<User | null> {
+    async findOne(id: string): Promise<User | null> {
         return await this.usersRepository.findOne({
-            where: { id: userId },
+            where: { id },
             raw: true
         })
     }
 
     async getOrThrow(userId: string): Promise<User> {
-        const foundUser = await this.find(userId)
+        const foundUser = await this.findOne(userId)
         if(!foundUser) throw new BadRequestException(`User doesn't exist.`)
         return foundUser
     }
@@ -54,7 +54,7 @@ export class UsersService {
     }
 
     async getUserProfile(userId: string) {
-        const foundUser = await this.find(userId)
+        const foundUser = await this.findOne(userId)
         if (!foundUser) throw new BadRequestException('User not found.')
         return {
             id: foundUser.id,

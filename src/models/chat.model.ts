@@ -1,4 +1,4 @@
-import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Game } from "./game.model";
 import { PregameRoom } from "./pregame-room.model";
@@ -24,19 +24,27 @@ export class Chat extends Model {
 
     @Column({
         type: DataType.ENUM(...Object.values(TiedTo)),
-        allowNull: false,
+        allowNull: true,
     })
     declare tiedTo: TiedTo
+
+    @ForeignKey(() => PregameRoom)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    declare pregameRoomId: string
+
+    @ForeignKey(() => Game)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    declare gameId: string
 
     @HasMany(() => Message)
     messages: Message[]
 
     @HasMany(() => ChatMember)
     chatMembers: ChatMember[]
-
-    @HasOne(() => PregameRoom)
-    pregameRoom: PregameRoom
-
-    @HasOne(() => Game)
-    game: Game
 }

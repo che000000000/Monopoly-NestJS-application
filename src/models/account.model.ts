@@ -1,4 +1,4 @@
-import { Column, DataType, Default, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { User } from "./user.model";
 

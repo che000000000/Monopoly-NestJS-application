@@ -92,7 +92,7 @@ export const gameFieldsData = [
     rent: [8, 40, 100, 300, 450, 600]
   },
   {
-    type: FieldType.JAIL,
+    type: FieldType.JUST_VISITING,
     position: 11,
     name: "Тюрьма",
     basePrice: null,
