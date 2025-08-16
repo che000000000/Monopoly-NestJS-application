@@ -4,13 +4,15 @@ import { User } from 'src/models/user.model';
 import { IPregameRoomMember } from './interfaces/pregame-room-member';
 import { IPregameRoom } from './interfaces/pregame-room';
 import { PregameRoom } from 'src/models/pregame-room.model';
+import { PlayerChip } from 'src/models/player.model';
 
 @Injectable()
-export class ResponseFormatterService {
+export class DataFormatterService {
     formatPregameRoomMember(user: User | null, pregameRoomMember: PregameRoomMember): IPregameRoomMember {
         return {
             id: pregameRoomMember.id,
             slot: pregameRoomMember.slot,
+            playerChip: pregameRoomMember.playerChip,
             isOwner: pregameRoomMember.isOwner,
             user: user
                 ? {
@@ -24,10 +26,11 @@ export class ResponseFormatterService {
         }
     }
 
-    formatPregameRoom(pregameRoom: PregameRoom, pregameRoomMembers: IPregameRoomMember[]): IPregameRoom {
+    formatPregameRoom(pregameRoom: PregameRoom, pregameRoomMembers: IPregameRoomMember[], availableChips: PlayerChip[]): IPregameRoom {
         return {
             id: pregameRoom.id,
             members: pregameRoomMembers,
+            availableChips: availableChips,
             createdAt: pregameRoom.createdAt
         }
     }

@@ -12,8 +12,7 @@ import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
 import { SendMessageDto } from "./dto/pregame/send-message.dto";
 import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
 import { PregameRoomMembersService } from "../pregame-room-members/pregame-room-members.service";
-import { ResponseFormatterService } from "../response-formatter/response-formatter.service";
-import { error } from "console";
+import { DataFormatterService } from "../data-formatter/data-formatter.service";
 import { PregameRoomMember } from "src/models/pregame-room-member.model";
 
 @UseFilters(WsExceptionsFilter)
@@ -29,7 +28,7 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         private readonly pregameRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
         private readonly usersService: UsersService,
-        private readonly responseFormatterService: ResponseFormatterService
+        private readonly dataFormatterService: DataFormatterService
     ) { }
 
     @WebSocketServer()
@@ -103,17 +102,28 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         }
         const pregameRoomsPage = await this.pregameRoomsService.getPregameRoomsPage(options.pageNumber, options.pageSize)
 
-        // const convertedPregameRooms = await Promise.all(
-        //     pregameRoomsPage.page.map(async (pregameRoom) => {
-        //         const pregameRoomMembers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
-        //         return await formatPregameRoomWithMembers(pregameRoom, pregameRoomMembers)
-        //     })
-        // )
+        const foramttedPregameRooms = await Promise.all(
+            pregameRoomsPage.page.map(async (pregameRoom) => {
+                const [pregameRoomMembers, availableChips] = await Promise.all([
+                    this.pregameRoomMembersService.findAllByPregameRoomId(pregameRoom.id),
+                    this.pregameRoomsService.getAvailableChips(pregameRoom.id)
+                ])
 
-        // socket.emit('pregame-rooms-page', {
-        //     pregameRoomsList: convertedPregameRooms,
-        //     totalCount: pregameRoomsPage.totalCount
-        // })
+                const formattedPregameRoomMembers = await Promise.all(
+                    pregameRoomMembers.map(async (member: PregameRoomMember) => {
+                        const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
+                        return this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, member)
+                    })
+                )
+
+                return this.dataFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips)
+            })
+        )
+
+        socket.emit('pregame-rooms-page', {
+            pregameRoomsList: foramttedPregameRooms,
+            totalCount: pregameRoomsPage.totalCount
+        })
     }
 
     @UseGuards(WsAuthGuard)
@@ -124,7 +134,7 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        
+
     }
 
     @UseGuards(WsAuthGuard)
@@ -133,14 +143,15 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         const userId = this.extractUserId(socket)
 
         const initPregameRoom = await this.pregameRoomsService.init(userId)
-        const pregameRoomMemberAsUser = await this.usersService.getOrThrow(initPregameRoom.pregameRoomMember.userId)
+        const [pregameRoomMemberAsUser, availableChips] = await Promise.all([
+            this.usersService.getOrThrow(initPregameRoom.pregameRoomMember.userId),
+            this.pregameRoomsService.getAvailableChips(initPregameRoom.pregameRoom.id)
+        ])
+
+        const formattedPregameRoomMembers = [this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, initPregameRoom.pregameRoomMember)]
 
         this.server.emit('create-pregame-room', {
-            pregameRoom: {
-                id: initPregameRoom.pregameRoom.id,
-                members: [this.responseFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, initPregameRoom.pregameRoomMember)],
-                createdAt: initPregameRoom.pregameRoom.createdAt
-            }
+            pregameRoom: this.dataFormatterService.formatPregameRoom(initPregameRoom.pregameRoom, formattedPregameRoomMembers, availableChips)
         })
     }
 
@@ -159,23 +170,26 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
             this.pregameRoomMembersService.findAllByPregameRoomId(removedPregameRoomMember.pregameRoomId)
         ])
 
-        const pregameRoomMembersWithUsers = await Promise.all(
-            currentPregameRoomMembers.map(async (member: PregameRoomMember) => {
-                const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
-                return {
-                    user: pregameRoomMemberAsUser ? pregameRoomMemberAsUser : null,
-                    pregameRoomMember: member
-                }
-            })
-        )
+        const [pregameRoomMembersWithUsers, availableChips] = await Promise.all([
+            Promise.all(
+                currentPregameRoomMembers.map(async (member: PregameRoomMember) => {
+                    const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId);
+                    return {
+                        user: pregameRoomMemberAsUser ? pregameRoomMemberAsUser : null,
+                        pregameRoomMember: member
+                    };
+                })
+            ),
+            this.pregameRoomsService.getAvailableChips(pregameRoom.id)
+        ])
 
         const formattedPregameRoomMembers = pregameRoomMembersWithUsers.map(memberWithUser => (
-            this.responseFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
+            this.dataFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
         ))
 
         this.server.emit('leave-pregame-room', {
-            pregameRoom: this.responseFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers),
-            leftMember: this.responseFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, removedPregameRoomMember)
+            pregameRoom: this.dataFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips),
+            leftMember: this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, removedPregameRoomMember)
         })
     }
 
@@ -191,26 +205,30 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
 
         const [currentPregameRoomMembers, pregameRoom, user] = await Promise.all([
             this.pregameRoomMembersService.findAllByPregameRoomId(dto.pregameRoomId),
-            this.pregameRoomsService.findOne(dto.pregameRoomId),
+            this.pregameRoomsService.getOneOrThrow(dto.pregameRoomId),
             this.usersService.getOrThrow(userId)
         ])
 
-        const pregameRoomMembersWithUsers = await Promise.all(
-            currentPregameRoomMembers.map(async (member: PregameRoomMember) => {
-                const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
-                return {
-                    user: pregameRoomMemberAsUser ? pregameRoomMemberAsUser : null,
-                    pregameRoomMember: member
-                }
-            })
-        )
-
-        this.server.emit('join-pregame-room', {
-            pregameRoom: pregameRoom,
-            members: pregameRoomMembersWithUsers.map(memberWithUser =>
-                (this.responseFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember))
+        const [pregameRoomMembersWithUsers, availableChips] = await Promise.all([
+            await Promise.all(
+                currentPregameRoomMembers.map(async (member: PregameRoomMember) => {
+                    const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
+                    return {
+                        user: pregameRoomMemberAsUser ? pregameRoomMemberAsUser : null,
+                        pregameRoomMember: member
+                    }
+                })
             ),
-            joinedMember: this.responseFormatterService.formatPregameRoomMember(user, newPregameRoomMember)
+            this.pregameRoomsService.getAvailableChips(pregameRoom.id)
+        ])
+
+        const formattedMembers = pregameRoomMembersWithUsers.map(memberWithUser =>
+            (this.dataFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember))
+        )
+            
+        this.server.emit('join-pregame-room', {
+            pregameRoom: this.dataFormatterService.formatPregameRoom(pregameRoom, formattedMembers, availableChips),
+            joinedMember: this.dataFormatterService.formatPregameRoomMember(user, newPregameRoomMember)
         })
     }
 

@@ -26,7 +26,7 @@ import { GameTurn } from 'src/models/game-turn.model';
 import { GameField } from 'src/models/game-field.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
-import { ResponseFormatterModule } from '../response-formatter/response-formatter.module';
+import { DataFormatterModule } from '../data-formatter/data-formatter.module';
 
 @Module({
   imports: [
@@ -68,7 +68,7 @@ import { ResponseFormatterModule } from '../response-formatter/response-formatte
     UsersModule, PregameRoomsModule, PregameRoomMembersModule,
     GatewaysModule, ChatsModule, ChatMembersModule,
     MessagesModule, GamesModule, PlayersModule,
-    ResponseFormatterModule
+    DataFormatterModule
   ],
 })
 export class AppModule { }

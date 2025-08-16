@@ -7,7 +7,7 @@ import { GamesGateway } from "./games.gateway";
 import { PlayersModule } from "../players/players.module";
 import { GameTurnsModule } from "../game-turns/game-turns.module";
 import { PregameRoomMembersModule } from "../pregame-room-members/pregame-room-members.module";
-import { ResponseFormatterModule } from "../response-formatter/response-formatter.module";
+import { DataFormatterModule } from "../data-formatter/data-formatter.module";
 
 @Module({
     imports: [
@@ -17,7 +17,7 @@ import { ResponseFormatterModule } from "../response-formatter/response-formatte
         GamesModule,
         PlayersModule,
         GameTurnsModule,
-        ResponseFormatterModule
+        DataFormatterModule
     ],
     providers: [PregameRoomsGateway, GamesGateway],
     exports: [PregameRoomsGateway, GamesGateway]

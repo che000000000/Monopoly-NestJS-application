@@ -5,6 +5,14 @@ import { User } from "./user.model";
 import { GameTurn } from "./game-turn.model";
 import { GameField } from "./game-field.model";
 
+export enum PlayerChip {
+    CART = 'CART',
+    HAT = 'HAT',
+    IRON = 'IRON',
+    PENGUIN = 'PINGUIN',
+    THIMBLE = 'THIMBLE'
+}
+
 @Table({ tableName: 'Players' })
 export class Player extends Model {
     @PrimaryKey
@@ -20,6 +28,12 @@ export class Player extends Model {
         allowNull: false
     })
     declare turnNumber: number
+
+    @Column({
+        type: DataType.ENUM(...Object.values(PlayerChip)),
+        allowNull: false
+    })
+    declare playerChip: PlayerChip
 
     @Column({
         type: DataType.INTEGER,

@@ -2,6 +2,7 @@ import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequeliz
 import { v4 } from "uuid";
 import { User } from "./user.model";
 import { PregameRoom } from "./pregame-room.model";
+import { PlayerChip } from "./player.model";
 
 @Table({tableName: 'PregameRoomMembers'})
 export class PregameRoomMember extends Model {
@@ -18,6 +19,12 @@ export class PregameRoomMember extends Model {
         allowNull: false
     })
     declare slot: number
+
+    @Column({
+        type: DataType.ENUM(...Object.values(PlayerChip)),
+        allowNull: false
+    })
+    declare playerChip: PlayerChip
 
     @Column({
         type: DataType.BOOLEAN,

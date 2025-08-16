@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { PlayerChip } from 'src/models/player.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 
 @Injectable()
@@ -36,10 +37,13 @@ export class PregameRoomMembersService {
 
     async findOneBySlotAndPregameRoomId(slot: number, pregameRoomId: string): Promise<PregameRoomMember | null> {
         return await this.pregameRoomMembersRepository.findOne({
-            where: {
-                pregameRoomId,
-                slot
-            }
+            where: { pregameRoomId, slot }
+        })
+    }
+
+    async findOneByChipAndPregameRoomId(playerChip: PlayerChip, pregameRoomId: string): Promise<PregameRoomMember | null> {
+        return await this.pregameRoomMembersRepository.findOne({
+            where: { pregameRoomId, playerChip }
         })
     }
 
@@ -49,9 +53,9 @@ export class PregameRoomMembersService {
         return foundPregameRoomMember
     }
 
-    async create(pregameRoomId: string, userId: string, isOwner: boolean, slot: number): Promise<PregameRoomMember> {
+    async create(pregameRoomId: string, userId: string, isOwner: boolean, playerChip: PlayerChip, slot: number): Promise<PregameRoomMember> {
         try {
-            return await this.pregameRoomMembersRepository.create({ slot, isOwner, userId, pregameRoomId })
+            return await this.pregameRoomMembersRepository.create({ slot, playerChip, isOwner, userId, pregameRoomId })
         } catch (error) {
             console.error(`Sequelize error: ${error}`)
             throw new InternalServerErrorException(`Failed to create pregame room member.`)

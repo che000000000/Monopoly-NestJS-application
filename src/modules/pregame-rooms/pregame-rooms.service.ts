@@ -9,6 +9,7 @@ import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-
 import { Chat, TiedTo } from 'src/models/chat.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { ChatMember } from 'src/models/chat-members';
+import { PlayerChip } from 'src/models/player.model';
 @Injectable()
 export class PregameRoomsService {
     constructor(
@@ -31,7 +32,7 @@ export class PregameRoomsService {
         const foundRoom = await this.findOne(roomId)
         if (!foundRoom) {
             throw new NotFoundException(`Room doesn't exist.`)
-        } 
+        }
         return foundRoom
     }
 
@@ -62,6 +63,17 @@ export class PregameRoomsService {
         return await this.pregameRoomsRepository.count()
     }
 
+    async getAvailableChips(pregameRoomId: string): Promise<PlayerChip[]> {
+        const pregameRoom = await this.getOneOrThrow(pregameRoomId)
+        const pregameRoomMembers = await this.pregameRoomMembersService.findAllByPregameRoomId(pregameRoom.id)
+
+        const allChips = Object.values(PlayerChip)
+
+        return allChips.filter(
+            (chip: PlayerChip) => !pregameRoomMembers.some((member) => member.playerChip === chip)
+        )
+    }
+
     async getPregameRoomsPage(pageNumber: number, pageSize: number): Promise<{ page: PregameRoom[], totalCount: number }> {
         return {
             page: await this.pregameRoomsRepository.findAll({
@@ -74,17 +86,17 @@ export class PregameRoomsService {
         }
     }
 
-    async init(userId: string): Promise<{pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat, chatMember: ChatMember}> {
+    async init(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat, chatMember: ChatMember }> {
         const user = await this.usersService.findOne(userId)
         if (!user) {
             throw new NotFoundException('Failed to init pregame room. User not found.')
-        } 
+        }
 
         const newPregameRoom = await this.create()
 
         const [newChat, newPregameRoomMember] = await Promise.all([
             this.chatsService.create(TiedTo.PREGAME),
-            this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, 1)
+            this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
         ])
 
         const newChatMember = await this.chatMembersService.create(user.id, newChat.id)
@@ -98,11 +110,12 @@ export class PregameRoomsService {
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
-        const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom] = await Promise.all([
+       const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, avialableChips] = await Promise.all([
             this.usersService.findOne(userId),
             this.pregameRoomMembersService.findOneByUserId(userId),
             this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
-            this.findOne(pregameRoomId)
+            this.findOne(pregameRoomId),
+            this.getAvailableChips(pregameRoomId)
         ])
         if (!user) {
             throw new NotFoundException(`Failed to add user to pregame room. User not found`)
@@ -117,7 +130,7 @@ export class PregameRoomsService {
             throw new BadRequestException('Failed to add user to pregame room. This slot is occupied already')
         }
 
-        return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, slot)
+        return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, avialableChips[0], slot)
     }
 
     async removePregameRoomMember(userId: string): Promise<PregameRoomMember> {
