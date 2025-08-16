@@ -34,7 +34,7 @@ export class PregameRoomMembersService {
         })
     }
 
-    async findOneBySlotAndPregameRoomId(pregameRoomId: string, slot: number): Promise<PregameRoomMember | null> {
+    async findOneBySlotAndPregameRoomId(slot: number, pregameRoomId: string): Promise<PregameRoomMember | null> {
         return await this.pregameRoomMembersRepository.findOne({
             where: {
                 pregameRoomId,

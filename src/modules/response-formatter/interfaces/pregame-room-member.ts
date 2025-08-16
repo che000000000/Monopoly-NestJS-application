@@ -4,6 +4,6 @@ export interface IPregameRoomMember {
     id: string,
     slot: number,
     isOwner: boolean,
-    user: IUser
+    user: IUser | null,
     createdAt: Date
 }

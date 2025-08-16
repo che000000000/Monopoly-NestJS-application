@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
@@ -29,7 +29,9 @@ export class PregameRoomsService {
 
     async getOneOrThrow(roomId: string): Promise<PregameRoom> {
         const foundRoom = await this.findOne(roomId)
-        if (!foundRoom) throw new NotFoundException(`Room doesn't exist.`)
+        if (!foundRoom) {
+            throw new NotFoundException(`Room doesn't exist.`)
+        } 
         return foundRoom
     }
 
@@ -74,7 +76,9 @@ export class PregameRoomsService {
 
     async init(userId: string): Promise<{pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat, chatMember: ChatMember}> {
         const user = await this.usersService.findOne(userId)
-        if (!user) throw new NotFoundException('Failed to init pregame room. User not found.')
+        if (!user) {
+            throw new NotFoundException('Failed to init pregame room. User not found.')
+        } 
 
         const newPregameRoom = await this.create()
 
@@ -91,5 +95,38 @@ export class PregameRoomsService {
             chat: newChat,
             chatMember: newChatMember
         }
+    }
+
+    async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
+        const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom] = await Promise.all([
+            this.usersService.findOne(userId),
+            this.pregameRoomMembersService.findOneByUserId(userId),
+            this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
+            this.findOne(pregameRoomId)
+        ])
+        if (!user) {
+            throw new NotFoundException(`Failed to add user to pregame room. User not found`)
+        }
+        if (!pregameRoom) {
+            throw new BadRequestException(`Failed to add user to pregame room. Pregame room doesn't exists.`)
+        }
+        if (userAsPregameRoomMember) {
+            throw new BadRequestException('Failed to add user to pregame room. User in the pregame room already.')
+        }
+        if (pregameRoomMemberOnSlot) {
+            throw new BadRequestException('Failed to add user to pregame room. This slot is occupied already')
+        }
+
+        return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, slot)
+    }
+
+    async removePregameRoomMember(userId: string): Promise<PregameRoomMember> {
+        const pregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
+        if (!pregameRoomMember) {
+            throw new NotFoundException('Failed to remove pregame room member. Pregame room member not found.')
+        }
+
+        await this.pregameRoomMembersService.destroy(pregameRoomMember.id)
+        return pregameRoomMember
     }
 }

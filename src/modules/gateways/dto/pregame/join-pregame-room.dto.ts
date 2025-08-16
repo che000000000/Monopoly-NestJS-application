@@ -7,5 +7,5 @@ export class JoinPregameRoomDto {
 
     @IsNumber()
     @IsNotEmpty()
-    slotNumber: number
+    slot: number
 }
