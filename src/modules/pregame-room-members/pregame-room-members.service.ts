@@ -62,9 +62,25 @@ export class PregameRoomMembersService {
         }
     }
 
-    async destroy(pregameRoomMemberId: string): Promise<number> {
+    async destroy(id: string): Promise<number> {
         return await this.pregameRoomMembersRepository.destroy({
-            where: { id: pregameRoomMemberId }
+            where: { id }
         })
+    }
+
+    async updateIsOwner(id: string, isOwner: boolean): Promise<number> {
+        const [affectedCount] = await this.pregameRoomMembersRepository.update(
+            { isOwner },
+            { where: { id } }
+        )
+        return affectedCount
+    }
+
+    async updateSlot(id: string, slot: number): Promise<number> {
+        const [affectedCount] = await this.pregameRoomMembersRepository.update(
+            { slot },
+            { where: { id } }
+        )
+        return affectedCount
     }
 }

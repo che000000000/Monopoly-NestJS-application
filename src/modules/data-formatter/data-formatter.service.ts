@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { User } from 'src/models/user.model';
 import { IPregameRoomMember } from './interfaces/pregame-room-member';
-import { IPregameRoom } from './interfaces/pregame-room';
+import { ICompressedPregameRoom, IPregameRoom } from './interfaces/pregame-room';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { PlayerChip } from 'src/models/player.model';
 
@@ -31,6 +31,13 @@ export class DataFormatterService {
             id: pregameRoom.id,
             members: pregameRoomMembers,
             availableChips: availableChips,
+            createdAt: pregameRoom.createdAt
+        }
+    }
+
+    formatCompressedPregameRoom(pregameRoom: PregameRoom): ICompressedPregameRoom {
+        return {
+            id: pregameRoom.id,
             createdAt: pregameRoom.createdAt
         }
     }

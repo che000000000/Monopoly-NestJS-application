@@ -99,7 +99,11 @@ export class PregameRoomsService {
             this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
         ])
 
-        const newChatMember = await this.chatMembersService.create(user.id, newChat.id)
+
+        const [newChatMember] = await Promise.all([
+            this.chatMembersService.create(user.id, newChat.id),
+            await this.chatsService.linkToPregame(newChat.id, newPregameRoom.id)
+        ])
 
         return {
             pregameRoom: newPregameRoom,
@@ -110,7 +114,7 @@ export class PregameRoomsService {
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
-       const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, avialableChips] = await Promise.all([
+        const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, avialableChips] = await Promise.all([
             this.usersService.findOne(userId),
             this.pregameRoomMembersService.findOneByUserId(userId),
             this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
@@ -140,6 +144,50 @@ export class PregameRoomsService {
         }
 
         await this.pregameRoomMembersService.destroy(pregameRoomMember.id)
+
+        if (pregameRoomMember.isOwner === true) {
+            const currentPregameRoomMembers = await this.pregameRoomMembersService.findAllByPregameRoomId(pregameRoomMember.pregameRoomId)
+            currentPregameRoomMembers.length !== 0 && await this.pregameRoomMembersService.updateIsOwner(currentPregameRoomMembers[0].id, true)
+        }
+
         return pregameRoomMember
+    }
+
+    async removePregameRoom(pregameRoomId: string): Promise<void> {
+        await Promise.all([
+            this.chatsService.destroyByPregameRoomId(pregameRoomId),
+            this.destroy(pregameRoomId)
+        ])
+    }
+
+    async setPregameRoomMemberSlot(userId: string, slot: number): Promise<{pregameRoom: PregameRoom, pregameRoomMembers: PregameRoomMember[]}> {
+        if (slot < 1 && slot > 4) {
+            throw new BadRequestException('Failed to set pregame room member slot. non existed slot selected.')
+        }
+
+        const [pregameRoomMember] = await Promise.all([
+            this.pregameRoomMembersService.findOneByUserId(userId),
+            this.usersService.getOrThrow(userId)
+        ])
+        if (!pregameRoomMember) {
+            throw new BadRequestException('Failed to set pregame room member slot. User not in the pregame room.') 
+        }
+
+        const pregameRoomMemberWithSelectedSlot = await this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomMember.pregameRoomId)
+        if (pregameRoomMemberWithSelectedSlot) {
+            throw new BadRequestException('Failed to set pregame room member slot. Occupied slot selected')
+        }
+
+        const [pregameRoom] = await Promise.all([
+            this.getOneOrThrow(pregameRoomMember.pregameRoomId),
+            this.pregameRoomMembersService.updateSlot(pregameRoomMember.id, slot)
+        ])
+
+        const updatedPregameRoomMembers = await this.pregameRoomMembersService.findAllByPregameRoomId(pregameRoomMember.pregameRoomId)
+
+        return {
+            pregameRoom,
+            pregameRoomMembers: updatedPregameRoomMembers
+        }
     }
 }

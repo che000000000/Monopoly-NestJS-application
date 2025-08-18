@@ -7,3 +7,8 @@ export interface IPregameRoom {
     availableChips: PlayerChip[],
     createdAt: Date
 }
+
+export interface ICompressedPregameRoom {
+    id: string,
+    createdAt: string
+}

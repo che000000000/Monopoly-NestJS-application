@@ -28,6 +28,12 @@ export class ChatsService {
         })
     }
 
+    async destroyByPregameRoomId(pregameRoomId: string): Promise<number> {
+        return await this.chatsRepository.destroy({
+            where: { pregameRoomId }
+        })
+    }
+
     async update(id: string, fieldsToUpdate: Object): Promise<number> {
         try {
             const [affectedCount] = await this.chatsRepository.update(
