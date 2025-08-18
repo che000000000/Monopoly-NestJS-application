@@ -7,21 +7,16 @@ export class MessagesService {
     constructor(
         @InjectModel(Message) private readonly messagesRepository: typeof Message,
     ) { }
-    
-    async findMessageById(messageId: string): Promise<Message | null> {
+
+    async findOneById(id: string): Promise<Message | null> {
         return await this.messagesRepository.findOne({
-            where: {
-                id: messageId
-            },
-            raw: true
+            where: { id }
         })
     }
 
-    async createMessage(userId: string, chatId: string, messageText: string): Promise<Message> {
+    async create(userId: string, chatId: string, messageText: string): Promise<Message> {
         return await this.messagesRepository.create({
-            userId,
-            chatId,
-            text: messageText
+            userId, chatId, text: messageText
         })
     }
 
@@ -31,17 +26,17 @@ export class MessagesService {
         })
     }
 
-    async getChatMessagesPage(chatId: string, pageNumber: number, pageSize: number): Promise<Message[]> {
-        const chatMessages = this.messagesRepository.findAll({
-            where: {
-                chatId: chatId
-            },
-            order: [['createdAt', 'DESC']],
-            limit: pageSize ? pageSize : 12,
-            offset: (pageNumber - 1) * pageSize,
-            raw: true
-        })
+    async getPage(chatId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
+        const [messages, totalCount] = await Promise.all([
+            this.messagesRepository.findAll({
+                where: { chatId },
+                order: [['createdAt', 'DESC']],
+                limit: pageSize ? pageSize : 12,
+                offset: (pageNumber - 1) * pageSize,
+            }),
+            this.getChatMessagesCount(chatId)
+        ])
 
-        return chatMessages
+        return { messages, totalCount }
     }
 }
