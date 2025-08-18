@@ -12,6 +12,12 @@ export class ChatsService {
         })
     }
 
+    async findOneByPregameRoomId(pregameRoomId: string): Promise<Chat | null> {
+        return await this.chatsRepository.findOne({
+            where: { pregameRoomId }
+        })
+    }
+
     async getOneOrThrow(id: string): Promise<Chat> {
         const foundChat = await this.findOne(id)
         if (!foundChat) throw new NotFoundException('Failed to get chat. Chat not found.')
