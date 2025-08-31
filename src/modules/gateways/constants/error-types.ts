@@ -1,9 +1,9 @@
-export enum ErrorTypes {
-  Unauthorized = 'Unauthorized',
-  NotFound = 'NotFound',
-  BadRequest = 'BadRequest',
-  Forbidden = 'Forbidden',
-  Internal = 'Internal',
-  Conflict = 'Conflict',
-  UnprocessableEntity = 'UnprocessableEntity',
+export enum ErrorType {
+	UNAUTHORIZED = 'UNAUTHORIZED',
+	NOT_FOUND = 'NOT_FOUND',
+	BAD_REQUEST = 'BAD_REQUEST',
+	FORBIDDEN = 'FORBIDDEN',
+	INTERNAL = 'INTERNAL',
+	CONFLICT = 'CONFLICT',
+	UNPROCESSABLE_ENTITY = 'UNPROCESSABLE_ENTITY',
 }

@@ -11,28 +11,15 @@ export class GameFieldsService {
         @InjectModel(GameField) private readonly gameFieldsRepository: typeof GameField
     ) { }
 
-    async find(gameFieldId: string): Promise<GameField | null> {
-        return await this.gameFieldsRepository.findOne({ where: { id: gameFieldId } })
-    }
-
-    async findByPosition(game: Game, position: number): Promise<GameField | null> {
+    async findOne(id: string): Promise<GameField | null> {
         return await this.gameFieldsRepository.findOne({
-            where: {
-                gameId: game.id,
-                position
-            }
+            where: { id }
         })
     }
 
-    async getOrThrow(gameFieldId: string): Promise<GameField> {
-        const gameField = await this.find(gameFieldId)
+    async getOneOrThrow(id: string): Promise<GameField> {
+        const gameField = await this.findOne(id)
         if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)
-        return gameField
-    }
-
-    async getByPositionOrThrow(game: Game, position: number): Promise<GameField> {
-        const gameField = await this.findByPosition(game, position)
-        if (!gameField) throw new NotFoundException(`Failed to get game fiedl by position.`)
         return gameField
     }
 

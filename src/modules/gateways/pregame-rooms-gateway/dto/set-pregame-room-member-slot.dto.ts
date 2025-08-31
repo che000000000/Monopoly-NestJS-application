@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumber } from "class-validator";
 
-export class SetPeregameRoomSlotDto {
+export class SetPeregameRoomMemberSlotDto {
     @IsNumber()
     @IsNotEmpty()
     slot: number

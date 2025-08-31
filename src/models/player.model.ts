@@ -13,6 +13,12 @@ export enum PlayerChip {
     THIMBLE = 'THIMBLE'
 }
 
+export enum PlayerStatus {
+    COMMON = 'COMMON',
+    IS_TURN_OWNER = 'IS_TURN_OWNER',
+    IS_LEFT = 'IS_LEFT'
+}
+
 @Table({ tableName: 'Players' })
 export class Player extends Model {
     @PrimaryKey
@@ -33,7 +39,13 @@ export class Player extends Model {
         type: DataType.ENUM(...Object.values(PlayerChip)),
         allowNull: false
     })
-    declare playerChip: PlayerChip
+    declare chip: PlayerChip
+
+    @Column({
+        type: DataType.ENUM(...Object.values(PlayerStatus)),
+        allowNull: false
+    })
+    declare status: PlayerStatus
 
     @Column({
         type: DataType.INTEGER,

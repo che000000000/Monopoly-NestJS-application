@@ -3,7 +3,7 @@ import { v4 } from "uuid";
 import { Player } from "./player.model";
 import { Game } from "./game.model";
 
-export enum FieldType {
+export enum GameFieldType {
     PROPERTY = 'PROPERTY',
     RAILROAD = 'RAILROAD',
     UTILITY = 'UTILITY',
@@ -16,15 +16,15 @@ export enum FieldType {
     GO = 'GO'
 }
 
-export enum FieldColor {
-    BROWN = 'BROWN',
-    WHITE_MOON = 'WHITE_MOON',
-    PURPLE = 'PURPLE',
-    ORANGE = 'ORANGE',
-    RED = 'RED',
-    YELLOW = 'YELLOW',
-    GREEN = 'GREEN',
-    BLUE = 'BLUE'
+export enum GameFieldColor {
+    BROWN = '#831717ff',
+    WHITE_MOON = '#c8e0ffff',
+    PURPLE = '#cf2a5bff',
+    ORANGE = '#f38823ff',
+    RED = '#c02525ff',
+    YELLOW = '#f0ec14ff',
+    GREEN = '#1b7928ff',
+    BLUE = '#4b85dbff'
 }
 
 @Table({tableName: 'GameFields'})
@@ -38,10 +38,16 @@ export class GameField extends Model {
     declare id: string
 
     @Column({
-        type: DataType.ENUM(...Object.values(FieldType)),
+        type: DataType.ENUM(...Object.values(GameFieldType)),
         allowNull: false
     })
-    declare type: FieldType
+    declare type: GameFieldType
+
+    @Column({
+        type: DataType.ENUM(...Object.values(GameFieldColor)),
+        allowNull: true
+    })
+    declare color: GameFieldColor | null
 
     @Column({
         type: DataType.INTEGER,

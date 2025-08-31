@@ -1,4 +1,4 @@
-import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { AllowNull, Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Chat } from "./chat.model";
 import { Player } from "./player.model";
@@ -19,7 +19,13 @@ export class Game extends Model {
         type: DataType.INTEGER,
         allowNull: false
     })
-    declare playersSize: number
+    declare houses: number
+
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false
+    })
+    declare hotels: number
 
     @HasOne(() => Chat)
     chat: Chat

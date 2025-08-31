@@ -1,5 +1,5 @@
 import { PlayerChip } from "src/models/player.model"
-import { IUser } from "./user"
+import { IUser } from "../../interfaces/user"
 
 export interface IPregameRoomMember {
     id: string,

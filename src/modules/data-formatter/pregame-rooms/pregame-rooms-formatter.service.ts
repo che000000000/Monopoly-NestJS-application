@@ -8,7 +8,7 @@ import { PlayerChip } from 'src/models/player.model';
 import { Message } from 'src/models/message.model';
 
 @Injectable()
-export class DataFormatterService {
+export class PregameRoomsFormatterService {
     formatPregameRoomMember(user: User | null, pregameRoomMember: PregameRoomMember): IPregameRoomMember {
         return {
             id: pregameRoomMember.id,

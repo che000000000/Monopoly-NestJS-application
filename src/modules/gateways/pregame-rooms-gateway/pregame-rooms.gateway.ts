@@ -1,23 +1,24 @@
-import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
-import { Server } from "socket.io";
-import { InternalServerErrorException, UnauthorizedException, UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
-import { WsExceptionsFilter } from "./filters/WsExcepton.filter";
-import { PregameRoomsService } from "../pregame-rooms/pregame-rooms.service";
-import { SocketWithSession } from "./interfaces/socket-with-session.interface";
-import { WsAuthGuard } from "./guards/wsAuth.guard";
-import { UsersService } from "../users/users.service";
-import { JoinPregameRoomDto } from "./dto/pregame/join-pregame-room.dto";
-import { GetRoomsPageDto } from "./dto/pregame/get-rooms-page.dto";
-import { KickFromRoomDto } from "./dto/pregame/kick-from-room.dto";
-import { SendMessageDto } from "./dto/pregame/send-message.dto";
-import { GetMessagesPageDto } from "./dto/pregame/get-messages-page.dto";
-import { PregameRoomMembersService } from "../pregame-room-members/pregame-room-members.service";
-import { DataFormatterService } from "../data-formatter/data-formatter.service";
+import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
+import { InternalServerErrorException, UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
 import { PregameRoomMember } from "src/models/pregame-room-member.model";
-import { SetPeregameRoomSlotDto } from "./dto/pregame/set-pregame-room-slot.dto";
 import { User } from "src/models/user.model";
-import { MessagesService } from "../messages/messages.service";
 import { Message } from "src/models/message.model";
+import { WsExceptionsFilter } from "../filters/WsExcepton.filter";
+import { PregameRoomsService } from "src/modules/pregame-rooms/pregame-rooms.service";
+import { PregameRoomMembersService } from "src/modules/pregame-room-members/pregame-room-members.service";
+import { UsersService } from "src/modules/users/users.service";
+import { SocketWithSession } from "../interfaces/socket-with-session.interface";
+import { GetPregameRoomsPageDto } from "./dto/get-pregame-rooms-page.dto";
+import { GetPregameRoomMessagesPageDto } from "./dto/get-pregame-room-messages-page.dto";
+import { WsAuthGuard } from "../guards/wsAuth.guard";
+import { JoinPregameRoomDto } from "./dto/join-pregame-room.dto";
+import { SendPregameRoomMessageDto } from "./dto/send-pregame-room-message.dto";
+import { SetPeregameRoomMemberSlotDto } from "./dto/set-pregame-room-member-slot.dto";
+import { SetPregameRoomMemberPlayerChipDto } from "./dto/set-pregame-room-member-player-chip.dto";
+import { PregameRoomsFormatterService } from "src/modules/data-formatter/pregame-rooms/pregame-rooms-formatter.service";
+import { ChatsService } from "src/modules/chats/chats.service";
+import { PregameRoom } from "src/models/pregame-room.model";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -27,12 +28,13 @@ import { Message } from "src/models/message.model";
         credentials: true
     }
 })
-export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class PregameRoomsGateway implements OnGatewayConnection {
     constructor(
         private readonly pregameRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
         private readonly usersService: UsersService,
-        private readonly dataFormatterService: DataFormatterService
+        private readonly chatsService: ChatsService,
+        private readonly pregameRoomsFormatterService: PregameRoomsFormatterService
     ) { }
 
     @WebSocketServer()
@@ -44,10 +46,10 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         return userId
     }
 
-    // private async findSocketById(user_id: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
-    //     const allSockets = await this.server.fetchSockets()
-    //     return allSockets.find(socket => socket.data.userId === user_id)
-    // }
+    private async findSocketById(id: string): Promise<RemoteSocket<DefaultEventsMap, any> | undefined> {
+        const allSockets = await this.server.fetchSockets()
+        return allSockets.find(socket => socket.data.userId === id)
+    }
 
     // private async removeSocketFromRooms(userId: string): Promise<void> {
     //     const foundSocket = await this.findSocketById(userId)
@@ -67,6 +69,12 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
     //     )
     // }
 
+    public async emitRemovePregameRoom(pregameRoom: PregameRoom): Promise<void> {
+        this.server.emit('remove-pregame-room', {
+            pregameRoom: this.pregameRoomsFormatterService.formatCompressedPregameRoom(pregameRoom)
+        })
+    }
+
     async handleConnection(socket: SocketWithSession): Promise<void> {
         const userId = socket.request.session.userId
         if (!userId) return
@@ -77,24 +85,10 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         socket.join(pregameRoomMember.pregameRoomId)
     }
 
-    async handleDisconnect(socket: SocketWithSession) {
-        const allSocketRooms = Array.from(socket.rooms).filter(room => room !== socket.id)
-        allSocketRooms.forEach(room => socket.leave(room))
-    }
-
-    // async removePregameRoom(pregameRoom: PregameRoom): Promise<void> {
-    //     if (!pregameRoom) throw new InternalServerErrorException(`Failed to remove pregame room. Pregame room not defined.`)
-
-    //     this.pregameRoomsService.removePregameRoom(pregameRoom)
-
-    //     const pregameRoomUsers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
-    //     await this.removeSocketsFromRooms(pregameRoomUsers)
-    // }
-
     @SubscribeMessage('pregame-rooms-page')
-    async getRoomsPage(
+    private async getRoomsPage(
         @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody(new ValidationPipe()) dto: GetRoomsPageDto
+        @MessageBody(new ValidationPipe()) dto: GetPregameRoomsPageDto
     ): Promise<void> {
         const options = {
             pageNumber: dto.pageNumber ? dto.pageNumber : 1,
@@ -112,11 +106,11 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
                 const formattedPregameRoomMembers = await Promise.all(
                     pregameRoomMembers.map(async (member: PregameRoomMember) => {
                         const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
-                        return this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, member)
+                        return this.pregameRoomsFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, member)
                     })
                 )
 
-                return this.dataFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips)
+                return this.pregameRoomsFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips)
             })
         )
 
@@ -128,9 +122,9 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('pregame-room-messages-page')
-    async getPregameRoomMessagesPage(
+    private async getPregameRoomMessagesPage(
         @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody(new ValidationPipe()) dto: GetMessagesPageDto
+        @MessageBody(new ValidationPipe()) dto: GetPregameRoomMessagesPageDto
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
@@ -152,7 +146,7 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         )
 
         socket.emit('pregame-room-messages-page', {
-            messages: messagesWithSendersAsUsers.map((messageWithSenderAsUser: {message: Message, user: User}) => this.dataFormatterService.formatPregameRoomMessage(
+            messagesList: messagesWithSendersAsUsers.map((messageWithSenderAsUser: { message: Message, user: User }) => this.pregameRoomsFormatterService.formatPregameRoomMessage(
                 messageWithSenderAsUser.message,
                 messageWithSenderAsUser.user
             )),
@@ -162,7 +156,7 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('create-pregame-room')
-    async createPregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    private async createPregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const initPregameRoom = await this.pregameRoomsService.init(userId)
@@ -173,16 +167,16 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
             this.pregameRoomsService.getAvailableChips(initPregameRoom.pregameRoom.id)
         ])
 
-        const formattedPregameRoomMembers = [this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, initPregameRoom.pregameRoomMember)]
+        const formattedPregameRoomMembers = [this.pregameRoomsFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, initPregameRoom.pregameRoomMember)]
 
         this.server.emit('create-pregame-room', {
-            pregameRoom: this.dataFormatterService.formatPregameRoom(initPregameRoom.pregameRoom, formattedPregameRoomMembers, availableChips)
+            pregameRoom: this.pregameRoomsFormatterService.formatPregameRoom(initPregameRoom.pregameRoom, formattedPregameRoomMembers, availableChips)
         })
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('leave-pregame-room')
-    async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    private async leavePregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const [removedPregameRoomMember, pregameRoomMemberAsUser] = await Promise.all([
@@ -197,10 +191,11 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         ])
 
         if (currentPregameRoomMembers.length === 0) {
-            await this.pregameRoomsService.removePregameRoom(pregameRoom.id)
+            await this.chatsService.destroyByPregameRoomId(pregameRoom.id)
+            await this.pregameRoomsService.destroy(pregameRoom.id)
 
             this.server.emit('remove-pregame-room', {
-                pregameRoom: this.dataFormatterService.formatCompressedPregameRoom(pregameRoom)
+                pregameRoom: this.pregameRoomsFormatterService.formatCompressedPregameRoom(pregameRoom)
             })
             return
         }
@@ -219,18 +214,18 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         ])
 
         const formattedPregameRoomMembers = pregameRoomMembersWithUsers.map(memberWithUser => (
-            this.dataFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
+            this.pregameRoomsFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
         ))
 
         this.server.emit('leave-pregame-room', {
-            pregameRoom: this.dataFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips),
-            leftMember: this.dataFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, removedPregameRoomMember)
+            pregameRoom: this.pregameRoomsFormatterService.formatPregameRoom(pregameRoom, formattedPregameRoomMembers, availableChips),
+            leftMember: this.pregameRoomsFormatterService.formatPregameRoomMember(pregameRoomMemberAsUser, removedPregameRoomMember)
         })
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('join-pregame-room')
-    async joinPregameRoom(
+    private async joinPregameRoom(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: JoinPregameRoomDto
     ): Promise<void> {
@@ -259,36 +254,35 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         ])
 
         const formattedMembers = pregameRoomMembersWithUsers.map(memberWithUser =>
-            (this.dataFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember))
+            (this.pregameRoomsFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember))
         )
 
         this.server.emit('join-pregame-room', {
-            pregameRoom: this.dataFormatterService.formatPregameRoom(pregameRoom, formattedMembers, availableChips),
-            joinedMember: this.dataFormatterService.formatPregameRoomMember(user, newPregameRoomMember)
+            pregameRoom: this.pregameRoomsFormatterService.formatPregameRoom(pregameRoom, formattedMembers, availableChips),
+            joinedMember: this.pregameRoomsFormatterService.formatPregameRoomMember(user, newPregameRoomMember)
         })
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('send-pregame-room-message')
-    async sendMessage(
+    private async sendPregameRoomMessage(
         @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody(new ValidationPipe()) dto: SendMessageDto
+        @MessageBody(new ValidationPipe()) dto: SendPregameRoomMessageDto
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
         const sendPregameRoomMessage = await this.pregameRoomsService.sendPregameRoomMessage(userId, dto.messageText)
 
         this.server.to(sendPregameRoomMessage.pregameRoomId).emit('send-pregame-room-message', {
-            message: this.dataFormatterService.formatPregameRoomMessage(sendPregameRoomMessage.message, sendPregameRoomMessage.user),
-            totalCount: sendPregameRoomMessage.totalCount
+            message: this.pregameRoomsFormatterService.formatPregameRoomMessage(sendPregameRoomMessage.message, sendPregameRoomMessage.user),
         })
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('set-pregame-room-member-slot')
-    async setPregameRoomMemberSlot(
+    private async setPregameRoomMemberSlot(
         @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody(new ValidationPipe()) dto: SetPeregameRoomSlotDto
+        @MessageBody(new ValidationPipe()) dto: SetPeregameRoomMemberSlotDto
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
@@ -308,12 +302,51 @@ export class PregameRoomsGateway implements OnGatewayConnection, OnGatewayDiscon
         ])
 
         const formattedPregameRoomMembers = pregameRoomMembersWithUsers.map((memberWithUser) =>
-            this.dataFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
+            this.pregameRoomsFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
         )
 
         this.server.emit('set-pregame-room-member-slot', {
-            pregameRoom: this.dataFormatterService.formatPregameRoom(
+            pregameRoom: this.pregameRoomsFormatterService.formatPregameRoom(
                 setPregameRoomMemberSlot.pregameRoom,
+                formattedPregameRoomMembers,
+                availableChips
+            )
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('set-pregame-room-player-chip')
+    private async setPregameRoomPlayerChip(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: SetPregameRoomMemberPlayerChipDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const updatedPregameRoomMember = await this.pregameRoomsService.setPregameRoomMemberPlayerChip(userId, dto.playerChip)
+
+        const [pregameRoomMembers, pregameRoom, availableChips] = await Promise.all([
+            this.pregameRoomMembersService.findAllByPregameRoomId(updatedPregameRoomMember.pregameRoomId),
+            this.pregameRoomsService.getOneOrThrow(updatedPregameRoomMember.pregameRoomId),
+            this.pregameRoomsService.getAvailableChips(updatedPregameRoomMember.pregameRoomId)
+        ])
+
+        const pregameRoomMembersWithUsers = await Promise.all(
+            pregameRoomMembers.map(async (member: PregameRoomMember) => {
+                const pregameRoomMemberAsUser = await this.usersService.findOne(member.userId)
+                return {
+                    user: pregameRoomMemberAsUser ? pregameRoomMemberAsUser : null,
+                    pregameRoomMember: member
+                }
+            })
+        )
+
+        const formattedPregameRoomMembers = pregameRoomMembersWithUsers.map(memberWithUser =>
+            this.pregameRoomsFormatterService.formatPregameRoomMember(memberWithUser.user, memberWithUser.pregameRoomMember)
+        )
+
+        this.server.emit('set-pregame-room-player-chip', {
+            pregameRoom: this.pregameRoomsFormatterService.formatPregameRoom(
+                pregameRoom,
                 formattedPregameRoomMembers,
                 availableChips
             )

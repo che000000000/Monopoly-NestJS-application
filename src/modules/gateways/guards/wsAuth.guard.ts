@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, Inject } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
 import { Redis } from 'ioredis';
-import { ErrorTypes } from '../constants/error-types';
+import { ErrorType } from '../constants/error-types';
 
 @Injectable()
 export class WsAuthGuard implements CanActivate {
@@ -17,7 +17,7 @@ export class WsAuthGuard implements CanActivate {
     if (!redisSession) {
       throw new WsException(
         {
-          errorType: ErrorTypes.Unauthorized,
+          errorType: ErrorType.UNAUTHORIZED,
           message: 'User not authorized.'
         }
       )
