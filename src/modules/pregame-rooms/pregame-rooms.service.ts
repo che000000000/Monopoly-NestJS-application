@@ -12,12 +12,14 @@ import { ChatMember } from 'src/models/chat-members';
 import { PlayerChip } from 'src/models/player.model';
 import { Message } from 'src/models/message.model';
 import { User } from 'src/models/user.model';
+import { PlayersService } from '../players/players.service';
 @Injectable()
 export class PregameRoomsService {
     constructor(
         @InjectModel(PregameRoom) private readonly pregameRoomsRepository: typeof PregameRoom,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
         private readonly usersService: UsersService,
+        private readonly playersService: PlayersService,
         private readonly chatsService: ChatsService,
         private readonly chatMembersService: ChatMembersService,
         private readonly messagesService: MessagesService
@@ -103,9 +105,15 @@ export class PregameRoomsService {
     }
 
     async init(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat, chatMember: ChatMember }> {
-        const user = await this.usersService.findOne(userId)
+        const [user, userAsPlayer] = await Promise.all([
+            this.usersService.findOne(userId),
+            this.playersService.findOneByUserId(userId)
+        ])
         if (!user) {
             throw new NotFoundException('Failed to init pregame room. User not found.')
+        }
+        if (userAsPlayer) {
+            throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
         }
 
         const newPregameRoom = await this.create()
@@ -130,15 +138,20 @@ export class PregameRoomsService {
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
-        const [user, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, avialableChips] = await Promise.all([
+        const [user, userAsPlayer, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, pregameRoomChat, avialableChips] = await Promise.all([
             this.usersService.findOne(userId),
+            this.playersService.findOneByUserId(userId),
             this.pregameRoomMembersService.findOneByUserId(userId),
             this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
             this.findOne(pregameRoomId),
+            this.chatsService.findOneByPregameRoomId(pregameRoomId),
             this.getAvailableChips(pregameRoomId)
         ])
         if (!user) {
             throw new NotFoundException(`Failed to add user to pregame room. User not found`)
+        }
+        if (userAsPlayer) {
+            throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
         }
         if (!pregameRoom) {
             throw new BadRequestException(`Failed to add user to pregame room. Pregame room doesn't exists.`)
@@ -149,7 +162,11 @@ export class PregameRoomsService {
         if (pregameRoomMemberOnSlot) {
             throw new BadRequestException('Failed to add user to pregame room. This slot is occupied already')
         }
+        if (!pregameRoomChat) {
+            throw new InternalServerErrorException(`Failed to add user to pregame room. Pregame room chat not found.`)
+        }
 
+        await this.chatMembersService.create(user.id, pregameRoomChat.id)
         return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, avialableChips[0], slot)
     }
 
@@ -167,13 +184,6 @@ export class PregameRoomsService {
         }
 
         return pregameRoomMember
-    }
-
-    async removePregameRoom(pregameRoomId: string): Promise<void> {
-        await Promise.all([
-            this.chatsService.destroyByPregameRoomId(pregameRoomId),
-            this.destroy(pregameRoomId)
-        ])
     }
 
     async setPregameRoomMemberSlot(userId: string, slot: number): Promise<{ pregameRoom: PregameRoom, pregameRoomMembers: PregameRoomMember[] }> {
@@ -207,12 +217,7 @@ export class PregameRoomsService {
         }
     }
 
-    async sendPregameRoomMessage(userId: string, messageText: string): Promise<{
-        message: Message,
-        user: User,
-        totalCount: number,
-        pregameRoomId: string
-    }> {
+    async sendPregameRoomMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, pregameRoomId: string }> {
         if (messageText.length === 0) {
             throw new BadRequestException('Failed to send pregame room message. Message text is emty.')
         }
@@ -238,8 +243,26 @@ export class PregameRoomsService {
         return {
             message: newMessage,
             user,
-            totalCount: await this.messagesService.getChatMessagesCount(newMessage.chatId),
             pregameRoomId: pregameRoomMember.pregameRoomId
         }
+    }
+
+    async setPregameRoomMemberPlayerChip(userId: string, playerChip: PlayerChip): Promise<PregameRoomMember> {
+        const pregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
+        if (!pregameRoomMember) {
+            throw new BadRequestException(`Failed to set pregame room member player chip. User not in the pregame room.`)
+        }
+
+        const availableChips = await this.getAvailableChips(pregameRoomMember.pregameRoomId)
+        if (!availableChips.some((chip: PlayerChip) => chip === playerChip)) {
+            throw new BadRequestException(`Failed to set pregame room member player chip. Selected chip is not available.`)
+        }
+
+        const affectedCount = await this.pregameRoomMembersService.updatePlayerChip(pregameRoomMember.id, playerChip)
+        if (!affectedCount) {
+            throw new InternalServerErrorException(`Failed to set pregame room member player chip.`)
+        }
+
+        return this.pregameRoomMembersService.getOneOrThrow(pregameRoomMember.id)
     }
 }

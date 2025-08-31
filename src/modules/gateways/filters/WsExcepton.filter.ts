@@ -1,6 +1,6 @@
 import { Catch, ArgumentsHost, HttpException } from '@nestjs/common';
 import { BaseWsExceptionFilter, WsException } from '@nestjs/websockets';
-import { ErrorTypes } from '../constants/error-types';
+import { ErrorType } from '../constants/error-types';
 import { WsExceptionData } from '../types/ws-exception-data.type';
 import { Socket } from 'socket.io';
 
@@ -8,7 +8,7 @@ import { Socket } from 'socket.io';
 export class WsExceptionsFilter extends BaseWsExceptionFilter {
 	catch(exception: WsException | HttpException, host: ArgumentsHost) {
 		const client = host.switchToWs().getClient<Socket>()
-		let errorType: ErrorTypes = ErrorTypes.Internal
+		let errorType: ErrorType = ErrorType.INTERNAL
 		let message = 'An error occurred'
 
 		if (exception instanceof HttpException) {
@@ -33,15 +33,15 @@ export class WsExceptionsFilter extends BaseWsExceptionFilter {
 		})
 	}
 
-	private determineErrorType(status: number): ErrorTypes {
+	private determineErrorType(status: number): ErrorType {
 		switch (status) {
-			case 400: return ErrorTypes.BadRequest
-			case 401: return ErrorTypes.Unauthorized
-			case 403: return ErrorTypes.Forbidden
-			case 404: return ErrorTypes.NotFound
-			case 409: return ErrorTypes.Conflict
-			case 422: return ErrorTypes.UnprocessableEntity
-			default: return ErrorTypes.Internal
+			case 400: return ErrorType.BAD_REQUEST
+			case 401: return ErrorType.UNAUTHORIZED
+			case 403: return ErrorType.FORBIDDEN
+			case 404: return ErrorType.NOT_FOUND
+			case 409: return ErrorType.CONFLICT
+			case 422: return ErrorType.UNPROCESSABLE_ENTITY
+			default: return ErrorType.INTERNAL
 		}
 	}
 

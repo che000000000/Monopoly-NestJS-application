@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString } from "class-validator";
 
-export class SendMessageDto {
+export class SendPregameRoomMessageDto {
     @IsString()
     @IsNotEmpty()
     messageText: string

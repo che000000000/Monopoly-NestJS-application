@@ -1,6 +1,6 @@
-import { ErrorTypes } from "../constants/error-types";
+import { ErrorType } from "../constants/error-types";
 
 export type WsExceptionData = {
-    errorType: ErrorTypes,
+    errorType: ErrorType,
     message: string,
 }

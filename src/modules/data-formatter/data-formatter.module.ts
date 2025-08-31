@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
-import { DataFormatterService } from './data-formatter.service';
+import { PregameRoomsFormatterService } from './pregame-rooms/pregame-rooms-formatter.service';
+import { GamesFormatterService } from './games/games-formatter.service';
 
 @Module({
-	providers: [DataFormatterService],
-	exports: [DataFormatterService]
+	providers: [PregameRoomsFormatterService, GamesFormatterService],
+	exports: [PregameRoomsFormatterService, GamesFormatterService]
 })
-export class DataFormatterModule { }
+
+export class DataFormatterModule {}

@@ -1,14 +1,14 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
-import { FieldType } from "src/models/game-field.model";
+import { GameFieldType } from "src/models/game-field.model";
 
 export class CreateFieldDto {
     @IsUUID()
     @IsNotEmpty()
     gameId: string
 
-    @IsEnum(FieldType)
+    @IsEnum(GameFieldType)
     @IsNotEmpty()
-    type: FieldType
+    type: GameFieldType
 
     @IsNumber()
     @IsNotEmpty()

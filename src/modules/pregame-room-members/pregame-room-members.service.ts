@@ -83,4 +83,12 @@ export class PregameRoomMembersService {
         )
         return affectedCount
     }
+
+    async updatePlayerChip(id: string, playerChip: PlayerChip): Promise<number> {
+        const [affectedCount] = await this.pregameRoomMembersRepository.update(
+            { playerChip },
+            { where: { id } }
+        )
+        return affectedCount
+    }
 }

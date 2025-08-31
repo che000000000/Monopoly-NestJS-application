@@ -7,11 +7,11 @@ import { ChatsService } from '../chats/chats.service';
 import { PlayersService } from '../players/players.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';
-import { TiedTo } from 'src/models/chat.model';
-import { Player } from 'src/models/player.model';
-import { User } from 'src/models/user.model';
-import { GameTurn } from 'src/models/game-turn.model';
-import { GameField } from 'src/models/game-field.model';
+import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
+import { PregameRoomMember } from 'src/models/pregame-room-member.model';
+import { GameFieldType, GameField } from 'src/models/game-field.model';
+import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
+import { PregameRoom } from 'src/models/pregame-room.model';
 
 @Injectable()
 export class GamesService {
@@ -19,203 +19,80 @@ export class GamesService {
         @InjectModel(Game) private readonly gamesRepository: typeof Game,
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
+        private readonly pregameRoomMembersService: PregameRoomMembersService,
         private readonly chatsService: ChatsService,
         private readonly playersService: PlayersService,
         private readonly gameTurnsService: GameTurnsService,
         private readonly gameFieldsService: GameFieldsService
     ) { }
 
-    // async find(gameId: string): Promise<Game | null> {
-    //     return await this.gamesRepository.findOne({ where: { id: gameId } })
-    // }
+    async findOne(id: string): Promise<Game | null> {
+        return await this.gamesRepository.findOne({
+            where: { id }
+        })
+    }
 
-    // async findByUser(user: User): Promise<Game | null> {
-    //     return await this.gamesRepository.findOne({ where: { id: user.gameId } })
-    // }
+    async getOneOrThrow(id: string): Promise<Game> {
+        const foundGame = await this.findOne(id)
+        if (!foundGame) throw new NotFoundException('Failed to get game.')
+        return foundGame
+    }
 
-    // async getOrThrow(gameId: string): Promise<Game> {
-    //     const foundGame = await this.find(gameId)
-    //     if (!foundGame) throw new NotFoundException(`Failed to get game. Game not found.`)
-    //     return foundGame
-    // }
+    async create(): Promise<Game> {
+        return await this.gamesRepository.create({
+            houses: 32,
+            hotels: 12
+        })
+    }
 
-    // async getByUserOrThrow(user: User): Promise<Game> {
-    //     const foundGame = await this.findByUser(user)
-    //     if (!foundGame) throw new NotFoundException(`Failed to get game by user. Game not found or user isn't in the game.`)
-    //     return foundGame
-    // }
+    async initGame(userId: string): Promise<{game: Game, gameFields: GameField[], players: Player[], pregameRoom: PregameRoom}> {
+        const userAsPregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
+        if (!userAsPregameRoomMember) {
+            throw new BadRequestException(`Failed to start game. User not in the pregame room to start game.`)
+        }
+        if (!userAsPregameRoomMember.isOwner) {
+            throw new BadRequestException(`Failed to start game. User is not pregame room owner.`)
+        }
 
-    // async create(chatId: string, playersSize: number): Promise<Game> {
-    //     return await this.gamesRepository.create({
-    //         chatId,
-    //         playersSize
-    //     })
-    // }
+        const [pregameRoom, pregameRoomMembers, pregameRoomChat] = await Promise.all([
+            this.pregamesRoomsService.findOne(userAsPregameRoomMember.pregameRoomId),
+            this.pregameRoomMembersService.findAllByPregameRoomId(userAsPregameRoomMember.pregameRoomId),
+            this.chatsService.findOneByPregameRoomId(userAsPregameRoomMember.pregameRoomId)
+        ])
+        if (!pregameRoom) {
+            throw new InternalServerErrorException(`Failed to start game. Pregame room not found.`)
+        }
+        if (pregameRoomMembers.length < 2) {
+            throw new BadRequestException(`Failed to start game. Incorrect members size to start game.`)
+        }
+        if (!pregameRoomChat) {
+            throw new InternalServerErrorException(`Failed to start game. Pregame room chat not found.`)
+        }
 
-    // private throwDices(): {dices: number[], summ: number, isDouble: boolean} {
-    //     const maxDicesValue = 6
-    //     const dicesCount = 2
+        const game = await this.create()
 
-    //     let dices: number[] = []
-    //     let summ: number = 0
-        
-    //     for(let i = 0; i < dicesCount; i++) {
-    //         dices[i] = Math.floor(Math.random() * maxDicesValue) + 1
-    //     }
-    //     for(let i = 0; i < dicesCount; i++) {
-    //         summ += dices[i]
-    //     }
+        const gameFields = await this.gameFieldsService.createGameFields(game.id)
+        const goField = gameFields.find((field: GameField) => field.type === GameFieldType.GO)
+        if (!goField) {
+            throw new InternalServerErrorException('Failed to start game. Go field not found.')
+        }
 
-    //     return {
-    //         dices,
-    //         summ,
-    //         isDouble: dices[0] === dices[1] ? true : false 
-    //     }
-    // }
+        const [players] = await Promise.all([
+            await Promise.all(pregameRoomMembers.map(async (member: PregameRoomMember, index) =>
+                await this.playersService.create(game.id, member.userId, goField.id, member.playerChip, PlayerStatus.COMMON, index + 1)
+            ))
+        ])
 
-    // private async createPlayerForGame(gameId: string, user: User, fieldId: string, turnNumber: number): Promise<Player> {
-    //     const newPlayer = await this.playersService.create(gameId, user.id, fieldId, turnNumber)
-    //     if (!newPlayer) throw new InternalServerErrorException(`Failed to create player.`)
+        await Promise.all([
+            this.pregamesRoomsService.destroy(userAsPregameRoomMember.pregameRoomId),
+            this.chatsService.linkToGame(pregameRoomChat.id, game.id)
+        ])
 
-    //     await this.usersService.updateGameId( user.id, gameId )
-    //     return newPlayer
-    // }
-
-    // private async getRandomPlayer(players: Player[]): Promise<Player> {
-    //     if (players.length === 0) throw new InternalServerErrorException(`Failed to get random player. Players not transfered.`)
-
-    //     const randomPlayerIndex = Math.floor(Math.random() * players.length)
-    //     return players[randomPlayerIndex]
-    // }
-
-    // private async defineTurn(game: Game, players: Player[]): Promise<GameTurn> {
-    //     if(players.length === 0) throw new InternalServerErrorException(`Failed to define turn. Players not defined.`)
-
-    //     const turnOwner = await this.getRandomPlayer(players)
-    //     return this.gameTurnsService.create(game.id, turnOwner.id, 30)
-    // }
-
-    // private async createPlayersForNewGame(pregameRoomUsers: User[], game: Game, gameField: GameField): Promise<Player[]> {
-    //     if (!game) throw new InternalServerErrorException(`Failed to create players for new game. Game entity not defined.`)
-    //     if (pregameRoomUsers.length < 2) throw new InternalServerErrorException(`Failed to create players for new game. The required number of players was not transferred.`)
-    //     if (!gameField) throw new InternalServerErrorException(`Failed to create players for new game. Started game field not defined.`)
-
-    //     return await Promise.all(
-    //         pregameRoomUsers.map(async (user, index) => {
-    //             return this.createPlayerForGame(game.id, user, gameField.id, index + 1)
-    //         })
-    //     )
-    // }
-
-    // async initGame(userId: string): Promise<{ game: Game, players: Player[] }> {
-    //     const pregameRoom = await this.pregamesRoomsService.findByUser(userId)
-    //     if (!pregameRoom) throw new NotFoundException(`Failed to init game. Pregame room not found.`)
-
-    //     const pregameRoomUsers = await this.usersService.findPregameRoomUsers(pregameRoom.id)
-    //     if (pregameRoomUsers.length < 2) throw new BadRequestException(`Failed to create game. Minimum 2 users required`)
-
-    //     const newGameChat = await this.chatsService.create(TiedTo.GAME)
-    //     const newGame = await this.create(newGameChat.id, pregameRoomUsers.length)
-    //     const gameFields = await this.gameFieldsService.createGameFields(newGame.id)
-
-    //     const players = await this.createPlayersForNewGame(pregameRoomUsers, newGame, gameFields[0])
-
-    //     await this.defineTurn(newGame, players)
-
-    //     return {
-    //         game: newGame,
-    //         players
-    //     }
-    // }
-
-    // async removeGame(game: Game): Promise<void> {
-    //     await this.chatsService.destroy(game.chatId)
-    // }
-
-    // async getTurnWithPlayer(game: Game): Promise<{gameTurn: GameTurn, player: Player}> {
-    //     const gameTurn = await this.gameTurnsService.getByGameOrThrow(game)
-    //     const turnOwnerPlayer = await this.playersService.getOrThrow(gameTurn.playerId)
-    //     return {
-    //         gameTurn,
-    //         player: turnOwnerPlayer
-    //     }
-    // }
-
-    // async getNextPlayer(currentPlayer: Player): Promise<Player> {
-    //     const receivedGame = await this.getOrThrow(currentPlayer.gameId)
-    //     const players = await this.playersService.findPlayersByGameId(receivedGame.id)
-    //     if (players.length <= 1) throw new InternalServerErrorException(`Failed to define next player. Game players not found or remained one player.`)
-
-    //     const sortedPlayers = [...players].sort((a, b) => a.turnNumber - b.turnNumber)
-
-    //     const currentIndex = sortedPlayers.findIndex(p => p.id === currentPlayer.id)
-    //     if (currentIndex === -1) {
-    //         throw new InternalServerErrorException(`Current player not found in game players`)
-    //     }
-
-    //     const nextIndex = (currentIndex + 1) % sortedPlayers.length
-
-    //     return sortedPlayers[nextIndex]
-    // }
-
-    // async setTurn(gameTurn: GameTurn, player: Player): Promise<{gameTurn: GameTurn, owner: Player}> {
-    //     const affectedCount = await this.gameTurnsService.updatePlayerId(gameTurn, player)
-    //     if (affectedCount === 0) throw new InternalServerErrorException(`Failed to set turn. Game turn playerId wasn't updated.`)
-
-    //     const updatedGameTurn = await this.gameTurnsService.getOrThrow(gameTurn.id)
-    //     return {
-    //         gameTurn: updatedGameTurn,
-    //         owner: player
-    //     }
-    // }
-
-    // async removePlayerFromGame(player: Player): Promise<void> {
-    //     await Promise.all([
-    //         this.playersService.dstroy(player.id),
-    //         this.usersService.updateGameId(player.userId, null)
-    //     ])
-    // }
-
-    // async getGamePlayers(game: Game): Promise<Player[]> {
-    //     return await this.playersService.findPlayersByGameId(game.id)
-    // }
-
-    // async endGame(game: Game): Promise<Player> {
-    //     const remainingPlayers = await this.getGamePlayers(game)
-    //     if (remainingPlayers.length !== 1) throw new InternalServerErrorException(`Failed to end game. Remaineng players doesn't match.`)
-
-    //     const winnerPlayer = remainingPlayers[0]
-
-    //     await this.removeGame(game)
-    //     return winnerPlayer
-    // }
-
-    // async movePlayer(player: Player): Promise<{player: Player, gameField: GameField, dices: number[], summ: number, isDouble: boolean}> {
-    //     const thrownDices = this.throwDices()
-
-    //     const [game, currentPlayerField] = await Promise.all([
-    //         this.getOrThrow(player.gameId),
-    //         this.gameFieldsService.getOrThrow(player.fieldId)
-    //     ])
-
-    //     let newPlayerPosition = currentPlayerField.position + thrownDices.summ
-    //     let balancePlayer
-    //     if(newPlayerPosition > 40) {
-    //         newPlayerPosition = newPlayerPosition - 40
-    //         balancePlayer = await this.playersService.updateBalance(player.id, player.balance + 200)
-    //     }
-
-        
-    //     const newPlayerField = await this.gameFieldsService.getByPositionOrThrow(game, newPlayerPosition)
-    //     const updatedPlayer = await this.playersService.updateFieldId(player.id, newPlayerField.id)
-    //     if (!updatedPlayer) throw new InternalServerErrorException(`Failed to update player filed.`)
-        
-    //     return {
-    //         player: updatedPlayer,
-    //         gameField: newPlayerField,
-    //         dices: thrownDices.dices,
-    //         summ: thrownDices.summ,
-    //         isDouble: thrownDices.isDouble
-    //     }
-    // }
+        return {
+            game,
+            gameFields,
+            players,
+            pregameRoom
+        }
+    }
 }
