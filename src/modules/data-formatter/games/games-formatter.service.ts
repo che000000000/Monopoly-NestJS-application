@@ -5,6 +5,8 @@ import { Player } from "src/models/player.model";
 import { User } from "src/models/user.model";
 import { IPlayer } from "./interfaces/player";
 import { IGameField } from "./interfaces/game-field";
+import { IGameState } from "./interfaces/game-state";
+import { IGame } from "./interfaces/game";
 
 @Injectable()
 export class GamesFormatterService {
@@ -42,11 +44,19 @@ export class GamesFormatterService {
         }
     }
 
-    formatGameState(game: Game, formattedGameFields: IGameField[], formattedPlayers: IPlayer[]) {
+    formatGame(game: Game, formattedPlayers: IPlayer[]): IGame {
         return {
             id: game.id,
             players: formattedPlayers,
-            formattedGameFields: formattedGameFields,
+            createdAt: game.createdAt
+        }
+    }
+
+    formatGameState(game: Game, formattedGameFields: IGameField[], formattedPlayers: IPlayer[]): IGameState {
+        return {
+            id: game.id,
+            players: formattedPlayers,
+            fields: formattedGameFields,
             houses: game.houses,
             hotels: game.hotels,
             createdAt: game.createdAt

@@ -1,10 +1,9 @@
-import { InternalServerErrorException, NotFoundException, UseFilters, UseGuards } from "@nestjs/common";
-import { ConnectedSocket, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
+import { BadRequestException, InternalServerErrorException, UseFilters, UseGuards } from "@nestjs/common";
+import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer, WsException } from "@nestjs/websockets";
 import { WsExceptionsFilter } from "../filters/WsExcepton.filter";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
 import { SocketWithSession } from "../interfaces/socket-with-session.interface";
 import { UsersService } from "../../users/users.service";
-import { PregameRoomsService } from "../../pregame-rooms/pregame-rooms.service";
 import { GamesService } from "../../games/games.service";
 import { PlayersService } from "../../players/players.service";
 import { GameTurnsService } from "../../game-turns/game-turns.service";
@@ -14,6 +13,9 @@ import { ErrorType } from "../constants/error-types";
 import { Player } from "src/models/player.model";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
 import { GameField } from "src/models/game-field.model";
+import { GetGameStateDto } from "./dto/get-game-state";
+import { Game } from "src/models/game.model";
+import { IGameState } from "src/modules/data-formatter/games/interfaces/game-state";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -30,7 +32,6 @@ export class GamesGateway implements OnGatewayConnection {
         private readonly playersService: PlayersService,
         private readonly gamesFormatterService: GamesFormatterService,
         private readonly pregameRoomsGateway: PregameRoomsGateway,
-        private readonly pregameRoomsService: PregameRoomsService,
         private readonly gameTurnsService: GameTurnsService
     ) { }
 
@@ -79,19 +80,9 @@ export class GamesGateway implements OnGatewayConnection {
         socket.join(player.gameId)
     }
 
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('start-game')
-    private async startGame(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const initGame = await this.gamesService.initGame(userId)
-
-        await Promise.all(
-            initGame.players.map(async (player: Player) => await this.addSocketToRoom(player.userId, initGame.game.id))
-        )
-
+    private async formatGameState(game: Game, players: Player[], gameFields: GameField[]): Promise<IGameState> {
         const playersWithUsers = await Promise.all(
-            initGame.players.map(async (player: Player) => {
+            players.map(async (player: Player) => {
                 const playerAsUser = await this.usersService.findOne(player.userId)
                 return {
                     player,
@@ -103,7 +94,7 @@ export class GamesGateway implements OnGatewayConnection {
         const [formattedPlayers, formattedGameFields] = await Promise.all([
             playersWithUsers.map(playerWithUser => this.gamesFormatterService.formatPlayer(playerWithUser.player, playerWithUser.user)),
             await Promise.all(
-                initGame.gameFields.map(async (gameField: GameField) => {
+                gameFields.map(async (gameField: GameField) => {
                     const ownerPlayer = gameField.ownerPlayerId ? await this.playersService.getOneOrThrow(gameField.ownerPlayerId) : null
                     const ownerPlayerWithUser = ownerPlayer
                         ? {
@@ -119,7 +110,7 @@ export class GamesGateway implements OnGatewayConnection {
                             player,
                             user: await this.usersService.findOne(player.userId)
                         }))
-                    ) 
+                    )
                     const formattedGameFieldPlayers = gameFieldPlayersWithUsers.map(playerWithUser => (
                         this.gamesFormatterService.formatPlayer(playerWithUser.player, playerWithUser.user)
                     ))
@@ -129,10 +120,52 @@ export class GamesGateway implements OnGatewayConnection {
             )
         ])
 
+        return this.gamesFormatterService.formatGameState(game, formattedGameFields, formattedPlayers)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('start-game')
+    private async startGame(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const initGame = await this.gamesService.initGame(userId)
+
+        await Promise.all(
+            initGame.players.map(async (player: Player) => await this.addSocketToRoom(player.userId, initGame.game.id))
+        )
+
         this.pregameRoomsGateway.emitRemovePregameRoom(initGame.pregameRoom)
 
-        this.server.to(initGame.game.id).emit('start-game', {
-            gameState: this.gamesFormatterService.formatGameState(initGame.game, formattedGameFields, formattedPlayers, )
+        const formattedGameState = await this.formatGameState(initGame.game, initGame.players, initGame.gameFields)
+
+        this.server.to(initGame.game.id).emit('game-state', {
+            gameState: formattedGameState
+        })
+
+        this.server.emit('new-game', {
+            game: this.gamesFormatterService.formatGame(initGame.game, formattedGameState.players)
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('get-game-state')
+    private async getGameState(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetGameStateDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const userAsPlayer = await this.playersService.findOneByUserId(userId)
+
+        let gameId = userAsPlayer?.gameId || dto.gameId
+        if (!gameId) {
+            throw new BadRequestException('Failed to get game state. User is not in the game or gameId was not provided.')
+        }
+
+        const gameState = await this.gamesService.getGameState(gameId)
+
+        socket.emit('game-state', {
+            gameState: await this.formatGameState(gameState.game, gameState.players, gameState.gameFields)
         })
     }
 }
