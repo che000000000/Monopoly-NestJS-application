@@ -17,6 +17,12 @@ export class GameFieldsService {
         })
     }
 
+    async findAllByGameId(gameId: string): Promise<GameField[]> {
+        return await this.gameFieldsRepository.findAll({
+            where: { gameId }
+        })
+    }
+
     async getOneOrThrow(id: string): Promise<GameField> {
         const gameField = await this.findOne(id)
         if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)
@@ -25,10 +31,11 @@ export class GameFieldsService {
 
     async create(dto: CreateFieldDto): Promise<GameField> {
         return await this.gameFieldsRepository.create({
+            name: dto.name,
             type: dto.type,
+            color: dto.color,
             position: dto.position,
             rent: dto.rent ?? null,
-            name: dto.name,
             basePrice: dto.basePrice ?? null,
             housePrice: dto.housePrice ?? null,
             buildsCount: dto.buildsCount ?? null,
@@ -42,10 +49,11 @@ export class GameFieldsService {
             gameFieldsData.map(async (field) => {
                 return await this.create({
                     gameId,
+                    name: field.name,
                     type: field.type,
+                    color: field.color,
                     position: field.position,
                     rent: field.rent,
-                    name: field.name,
                     basePrice: field.basePrice,
                     housePrice: field.housePrice,
                     buildsCount: field.buildsCount

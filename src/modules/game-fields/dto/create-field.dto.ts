@@ -1,14 +1,22 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
-import { GameFieldType } from "src/models/game-field.model";
+import { GameFieldColor, GameFieldType } from "src/models/game-field.model";
 
 export class CreateFieldDto {
     @IsUUID()
     @IsNotEmpty()
     gameId: string
 
+    @IsString()
+    @IsNotEmpty()
+    name: string
+
     @IsEnum(GameFieldType)
     @IsNotEmpty()
     type: GameFieldType
+
+    @IsEnum(GameFieldColor)
+    @IsOptional()
+    color: GameFieldColor | null
 
     @IsNumber()
     @IsNotEmpty()
@@ -18,10 +26,6 @@ export class CreateFieldDto {
     @IsOptional()
     @IsNumber({}, { each: true })
     rent?: number[] | null
-
-    @IsString()
-    @IsNotEmpty()
-    name: string
 
     @IsNumber()
     @IsOptional()

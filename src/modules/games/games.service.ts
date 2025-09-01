@@ -10,8 +10,10 @@ import { GameTurnsService } from '../game-turns/game-turns.service';
 import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { GameFieldType, GameField } from 'src/models/game-field.model';
-import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
+import { Player, PlayerStatus } from 'src/models/player.model';
 import { PregameRoom } from 'src/models/pregame-room.model';
+import { MessagesService } from '../messages/messages.service';
+import { Message } from 'src/models/message.model';
 
 @Injectable()
 export class GamesService {
@@ -20,10 +22,11 @@ export class GamesService {
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
-        private readonly chatsService: ChatsService,
         private readonly playersService: PlayersService,
         private readonly gameTurnsService: GameTurnsService,
-        private readonly gameFieldsService: GameFieldsService
+        private readonly gameFieldsService: GameFieldsService,
+        private readonly chatsService: ChatsService,
+        private readonly messagesService: MessagesService
     ) { }
 
     async findOne(id: string): Promise<Game | null> {
@@ -93,6 +96,20 @@ export class GamesService {
             gameFields,
             players,
             pregameRoom
+        }
+    }
+
+    async getGameState(gameId: string): Promise<{game: Game, gameFields: GameField[], players: Player[]}> {
+        const [game, gameFields, players] = await Promise.all([
+            this.getOneOrThrow(gameId),
+            this.gameFieldsService.findAllByGameId(gameId),
+            this.playersService.findAllByGameId(gameId),
+        ])
+
+        return {
+            game,
+            gameFields,
+            players,
         }
     }
 }

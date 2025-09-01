@@ -9,6 +9,7 @@ import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
 import { GameFieldsModule } from '../game-fields/game-fields.module';
 import { GameTurnsModule } from '../game-turns/game-turns.module';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-m
     PlayersModule,
     GameTurnsModule,
     ChatsModule,
+    MessagesModule,
     GameFieldsModule
   ],
   providers: [GamesService],
