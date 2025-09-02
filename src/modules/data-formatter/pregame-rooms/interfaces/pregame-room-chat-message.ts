@@ -1,8 +1,8 @@
 import { IUser } from "../../interfaces/user"
 
-export interface IPregameRoomMessage {
+export interface IPregameRoomChatMessage {
     id: string,
-    message: string
+    text: string
     sender: IUser | null,
     createdAt: Date
 }

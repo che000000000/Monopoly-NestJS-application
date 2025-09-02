@@ -37,18 +37,10 @@ export class UsersService {
         })
     }
 
-    async updatePregameRoomId(userId: string, pregameRoomId: string | null): Promise<number> {
+    async updateGameSpectatorId(id: string, gameSpectatorId: string | null): Promise<number> {
         const [affectedCount] = await this.usersRepository.update(
-            { pregameRoomId },
-            { where: { id: userId } }
-        )
-        return affectedCount
-    }
-
-    async updateGameId(userId: string, gameId: string | null): Promise<number> {
-        const [affectedCount] = await this.usersRepository.update(
-            { gameId },
-            { where: { id: userId } }
+            { gameSpectatorId },
+            { where: { id } }
         )
         return affectedCount
     }

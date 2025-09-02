@@ -90,7 +90,7 @@ export class PregameRoomsService {
         }
     }
 
-    async getMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
+    async getPregameRoomChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
         const pregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!pregameRoomMember) {
             throw new BadRequestException(`Failed to get pregame room messages page. User isn't in the pregame room`)
