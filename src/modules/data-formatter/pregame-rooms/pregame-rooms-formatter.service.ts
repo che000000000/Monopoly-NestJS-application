@@ -6,6 +6,7 @@ import { ICompressedPregameRoom, IPregameRoom } from './interfaces/pregame-room'
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { PlayerChip } from 'src/models/player.model';
 import { Message } from 'src/models/message.model';
+import { IPregameRoomChatMessage } from './interfaces/pregame-room-chat-message';
 
 @Injectable()
 export class PregameRoomsFormatterService {
@@ -43,7 +44,7 @@ export class PregameRoomsFormatterService {
         }
     }
 
-    formatPregameRoomMessage(message: Message, user: User) {
+    formatPregameRoomChatMessage(message: Message, user: User): IPregameRoomChatMessage {
         return {
             id: message.id,
             text: message.text,

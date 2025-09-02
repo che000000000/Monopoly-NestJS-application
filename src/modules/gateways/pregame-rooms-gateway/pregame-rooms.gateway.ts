@@ -122,7 +122,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('pregame-room-messages-page')
-    private async getPregameRoomMessagesPage(
+    private async getPregameRoomChatMessagesPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody(new ValidationPipe()) dto: GetPregameRoomMessagesPageDto
     ): Promise<void> {
@@ -133,10 +133,10 @@ export class PregameRoomsGateway implements OnGatewayConnection {
             pageSize: dto.pageSize ? dto.pageSize : 12
         }
 
-        const messagesPage = await this.pregameRoomsService.getMessagesPage(userId, options.pageNumber, options.pageSize)
+        const pregameRoomChatMessagesPage = await this.pregameRoomsService.getPregameRoomChatMessagesPage(userId, options.pageNumber, options.pageSize)
 
         const messagesWithSendersAsUsers = await Promise.all(
-            messagesPage.messages.reverse().map(async (message: Message) => {
+            pregameRoomChatMessagesPage.messages.reverse().map(async (message: Message) => {
                 const messageSenderAsUser = await this.usersService.findOne(message.userId)
                 return {
                     message,
@@ -146,11 +146,12 @@ export class PregameRoomsGateway implements OnGatewayConnection {
         )
 
         socket.emit('pregame-room-messages-page', {
-            messagesList: messagesWithSendersAsUsers.map((messageWithSenderAsUser: { message: Message, user: User }) => this.pregameRoomsFormatterService.formatPregameRoomMessage(
-                messageWithSenderAsUser.message,
-                messageWithSenderAsUser.user
-            )),
-            totalCount: messagesPage.totalCount
+            messagesList: messagesWithSendersAsUsers.map((messageWithSenderAsUser: { message: Message, user: User }) => (
+                this.pregameRoomsFormatterService.formatPregameRoomChatMessage(
+                    messageWithSenderAsUser.message,
+                    messageWithSenderAsUser.user
+                ))),
+            totalCount: pregameRoomChatMessagesPage.totalCount
         })
     }
 
@@ -274,7 +275,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
         const sendPregameRoomMessage = await this.pregameRoomsService.sendPregameRoomMessage(userId, dto.messageText)
 
         this.server.to(sendPregameRoomMessage.pregameRoomId).emit('send-pregame-room-message', {
-            message: this.pregameRoomsFormatterService.formatPregameRoomMessage(sendPregameRoomMessage.message, sendPregameRoomMessage.user),
+            message: this.pregameRoomsFormatterService.formatPregameRoomChatMessage(sendPregameRoomMessage.message, sendPregameRoomMessage.user),
         })
     }
 

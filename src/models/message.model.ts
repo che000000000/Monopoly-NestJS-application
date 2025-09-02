@@ -29,7 +29,7 @@ export class Message extends Model {
     @ForeignKey(() => User)
     @Column({
         type: DataType.UUID,
-        allowNull: false
+        allowNull: true
     })
     declare userId: string
 }

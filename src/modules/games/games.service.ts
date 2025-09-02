@@ -14,6 +14,7 @@ import { Player, PlayerStatus } from 'src/models/player.model';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { MessagesService } from '../messages/messages.service';
 import { Message } from 'src/models/message.model';
+import { User } from 'src/models/user.model';
 
 @Injectable()
 export class GamesService {
@@ -48,7 +49,7 @@ export class GamesService {
         })
     }
 
-    async initGame(userId: string): Promise<{game: Game, gameFields: GameField[], players: Player[], pregameRoom: PregameRoom}> {
+    async initGame(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], pregameRoom: PregameRoom }> {
         const userAsPregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!userAsPregameRoomMember) {
             throw new BadRequestException(`Failed to start game. User not in the pregame room to start game.`)
@@ -99,17 +100,63 @@ export class GamesService {
         }
     }
 
-    async getGameState(gameId: string): Promise<{game: Game, gameFields: GameField[], players: Player[]}> {
+    async getGameState(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[] }> {
+        const userAsPlayer = await this.playersService.findOneByUserId(userId)
+        if (!userAsPlayer) {
+            throw new BadRequestException(`Failed to get game state. User is not player of the game.`)
+        }
+
         const [game, gameFields, players] = await Promise.all([
-            this.getOneOrThrow(gameId),
-            this.gameFieldsService.findAllByGameId(gameId),
-            this.playersService.findAllByGameId(gameId),
+            this.getOneOrThrow(userAsPlayer.gameId),
+            this.gameFieldsService.findAllByGameId(userAsPlayer.gameId),
+            this.playersService.findAllByGameId(userAsPlayer.gameId),
         ])
 
         return {
             game,
             gameFields,
             players,
+        }
+    }
+
+    async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
+        const userAsPlayer = await this.playersService.findOneByUserId(userId)
+        if (!userAsPlayer) {
+            throw new BadRequestException(`Failed to get game chat messages page. User is not player.`)
+        }
+
+        const gameChat = await this.chatsService.findOneByGameId(userAsPlayer.gameId)
+        if (!gameChat) {
+            throw new InternalServerErrorException('Failed to get pregame room messages page. Game chat not found.')
+        }
+
+        return await this.messagesService.getPage(gameChat.id, pageNumber, pageSize)
+    }
+
+    async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
+        const [user, userAsPlayer] = await Promise.all([
+            this.usersService.getOrThrow(userId),
+            this.playersService.findOneByUserId(userId),
+        ])
+        if (!userAsPlayer) {
+            throw new NotFoundException(`Failed to send game chat message. User is not player.`)
+        }
+        if (messageText.length === 0) {
+            throw new BadRequestException(`Failed to send game chat message. Message text must not be empty.`)
+        }
+
+        const gameChat = await this.chatsService.findOneByGameId(userAsPlayer.gameId)
+        if (!gameChat) {
+            throw new InternalServerErrorException(`Failed to send game chat message. Game chat not found.`)
+        }
+
+        const newMessage = await this.messagesService.create(user.id, gameChat.id, messageText)
+
+        return {
+            message: newMessage,
+            user,
+            player: userAsPlayer,
+            gameId: userAsPlayer.gameId
         }
     }
 }

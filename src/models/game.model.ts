@@ -1,4 +1,4 @@
-import { AllowNull, Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
 import { Chat } from "./chat.model";
 import { Player } from "./player.model";

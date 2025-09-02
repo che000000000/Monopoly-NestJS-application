@@ -16,6 +16,11 @@ import { GameField } from "src/models/game-field.model";
 import { GetGameStateDto } from "./dto/get-game-state";
 import { Game } from "src/models/game.model";
 import { IGameState } from "src/modules/data-formatter/games/interfaces/game-state";
+import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
+import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
+import { Message } from "src/models/message.model";
+import { User } from "src/models/user.model";
+import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -148,24 +153,71 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
-    @SubscribeMessage('get-game-state')
-    private async getGameState(
-        @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: GetGameStateDto
-    ): Promise<void> {
+    @SubscribeMessage('game-state')
+    private async getGameState(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const userAsPlayer = await this.playersService.findOneByUserId(userId)
-
-        let gameId = userAsPlayer?.gameId || dto.gameId
-        if (!gameId) {
-            throw new BadRequestException('Failed to get game state. User is not in the game or gameId was not provided.')
-        }
-
-        const gameState = await this.gamesService.getGameState(gameId)
+        const gameState = await this.gamesService.getGameState(userId)
 
         socket.emit('game-state', {
             gameState: await this.formatGameState(gameState.game, gameState.players, gameState.gameFields)
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('game-chat-messages-page')
+    private async getGameChatMessagesPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetGameChatMessagesPageDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const options = {
+            pageNumber: dto.pageNumber ? dto.pageNumber : 1,
+            pageSize: dto.pageSize ? dto.pageSize : 12
+        }
+
+        const gameChatMessagesPage = await this.gamesService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
+
+        const messagesWithFormattedSender = await Promise.all(
+            gameChatMessagesPage.messages.reverse().map(async (message: Message) => {
+                const [user, player] = await Promise.all([
+                    this.usersService.findOne(message.userId),
+                    this.playersService.findOneByUserId(message.userId)
+                ])
+
+                return {
+                    message,
+                    sender: user && player
+                        ? this.gamesFormatterService.formatGameChatMessageSender(user, player)
+                        : null
+                }
+            })
+        )
+
+        socket.emit('game-chat-messages-page', {
+            messagesList: messagesWithFormattedSender.map((messageWithSender: { message: Message, sender: IGameChatMessageSender | null }) => (
+                this.gamesFormatterService.formatGameChatMessage(
+                    messageWithSender.message,
+                    messageWithSender.sender
+                ))),
+            totalCount: gameChatMessagesPage.totalCount
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('send-game-chat-message')
+    private async sendGameChatMessage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: SendGameChatMessageDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const sendGameChatMessage = await this.gamesService.sendGameChatMessage(userId, dto.messageText)
+        const formattedGameChatMessageSender = this.gamesFormatterService.formatGameChatMessageSender(sendGameChatMessage.user, sendGameChatMessage.player)
+
+        this.server.to(sendGameChatMessage.gameId).emit('send-game-chat-message', {
+            message: this.gamesFormatterService.formatGameChatMessage(sendGameChatMessage.message, formattedGameChatMessageSender)
         })
     }
 }
