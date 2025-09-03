@@ -9,6 +9,8 @@ import { PregameRoomMembersModule } from "../pregame-room-members/pregame-room-m
 import { DataFormatterModule } from "../data-formatter/data-formatter.module";
 import { PregameRoomsGateway } from "./pregame-rooms-gateway/pregame-rooms.gateway";
 import { ChatsModule } from "../chats/chats.module";
+import { GlobalChatsModule } from "../global-chat/global-chats.module";
+import { GlobalChatGateway } from "./global-chat-gateway/global-chat.gateway";
 
 @Module({
     imports: [
@@ -19,10 +21,11 @@ import { ChatsModule } from "../chats/chats.module";
         GamesModule,
         PlayersModule,
         GameTurnsModule,
+        GlobalChatsModule,
         DataFormatterModule
     ],
-    providers: [PregameRoomsGateway, GamesGateway],
-    exports: [PregameRoomsGateway, GamesGateway]
+    providers: [PregameRoomsGateway, GamesGateway, GlobalChatGateway],
+    exports: [PregameRoomsGateway, GamesGateway, GlobalChatGateway]
 })
 
 export class GatewaysModule { }

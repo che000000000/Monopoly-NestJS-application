@@ -27,6 +27,7 @@ import { GameField } from 'src/models/game-field.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
 import { DataFormatterModule } from '../data-formatter/data-formatter.module';
+import { GlobalChatsModule } from '../global-chat/global-chats.module';
 
 @Module({
   imports: [
@@ -68,7 +69,7 @@ import { DataFormatterModule } from '../data-formatter/data-formatter.module';
     UsersModule, PregameRoomsModule, PregameRoomMembersModule,
     GatewaysModule, ChatsModule, ChatMembersModule,
     MessagesModule, GamesModule, PlayersModule,
-    DataFormatterModule
+    DataFormatterModule, GlobalChatsModule
   ],
 })
 export class AppModule { }

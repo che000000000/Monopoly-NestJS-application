@@ -3,12 +3,10 @@ import { InjectModel } from '@nestjs/sequelize';
 import { PregameRoom } from 'src/models/pregame-room.model';
 import { UsersService } from '../users/users.service';
 import { ChatsService } from '../chats/chats.service';
-import { ChatMembersService } from '../chat-members/chat-members.service';
 import { MessagesService } from '../messages/messages.service';
 import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
-import { Chat, TiedTo } from 'src/models/chat.model';
+import { Chat, ChatType } from 'src/models/chat.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
-import { ChatMember } from 'src/models/chat-members';
 import { PlayerChip } from 'src/models/player.model';
 import { Message } from 'src/models/message.model';
 import { User } from 'src/models/user.model';
@@ -21,7 +19,6 @@ export class PregameRoomsService {
         private readonly usersService: UsersService,
         private readonly playersService: PlayersService,
         private readonly chatsService: ChatsService,
-        private readonly chatMembersService: ChatMembersService,
         private readonly messagesService: MessagesService
     ) { }
 
@@ -40,13 +37,10 @@ export class PregameRoomsService {
         return foundRoom
     }
 
-    async create(): Promise<PregameRoom> {
-        try {
-            return await this.pregameRoomsRepository.create()
-        } catch (error) {
-            console.error(`Sequelize error: ${error}`)
-            throw new InternalServerErrorException('Failed to create pregame room.')
-        }
+    async create(chatId: string): Promise<PregameRoom> {
+        return await this.pregameRoomsRepository.create({
+            chatId
+        })
     }
 
     async destroy(id: string): Promise<number> {
@@ -90,21 +84,23 @@ export class PregameRoomsService {
         }
     }
 
-    async getPregameRoomChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
+    async getPregameRoomChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
         const pregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!pregameRoomMember) {
             throw new BadRequestException(`Failed to get pregame room messages page. User isn't in the pregame room`)
         }
 
-        const pregameRoomChat = await this.chatsService.findOneByPregameRoomId(pregameRoomMember.pregameRoomId)
+        const pregameRoom = await this.getOneOrThrow(pregameRoomMember.pregameRoomId)
+
+        const pregameRoomChat = await this.chatsService.findOne(pregameRoom.chatId)
         if (!pregameRoomChat) {
             throw new InternalServerErrorException('Failed to get pregame room messages page. Pregame room chat not found.')
         }
 
-        return await this.messagesService.getPage(pregameRoomChat.id, pageNumber, pageSize)
+        return await this.messagesService.getMessagesPage(pregameRoomChat.id, pageNumber, pageSize)
     }
 
-    async init(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat, chatMember: ChatMember }> {
+    async initPregameRoom(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat }> {
         const [user, userAsPlayer] = await Promise.all([
             this.usersService.findOne(userId),
             this.playersService.findOneByUserId(userId)
@@ -116,58 +112,42 @@ export class PregameRoomsService {
             throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
         }
 
-        const newPregameRoom = await this.create()
+        const newChat = await this.chatsService.create(ChatType.PREGAME)
 
-        const [newChat, newPregameRoomMember] = await Promise.all([
-            this.chatsService.create(TiedTo.PREGAME),
-            this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
-        ])
+        const newPregameRoom = await this.create(newChat.id)
 
-
-        const [newChatMember] = await Promise.all([
-            this.chatMembersService.create(user.id, newChat.id),
-            await this.chatsService.linkToPregame(newChat.id, newPregameRoom.id)
-        ])
-
+        const newPregameRoomMember = await this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
+        
         return {
             pregameRoom: newPregameRoom,
             pregameRoomMember: newPregameRoomMember,
             chat: newChat,
-            chatMember: newChatMember
         }
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
-        const [user, userAsPlayer, userAsPregameRoomMember, pregameRoomMemberOnSlot, pregameRoom, pregameRoomChat, avialableChips] = await Promise.all([
+        const [user, pregameRoom, userAsPregameRoomMember, userAsPlayer, pregameRoomMemberOtSlot, availableChips] = await Promise.all([
             this.usersService.findOne(userId),
-            this.playersService.findOneByUserId(userId),
-            this.pregameRoomMembersService.findOneByUserId(userId),
-            this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
             this.findOne(pregameRoomId),
-            this.chatsService.findOneByPregameRoomId(pregameRoomId),
+            this.pregameRoomMembersService.findOneByUserId(userId),
+            this.playersService.findOneByUserId(userId),
+            this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
             this.getAvailableChips(pregameRoomId)
         ])
         if (!user) {
-            throw new NotFoundException(`Failed to add user to pregame room. User not found`)
-        }
-        if (userAsPlayer) {
-            throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
+            throw new InternalServerErrorException(`Failed to add user to pregame room. User not found`)
         }
         if (!pregameRoom) {
-            throw new BadRequestException(`Failed to add user to pregame room. Pregame room doesn't exists.`)
+            throw new NotFoundException(`Failed to add user to pregame room. Pregame room not found.`)
         }
-        if (userAsPregameRoomMember) {
-            throw new BadRequestException('Failed to add user to pregame room. User in the pregame room already.')
+        if (userAsPregameRoomMember || userAsPlayer) {
+            throw new BadRequestException(`Failed to add user to pregame room. User is player or pre-game room member already.`)
         }
-        if (pregameRoomMemberOnSlot) {
-            throw new BadRequestException('Failed to add user to pregame room. This slot is occupied already')
+        if (pregameRoomMemberOtSlot) {
+            throw new BadRequestException(`Failed to add user to pregame room. This slot is occupied already`)
         }
-        if (!pregameRoomChat) {
-            throw new InternalServerErrorException(`Failed to add user to pregame room. Pregame room chat not found.`)
-        }
-
-        await this.chatMembersService.create(user.id, pregameRoomChat.id)
-        return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, avialableChips[0], slot)
+        
+        return await this.pregameRoomMembersService.create(pregameRoom.id, user.id, false, availableChips[0], slot)
     }
 
     async removePregameRoomMember(userId: string): Promise<PregameRoomMember> {
@@ -233,7 +213,9 @@ export class PregameRoomsService {
             throw new BadRequestException('Failed to send pregame room message. User not in the pregame room.')
         }
 
-        const pregameRoomChat = await this.chatsService.findOneByPregameRoomId(pregameRoomMember.pregameRoomId)
+        const pregameRoom = await this.getOneOrThrow(pregameRoomMember.pregameRoomId)
+
+        const pregameRoomChat = await this.chatsService.findOne(pregameRoom.chatId)
         if (!pregameRoomChat) {
             throw new InternalServerErrorException('Failed to send pregame room message. Pregame room chat not found.')
         }

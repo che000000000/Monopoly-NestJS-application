@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Chat, TiedTo } from 'src/models/chat.model';
+import { Chat, ChatType } from 'src/models/chat.model';
 
 @Injectable()
 export class ChatsService {
@@ -12,15 +12,9 @@ export class ChatsService {
         })
     }
 
-    async findOneByPregameRoomId(pregameRoomId: string): Promise<Chat | null> {
+    async findOneWhereChatTypeGlobal(): Promise<Chat | null> {
         return await this.chatsRepository.findOne({
-            where: { pregameRoomId }
-        })
-    }
-
-    async findOneByGameId(gameId: string): Promise<Chat | null> {
-        return await this.chatsRepository.findOne({
-            where: { gameId }
+            where: { type: ChatType.GLOBAL}
         })
     }
 
@@ -30,8 +24,10 @@ export class ChatsService {
         return foundChat
     }
 
-    async create(tiedTo: TiedTo): Promise<Chat> {
-        return await this.chatsRepository.create({ tiedTo })
+    async create(type: ChatType): Promise<Chat> {
+        return await this.chatsRepository.create({
+            type
+        })
     }
 
     async destroy(id: string): Promise<number> {
@@ -40,38 +36,11 @@ export class ChatsService {
         })
     }
 
-    async destroyByPregameRoomId(pregameRoomId: string): Promise<number> {
-        return await this.chatsRepository.destroy({
-            where: { pregameRoomId }
-        })
-    }
-
-    async update(id: string, fieldsToUpdate: Object): Promise<number> {
-        try {
-            const [affectedCount] = await this.chatsRepository.update(
-                fieldsToUpdate,
-                { where: { id } }
-            )
-            return affectedCount
-        } catch (error) {
-            console.error(`Sequelize error: ${error}`)
-            throw new InternalServerErrorException(`Failed to create pregame room member.`)
-        }
-    }
-
-    async linkToPregame(chatId: string, pregameRoomId: string): Promise<number> {
-        return await this.update(chatId, {
-            gameId: null,
-            pregameRoomId,
-            tiedTo: TiedTo.PREGAME
-        })
-    }
-
-    async linkToGame(chatId: string, gameId: string): Promise<number> {
-        return await this.update(chatId, {
-            pregameRoomId: null,
-            gameId,
-            tiedTo: TiedTo.GAME
-        })
+    async updateType(id: string, type: ChatType): Promise<number> {
+        const [affectedCount] = await this.chatsRepository.update(
+            { type },
+            { where: { id } }
+        )
+        return affectedCount
     }
 }

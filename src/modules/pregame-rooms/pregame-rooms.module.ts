@@ -16,7 +16,6 @@ import { PlayersModule } from '../players/players.module';
         UsersModule,
         PlayersModule,
         ChatsModule,
-        ChatMembersModule,
         MessagesModule
     ],
     providers: [PregameRoomsService],

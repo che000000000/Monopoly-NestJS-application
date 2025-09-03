@@ -135,22 +135,15 @@ export class PregameRoomsGateway implements OnGatewayConnection {
 
         const pregameRoomChatMessagesPage = await this.pregameRoomsService.getPregameRoomChatMessagesPage(userId, options.pageNumber, options.pageSize)
 
-        const messagesWithSendersAsUsers = await Promise.all(
-            pregameRoomChatMessagesPage.messages.reverse().map(async (message: Message) => {
-                const messageSenderAsUser = await this.usersService.findOne(message.userId)
-                return {
-                    message,
-                    user: messageSenderAsUser
-                }
+        const formattedPregameRoomMessages = await Promise.all(
+            pregameRoomChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
+                const user = await this.usersService.findOne(message.userId)
+                return this.pregameRoomsFormatterService.formatPregameRoomChatMessage(message, user)
             })
         )
 
         socket.emit('pregame-room-messages-page', {
-            messagesList: messagesWithSendersAsUsers.map((messageWithSenderAsUser: { message: Message, user: User }) => (
-                this.pregameRoomsFormatterService.formatPregameRoomChatMessage(
-                    messageWithSenderAsUser.message,
-                    messageWithSenderAsUser.user
-                ))),
+            messagesList: formattedPregameRoomMessages,
             totalCount: pregameRoomChatMessagesPage.totalCount
         })
     }
@@ -160,7 +153,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
     private async createPregameRoom(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const initPregameRoom = await this.pregameRoomsService.init(userId)
+        const initPregameRoom = await this.pregameRoomsService.initPregameRoom(userId)
         socket.join(initPregameRoom.pregameRoom.id)
 
         const [pregameRoomMemberAsUser, availableChips] = await Promise.all([
@@ -192,7 +185,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
         ])
 
         if (currentPregameRoomMembers.length === 0) {
-            await this.chatsService.destroyByPregameRoomId(pregameRoom.id)
+            await this.chatsService.destroy(pregameRoom.chatId)
             await this.pregameRoomsService.destroy(pregameRoom.id)
 
             this.server.emit('remove-pregame-room', {

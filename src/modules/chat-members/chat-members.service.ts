@@ -12,6 +12,12 @@ export class ChatMembersService {
         })
     }
 
+    async findOneByChatIdAndUserId(chatId: string, userId: string): Promise<ChatMember | null> {
+        return await this.chatMembersRepository.findOne({
+            where: { chatId, userId }
+        })
+    }
+
     async create(userId: string, chatId: string): Promise<ChatMember> {
         return await this.chatMembersRepository.create({ userId, chatId })
     }

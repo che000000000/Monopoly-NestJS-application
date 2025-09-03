@@ -44,7 +44,7 @@ export class PregameRoomsFormatterService {
         }
     }
 
-    formatPregameRoomChatMessage(message: Message, user: User): IPregameRoomChatMessage {
+    formatPregameRoomChatMessage(message: Message, user: User | null): IPregameRoomChatMessage {
         return {
             id: message.id,
             text: message.text,
