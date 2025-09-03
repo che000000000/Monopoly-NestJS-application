@@ -26,8 +26,8 @@ export class MessagesService {
         })
     }
 
-    async getPage(chatId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
-        const [messages, totalCount] = await Promise.all([
+    async getMessagesPage(chatId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
+        const [messagesList, totalCount] = await Promise.all([
             this.messagesRepository.findAll({
                 where: { chatId },
                 order: [['createdAt', 'DESC']],
@@ -37,6 +37,6 @@ export class MessagesService {
             this.getChatMessagesCount(chatId)
         ])
 
-        return { messages, totalCount }
+        return { messagesList, totalCount }
     }
 }

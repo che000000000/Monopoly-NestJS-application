@@ -30,8 +30,8 @@ export class PlayersService {
         return await this.playersRepository.findAll({ where: { gameId } })
     }
 
-    async findAllByGameFieldId(fieldId: string): Promise<Player[]> {
-        return await this.playersRepository.findAll({ where: { fieldId } })
+    async findAllByGameFieldId(gameFieldId: string): Promise<Player[]> {
+        return await this.playersRepository.findAll({ where: { gameFieldId } })
     }
 
     async getOneOrThrow(id: string): Promise<Player> {
@@ -40,11 +40,11 @@ export class PlayersService {
         return player
     }
 
-    async create(gameId: string, userId: string, fieldId: string, chip: PlayerChip, status: PlayerStatus, turnNumber: number): Promise<Player> {
+    async create(gameId: string, userId: string, gameFieldId: string, chip: PlayerChip, status: PlayerStatus, turnNumber: number): Promise<Player> {
         return await this.playersRepository.create({
             gameId,
             userId,
-            fieldId,
+            gameFieldId,
             chip,
             status,
             turnNumber,

@@ -72,7 +72,7 @@ export class Player extends Model {
         type: DataType.UUID,
         allowNull: false,
     })
-    declare fieldId: string
+    declare gameFieldId: string
 
     @HasOne(() => GameTurn)
     gameTurn: GameTurn

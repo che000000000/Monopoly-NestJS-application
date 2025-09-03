@@ -15,6 +15,7 @@ import { PregameRoom } from 'src/models/pregame-room.model';
 import { MessagesService } from '../messages/messages.service';
 import { Message } from 'src/models/message.model';
 import { User } from 'src/models/user.model';
+import { ChatType } from 'src/models/chat.model';
 
 @Injectable()
 export class GamesService {
@@ -42,8 +43,9 @@ export class GamesService {
         return foundGame
     }
 
-    async create(): Promise<Game> {
+    async create(chatId: string): Promise<Game> {
         return await this.gamesRepository.create({
+            chatId,
             houses: 32,
             hotels: 12
         })
@@ -58,22 +60,23 @@ export class GamesService {
             throw new BadRequestException(`Failed to start game. User is not pregame room owner.`)
         }
 
-        const [pregameRoom, pregameRoomMembers, pregameRoomChat] = await Promise.all([
-            this.pregamesRoomsService.findOne(userAsPregameRoomMember.pregameRoomId),
+        const [pregameRoom, pregameRoomMembers] = await Promise.all([
+            this.pregamesRoomsService.getOneOrThrow(userAsPregameRoomMember.pregameRoomId),
             this.pregameRoomMembersService.findAllByPregameRoomId(userAsPregameRoomMember.pregameRoomId),
-            this.chatsService.findOneByPregameRoomId(userAsPregameRoomMember.pregameRoomId)
         ])
-        if (!pregameRoom) {
-            throw new InternalServerErrorException(`Failed to start game. Pregame room not found.`)
-        }
         if (pregameRoomMembers.length < 2) {
             throw new BadRequestException(`Failed to start game. Incorrect members size to start game.`)
         }
+
+        const pregameRoomChat = await this.chatsService.findOne(pregameRoom.chatId)
         if (!pregameRoomChat) {
             throw new InternalServerErrorException(`Failed to start game. Pregame room chat not found.`)
         }
 
-        const game = await this.create()
+        const [game] = await Promise.all([
+            this.create(pregameRoomChat.id),
+            this.chatsService.updateType(pregameRoomChat.id, ChatType.GAME)
+        ])
 
         const gameFields = await this.gameFieldsService.createGameFields(game.id)
         const goField = gameFields.find((field: GameField) => field.type === GameFieldType.GO)
@@ -87,10 +90,7 @@ export class GamesService {
             ))
         ])
 
-        await Promise.all([
-            this.pregamesRoomsService.destroy(userAsPregameRoomMember.pregameRoomId),
-            this.chatsService.linkToGame(pregameRoomChat.id, game.id)
-        ])
+        await this.pregamesRoomsService.destroy(userAsPregameRoomMember.pregameRoomId)
 
         return {
             game,
@@ -119,18 +119,20 @@ export class GamesService {
         }
     }
 
-    async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messages: Message[], totalCount: number }> {
+    async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
         const userAsPlayer = await this.playersService.findOneByUserId(userId)
         if (!userAsPlayer) {
             throw new BadRequestException(`Failed to get game chat messages page. User is not player.`)
         }
 
-        const gameChat = await this.chatsService.findOneByGameId(userAsPlayer.gameId)
+        const game = await this.getOneOrThrow(userAsPlayer.gameId)
+
+        const gameChat = await this.chatsService.findOne(game.chatId)
         if (!gameChat) {
             throw new InternalServerErrorException('Failed to get pregame room messages page. Game chat not found.')
         }
 
-        return await this.messagesService.getPage(gameChat.id, pageNumber, pageSize)
+        return await this.messagesService.getMessagesPage(gameChat.id, pageNumber, pageSize)
     }
 
     async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
@@ -145,7 +147,9 @@ export class GamesService {
             throw new BadRequestException(`Failed to send game chat message. Message text must not be empty.`)
         }
 
-        const gameChat = await this.chatsService.findOneByGameId(userAsPlayer.gameId)
+        const game = await this.getOneOrThrow(userAsPlayer.gameId)
+
+        const gameChat = await this.chatsService.findOne(game.chatId)
         if (!gameChat) {
             throw new InternalServerErrorException(`Failed to send game chat message. Game chat not found.`)
         }

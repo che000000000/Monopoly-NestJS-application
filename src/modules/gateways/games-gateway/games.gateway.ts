@@ -180,7 +180,7 @@ export class GamesGateway implements OnGatewayConnection {
         const gameChatMessagesPage = await this.gamesService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
 
         const messagesWithFormattedSender = await Promise.all(
-            gameChatMessagesPage.messages.reverse().map(async (message: Message) => {
+            gameChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
                 const [user, player] = await Promise.all([
                     this.usersService.findOne(message.userId),
                     this.playersService.findOneByUserId(message.userId)
