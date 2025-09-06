@@ -26,6 +26,12 @@ export class PlayersService {
         })
     }
 
+    async findAllByUserId(userId: string): Promise<Player[]> {
+        return await this.playersRepository.findAll({
+            where: { userId }
+        })
+    }
+
     async findAllByGameId(gameId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({ where: { gameId } })
     }
