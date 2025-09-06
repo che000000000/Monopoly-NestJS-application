@@ -173,7 +173,7 @@ export class PregameRoomsService {
 
         const [pregameRoomMember] = await Promise.all([
             this.pregameRoomMembersService.findOneByUserId(userId),
-            this.usersService.getOrThrow(userId)
+            this.usersService.getOneOrThrow(userId)
         ])
         if (!pregameRoomMember) {
             throw new BadRequestException('Failed to set pregame room member slot. User not in the pregame room.')

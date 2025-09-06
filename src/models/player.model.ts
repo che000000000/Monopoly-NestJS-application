@@ -9,7 +9,7 @@ export enum PlayerChip {
     CART = 'CART',
     HAT = 'HAT',
     IRON = 'IRON',
-    PENGUIN = 'PINGUIN',
+    PENGUIN = 'PENGUIN',
     THIMBLE = 'THIMBLE'
 }
 

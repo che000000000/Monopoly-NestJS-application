@@ -10,20 +10,21 @@ import { IGame } from "./interfaces/game";
 import { Message } from "src/models/message.model";
 import { IGameChatMessage } from "./interfaces/game-chat-message";
 import { IGameChatMessageSender } from "./interfaces/game-chat-message-sender";
+import { IPlayerPreview } from "./interfaces/player-preview";
+import { IGamePreview } from "./interfaces/game-preview";
 
 @Injectable()
 export class GamesFormatterService {
-    formatPlayer(player: Player, user: User | null): IPlayer {
+    formatPlayer(player: Player, user: User): IPlayer {
         return {
             id: player.id,
-            user: user
-                ? {
-                    id: user.id,
-                    name: user.name,
-                    avatarUrl: user.avatarUrl,
-                    role: user.role
-                }
-                : null,
+            user:
+            {
+                id: user.id,
+                name: user.name,
+                avatarUrl: user.avatarUrl,
+                role: user.role
+            },
             chip: player.chip,
             status: player.status,
             turnNumber: player.turnNumber,
@@ -44,6 +45,28 @@ export class GamesFormatterService {
             buildsCount: gameField.buildsCount,
             players: onFieldFormattedPlayers,
             owner: ownerFormattedPlayer,
+        }
+    }
+
+    formatPlayerPreview(player: Player, user: User): IPlayerPreview {
+        return {
+            id: player.id,
+            user: {
+                id: user.id,
+                name: user.name,
+                avatarUrl: user.avatarUrl,
+                role: user.role
+            },
+            chip: player.chip,
+            status: player.status
+        }
+    }
+
+    formatGamePreview(game: Game, formattedPlayerPreviews: IPlayerPreview[]): IGamePreview {
+        return {
+            id: game.id,
+            players: formattedPlayerPreviews,
+            createdAt: game.createdAt
         }
     }
 

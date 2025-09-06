@@ -56,7 +56,9 @@ export class GlobalChatGateway implements OnGatewayConnection {
 
         const formattedGlobalChatMessages = await Promise.all(
             globalChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
-                const user = await this.usersService.findOne(message.userId)
+                const user = message.userId 
+                    ? await this.usersService.findOne(message.userId)
+                    : null
                 return this.globalChatFormatterService.formatGlobalChatMessage(message, user)
             })
         )

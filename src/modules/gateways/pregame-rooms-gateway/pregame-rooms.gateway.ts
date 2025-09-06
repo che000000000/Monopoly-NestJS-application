@@ -137,7 +137,9 @@ export class PregameRoomsGateway implements OnGatewayConnection {
 
         const formattedPregameRoomMessages = await Promise.all(
             pregameRoomChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
-                const user = await this.usersService.findOne(message.userId)
+                const user = message.userId
+                    ? await this.usersService.findOne(message.userId)
+                    : null
                 return this.pregameRoomsFormatterService.formatPregameRoomChatMessage(message, user)
             })
         )
@@ -157,7 +159,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
         socket.join(initPregameRoom.pregameRoom.id)
 
         const [pregameRoomMemberAsUser, availableChips] = await Promise.all([
-            this.usersService.getOrThrow(initPregameRoom.pregameRoomMember.userId),
+            this.usersService.getOneOrThrow(initPregameRoom.pregameRoomMember.userId),
             this.pregameRoomsService.getAvailableChips(initPregameRoom.pregameRoom.id)
         ])
 
@@ -231,7 +233,7 @@ export class PregameRoomsGateway implements OnGatewayConnection {
         const [currentPregameRoomMembers, pregameRoom, user] = await Promise.all([
             this.pregameRoomMembersService.findAllByPregameRoomId(dto.pregameRoomId),
             this.pregameRoomsService.getOneOrThrow(dto.pregameRoomId),
-            this.usersService.getOrThrow(userId)
+            this.usersService.getOneOrThrow(userId)
         ])
 
         const [pregameRoomMembersWithUsers, availableChips] = await Promise.all([

@@ -1,10 +1,8 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, UseGuards } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { User, UserRole } from 'src/models/user.model';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 import { InjectModel } from '@nestjs/sequelize';
-import { UpdatePregameRoomIdDto } from './dto/update-pregame-room.dto';
-import { UpdateGameIdDto } from './dto/update-game-id.dto';
 
 @Injectable()
 export class UsersService {
@@ -17,7 +15,7 @@ export class UsersService {
         })
     }
 
-    async getOrThrow(userId: string): Promise<User> {
+    async getOneOrThrow(userId: string): Promise<User> {
         const foundUser = await this.findOne(userId)
         if(!foundUser) throw new BadRequestException(`User doesn't exist.`)
         return foundUser
