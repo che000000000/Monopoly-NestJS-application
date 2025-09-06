@@ -31,5 +31,5 @@ export class Message extends Model {
         type: DataType.UUID,
         allowNull: true
     })
-    declare userId: string
+    declare userId: string | null
 }

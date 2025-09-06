@@ -21,6 +21,7 @@ import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
 import { Message } from "src/models/message.model";
 import { User } from "src/models/user.model";
 import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
+import { GetGamesPageDto } from "./dto/get-games-page";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -86,46 +87,62 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     private async formatGameState(game: Game, players: Player[], gameFields: GameField[]): Promise<IGameState> {
-        const playersWithUsers = await Promise.all(
-            players.map(async (player: Player) => {
-                const playerAsUser = await this.usersService.findOne(player.userId)
-                return {
-                    player,
-                    user: playerAsUser ? playerAsUser : null
-                }
-            })
-        )
-
         const [formattedPlayers, formattedGameFields] = await Promise.all([
-            playersWithUsers.map(playerWithUser => this.gamesFormatterService.formatPlayer(playerWithUser.player, playerWithUser.user)),
+            await Promise.all(
+                players.map(async (player: Player) => (
+                    this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
+                ))
+            ),
             await Promise.all(
                 gameFields.map(async (gameField: GameField) => {
-                    const ownerPlayer = gameField.ownerPlayerId ? await this.playersService.getOneOrThrow(gameField.ownerPlayerId) : null
-                    const ownerPlayerWithUser = ownerPlayer
-                        ? {
-                            player: ownerPlayer,
-                            user: await this.usersService.findOne(ownerPlayer.userId)
-                        }
+                    const formattedGameFieldOwnerPlayer = gameField.ownerPlayerId
+                        ? this.gamesFormatterService.formatPlayer(
+                            await this.playersService.getOneOrThrow(gameField.ownerPlayerId),
+                            await this.usersService.getOneOrThrow((await this.playersService.getOneOrThrow(gameField.ownerPlayerId)).userId)
+                        )
                         : null
-                    const formattedGameFieldOwnerPlayer = ownerPlayerWithUser ? this.gamesFormatterService.formatPlayer(ownerPlayerWithUser.player, ownerPlayerWithUser.user) : null
 
                     const gameFieldPlayers = await this.playersService.findAllByGameFieldId(gameField.id)
-                    const gameFieldPlayersWithUsers = await Promise.all(
-                        gameFieldPlayers.map(async (player: Player) => ({
-                            player,
-                            user: await this.usersService.findOne(player.userId)
-                        }))
+                    const formattedGameFieldPlayers = await Promise.all(
+                        gameFieldPlayers.map(async (player: Player) => (
+                            this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
+                        ))
                     )
-                    const formattedGameFieldPlayers = gameFieldPlayersWithUsers.map(playerWithUser => (
-                        this.gamesFormatterService.formatPlayer(playerWithUser.player, playerWithUser.user)
-                    ))
-
                     return this.gamesFormatterService.formatGameField(gameField, formattedGameFieldPlayers, formattedGameFieldOwnerPlayer)
                 })
             )
         ])
 
         return this.gamesFormatterService.formatGameState(game, formattedGameFields, formattedPlayers)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('get-game-previews-page')
+    private async getGamePreviewsPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetGamesPageDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const getGamesPage = await this.gamesService.getGamesPage()
+
+        const formattedGamePrevies = await Promise.all(
+            getGamesPage.gamesList.map(async (game: Game) => {
+                const players = await this.playersService.findAllByGameId(game.id)
+                const formattedPlayerPreviews = await Promise.all(
+                    players.map(async (player: Player) => (
+                        this.gamesFormatterService.formatPlayerPreview(player, await this.usersService.getOneOrThrow(player.userId))
+                    ))
+                )
+
+                return this.gamesFormatterService.formatGamePreview(game, formattedPlayerPreviews)
+            })
+        )
+
+        socket.emit('get-game-previews-page', {
+            gamePreviewsList: formattedGamePrevies,
+            totalCount: getGamesPage.totalCount
+        })
     }
 
     @UseGuards(WsAuthGuard)
@@ -136,14 +153,15 @@ export class GamesGateway implements OnGatewayConnection {
         const initGame = await this.gamesService.initGame(userId)
 
         await Promise.all(
-            initGame.players.map(async (player: Player) => await this.addSocketToRoom(player.userId, initGame.game.id))
-        )
+            initGame.players.map(async (player: Player) => {
+                player.userId && await this.addSocketToRoom(player.userId, initGame.game.id)
+            }))
 
         this.pregameRoomsGateway.emitRemovePregameRoom(initGame.pregameRoom)
 
         const formattedGameState = await this.formatGameState(initGame.game, initGame.players, initGame.gameFields)
 
-        this.server.to(initGame.game.id).emit('game-state', {
+        this.server.to(initGame.game.id).emit('start-game', {
             gameState: formattedGameState
         })
 
@@ -181,6 +199,11 @@ export class GamesGateway implements OnGatewayConnection {
 
         const messagesWithFormattedSender = await Promise.all(
             gameChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
+                if (!message.userId) return {
+                    message,
+                    sender: null
+                }
+
                 const [user, player] = await Promise.all([
                     this.usersService.findOne(message.userId),
                     this.playersService.findOneByUserId(message.userId)

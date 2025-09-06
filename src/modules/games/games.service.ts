@@ -51,6 +51,27 @@ export class GamesService {
         })
     }
 
+    private async getGamesTotalCount(): Promise<number> {
+        return await this.gamesRepository.count()
+    }
+
+    async getGamesPage(pageNumber?: number | null, pageSize?: number | null): Promise<{ gamesList: Game[], totalCount: number }> {
+        const options = {
+            pageNumber: pageNumber ? pageNumber : 1,
+            pageSize: pageSize ? pageSize : 12
+        }
+
+        return {
+            gamesList: await this.gamesRepository.findAll({
+                order: [['createdAt', 'DESC']],
+                limit: options.pageSize,
+                offset: (options.pageNumber - 1) * options.pageSize,
+                raw: true
+            }),
+            totalCount: await this.getGamesTotalCount()
+        }
+    }
+
     async initGame(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], pregameRoom: PregameRoom }> {
         const userAsPregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!userAsPregameRoomMember) {
@@ -137,7 +158,7 @@ export class GamesService {
 
     async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
         const [user, userAsPlayer] = await Promise.all([
-            this.usersService.getOrThrow(userId),
+            this.usersService.getOneOrThrow(userId),
             this.playersService.findOneByUserId(userId),
         ])
         if (!userAsPlayer) {

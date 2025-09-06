@@ -93,6 +93,6 @@ export class User extends Model {
     @HasOne(() => PregameRoomMember)
     pregameRoomMember: PregameRoomMember
 
-    @HasOne(() => Player)
-    player: Player
+    @HasMany(() => Player)
+    player: Player[]
 }

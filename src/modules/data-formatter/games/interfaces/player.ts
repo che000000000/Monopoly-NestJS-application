@@ -1,11 +1,6 @@
-import { PlayerChip } from "src/models/player.model";
-import { IUser } from "../../interfaces/user";
+import { IPlayerPreview } from "./player-preview";
 
-export interface IPlayer {
-    id: string,
-    user: IUser | null,
-    chip: PlayerChip
-    status: string
+export interface IPlayer extends IPlayerPreview {
     turnNumber: number,
     balance: number
 }
