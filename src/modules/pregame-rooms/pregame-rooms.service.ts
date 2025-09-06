@@ -7,7 +7,7 @@ import { MessagesService } from '../messages/messages.service';
 import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
 import { Chat, ChatType } from 'src/models/chat.model';
 import { PregameRoomMember } from 'src/models/pregame-room-member.model';
-import { PlayerChip } from 'src/models/player.model';
+import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
 import { Message } from 'src/models/message.model';
 import { User } from 'src/models/user.model';
 import { PlayersService } from '../players/players.service';
@@ -101,14 +101,14 @@ export class PregameRoomsService {
     }
 
     async initPregameRoom(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat }> {
-        const [user, userAsPlayer] = await Promise.all([
+        const [user, userPlayers] = await Promise.all([
             this.usersService.findOne(userId),
-            this.playersService.findOneByUserId(userId)
+            this.playersService.findAllByUserId(userId)
         ])
         if (!user) {
             throw new NotFoundException('Failed to init pregame room. User not found.')
         }
-        if (userAsPlayer) {
+        if (userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
             throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
         }
 
@@ -126,11 +126,11 @@ export class PregameRoomsService {
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
-        const [user, pregameRoom, userAsPregameRoomMember, userAsPlayer, pregameRoomMemberOtSlot, availableChips] = await Promise.all([
+        const [user, pregameRoom, userAsPregameRoomMember, userPlayers, pregameRoomMemberOtSlot, availableChips] = await Promise.all([
             this.usersService.findOne(userId),
             this.findOne(pregameRoomId),
             this.pregameRoomMembersService.findOneByUserId(userId),
-            this.playersService.findOneByUserId(userId),
+            this.playersService.findAllByUserId(userId),
             this.pregameRoomMembersService.findOneBySlotAndPregameRoomId(slot, pregameRoomId),
             this.getAvailableChips(pregameRoomId)
         ])
@@ -140,8 +140,11 @@ export class PregameRoomsService {
         if (!pregameRoom) {
             throw new NotFoundException(`Failed to add user to pregame room. Pregame room not found.`)
         }
-        if (userAsPregameRoomMember || userAsPlayer) {
-            throw new BadRequestException(`Failed to add user to pregame room. User is player or pre-game room member already.`)
+        if (userAsPregameRoomMember || userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
+            throw new BadRequestException(`Failed to add user to pregame room. User in pregame room member already.`)
+        }
+        if (userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
+            throw new BadRequestException(`Failed to add user to pregame room. User in game already.`)
         }
         if (pregameRoomMemberOtSlot) {
             throw new BadRequestException(`Failed to add user to pregame room. This slot is occupied already`)
