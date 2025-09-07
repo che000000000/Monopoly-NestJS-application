@@ -23,6 +23,15 @@ export class GameFieldsService {
         })
     }
 
+    async findOneByGameIdAndPosition(gameId: string, position: number): Promise<GameField | null> {
+        return await this.gameFieldsRepository.findOne({
+            where: {
+                gameId,
+                position
+            }
+        })
+    }
+
     async getOneOrThrow(id: string): Promise<GameField> {
         const gameField = await this.findOne(id)
         if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)

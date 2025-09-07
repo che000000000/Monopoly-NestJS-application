@@ -20,16 +20,15 @@ export class PlayersService {
         })
     }
 
-    async findOneByUserId(userId: string): Promise<Player | null> {
-        return await this.playersRepository.findOne({
-            where: { userId }
-        })
-    }
-
     async findAllByUserId(userId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({
             where: { userId }
         })
+    }
+
+    async findCurrentPlayerByUserId(userId: string): Promise<Player | undefined> {
+        const userPlayers = await this.findAllByUserId(userId)
+        return userPlayers.find((player: Player) => player.status !== PlayerStatus.IS_LEFT)
     }
 
     async findAllByGameId(gameId: string): Promise<Player[]> {
@@ -38,6 +37,15 @@ export class PlayersService {
 
     async findAllByGameFieldId(gameFieldId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({ where: { gameFieldId } })
+    }
+
+    async findOneByGameIdAndTurnNumber(gameId: string, turnNumber: number): Promise<Player | null> {
+        return await this.playersRepository.findOne({
+            where: {
+                gameId,
+                turnNumber
+            }
+        })
     }
 
     async getOneOrThrow(id: string): Promise<Player> {
@@ -58,7 +66,25 @@ export class PlayersService {
         })
     }
 
-    async dstroy(playerId: string): Promise<number> {
-        return await this.playersRepository.destroy({ where: { id: playerId } })
+    async dstroy(id: string): Promise<number> {
+        return await this.playersRepository.destroy({
+            where: { id }
+        })
+    }
+
+    async updateFieldId(id: string, gameFieldId: string): Promise<number> {
+        const [affectedCount] = await this.playersRepository.update(
+            { gameFieldId },
+            { where: { id } }
+        )
+        return affectedCount
+    }
+
+    async updateBalance(id: string, balance: number): Promise<number> {
+        const [affectedCount] = await this.playersRepository.update(
+            { balance },
+            { where: { id } }
+        )
+        return affectedCount
     }
 }

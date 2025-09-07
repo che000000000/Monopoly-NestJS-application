@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { GameTurn } from 'src/models/game-turn.model';
+import { GameTurn, GameTurnStage } from 'src/models/game-turn.model';
 import { Game } from 'src/models/game.model';
 import { Player } from 'src/models/player.model';
 
@@ -10,22 +10,26 @@ export class GameTurnsService {
         @InjectModel(GameTurn) private readonly gameTurnsRepository: typeof GameTurn
     ) { }
 
-    async find(turnId: string): Promise<GameTurn | null> {
-        return await this.gameTurnsRepository.findOne({ where: { id: turnId } })
+    async findOne(id: string): Promise<GameTurn | null> {
+        return await this.gameTurnsRepository.findOne({
+            where: { id }
+        })
     }
 
-    async findByGame(game: Game): Promise<GameTurn | null> {
-        return await this.gameTurnsRepository.findOne({ where: { gameId: game.id } })
+    async findOneByGameId(gameId: string): Promise<GameTurn | null> {
+        return await this.gameTurnsRepository.findOne({
+            where: { gameId }
+        })
     }
 
-    async getOrThrow(turnId: string): Promise<GameTurn> {
-        const gameTurn = await this.find(turnId)
+    async getOneOrThrow(id: string): Promise<GameTurn> {
+        const gameTurn = await this.findOne(id)
         if (!gameTurn) throw new NotFoundException(`Failed to get game turn. Turn doesn't exist.`)
         return gameTurn
     }
 
-    async getByGameOrThrow(game: Game): Promise<GameTurn> {
-        const foundGameTurn = await this.findByGame(game)
+    async getOneByGameIdOrThrow(gameId: string): Promise<GameTurn> {
+        const foundGameTurn = await this.findOneByGameId(gameId)
         if (!foundGameTurn) throw new NotFoundException(`Failed to get game turn by game.`)
         return foundGameTurn
     }
@@ -38,10 +42,32 @@ export class GameTurnsService {
         })
     }
 
-    async updatePlayerId(gameTurn: GameTurn, player: Player): Promise<number> {
+    async destroy(id: string): Promise<number> {
+        return await this.gameTurnsRepository.destroy({
+            where: { id }
+        })
+    }
+
+    async updatePlayerId(id: string, playerId: string): Promise<number> {
         const [affectedCount] = await this.gameTurnsRepository.update(
-            { playerId: player.id },
-            { where: { id: gameTurn.id } }
+            { playerId },
+            { where: { id } }
+        )
+        return affectedCount
+    }
+
+    async updateStage(id: string, stage: GameTurnStage): Promise<number> {
+        const [affectedCount] = await this.gameTurnsRepository.update(
+            { stage },
+            { where: { id } }
+        )
+        return affectedCount
+    }
+
+    async updateExpires(id: string, expires: number): Promise<number> {
+        const [affectedCount] = await this.gameTurnsRepository.update(
+            { expires },
+            { where: { id } }
         )
         return affectedCount
     }

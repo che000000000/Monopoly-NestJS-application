@@ -10,7 +10,7 @@ import { GameTurnsService } from "../../game-turns/game-turns.service";
 import { WsAuthGuard } from "../guards/wsAuth.guard";
 import { PregameRoomsGateway } from "../pregame-rooms-gateway/pregame-rooms.gateway";
 import { ErrorType } from "../constants/error-types";
-import { Player } from "src/models/player.model";
+import { Player, PlayerStatus } from "src/models/player.model";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
 import { GameField } from "src/models/game-field.model";
 import { GetGameStateDto } from "./dto/get-game-state";
@@ -22,6 +22,10 @@ import { Message } from "src/models/message.model";
 import { User } from "src/models/user.model";
 import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
 import { GetGamesPageDto } from "./dto/get-games-page";
+import { GameTurn } from "src/models/game-turn.model";
+import { GameFieldsService } from "src/modules/game-fields/game-fields.service";
+import { IPlayer } from "src/modules/data-formatter/games/interfaces/player";
+import { IGameField } from "src/modules/data-formatter/games/interfaces/game-field";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -38,6 +42,7 @@ export class GamesGateway implements OnGatewayConnection {
         private readonly playersService: PlayersService,
         private readonly gamesFormatterService: GamesFormatterService,
         private readonly pregameRoomsGateway: PregameRoomsGateway,
+        private readonly gameFiedlsService: GameFieldsService,
         private readonly gameTurnsService: GameTurnsService
     ) { }
 
@@ -80,40 +85,93 @@ export class GamesGateway implements OnGatewayConnection {
         const userId = socket.request.session.userId
         if (!userId) return
 
-        const player = await this.playersService.findOneByUserId(userId)
-        if (!player) return
+        const userPlayers = await this.playersService.findAllByUserId(userId)
+        const currentPlayer = userPlayers.find((player: Player) => player.status !== PlayerStatus.IS_LEFT)
+        if (!currentPlayer) return
 
-        socket.join(player.gameId)
+        socket.join(currentPlayer.gameId)
     }
 
-    private async formatGameState(game: Game, players: Player[], gameFields: GameField[]): Promise<IGameState> {
-        const [formattedPlayers, formattedGameFields] = await Promise.all([
-            await Promise.all(
-                players.map(async (player: Player) => (
-                    this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
-                ))
-            ),
+    private async turnTimeout(gameTurn: GameTurn): Promise<void> {
+        const nextGameTurn = await this.gamesService.defineNextGameTurn(gameTurn)
+
+        this.startTurnTimer(nextGameTurn.gameTurn)
+    }
+
+    private async startTurnTimer(gameTurn: GameTurn): Promise<void> {
+        await this.clearTurnTimer(gameTurn.id)
+
+        const gameTurnPlayer = await this.playersService.getOneOrThrow(gameTurn.playerId)
+
+        this.server.to(gameTurn.gameId).emit('new-game-turn', {
+            gameTurn: this.gamesFormatterService.formatGameTurn(
+                gameTurn,
+                await this.getformattedPlayer(gameTurnPlayer)
+            )
+        })
+        
+        this.turnTimers.set(gameTurn.id, setTimeout(() => {
+            this.turnTimeout(gameTurn)
+        }, gameTurn.expires * 1000))
+    }
+
+    private async clearTurnTimer(gameTurnId: string): Promise<void> {
+        const foundTimer = this.turnTimers.get(gameTurnId)
+        if (!foundTimer) return
+
+        clearTimeout(foundTimer)
+        this.turnTimers.delete(gameTurnId)
+    }
+
+    private async getformattedPlayer(player: Player): Promise<IPlayer> {
+        return this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
+    }
+
+    private async getformattedPlayers(players: Player[]): Promise<IPlayer[]> {
+        return await Promise.all(
+            players.map(async (player: Player) => (
+                this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
+            ))
+        )
+    }
+
+    private async getFormattedGameField(gameField: GameField): Promise<IGameField> {
+        const [ownerPlayer, players] = await Promise.all([
+            gameField.ownerPlayerId ? this.playersService.getOneOrThrow(gameField.ownerPlayerId) : null,
+            this.playersService.findAllByGameFieldId(gameField.id)
+        ])
+
+        const [formattedOwnerPlayer, formattedPlayers] = await Promise.all([
+            ownerPlayer
+                ? this.getformattedPlayer(ownerPlayer)
+                : null,
+            this.getformattedPlayers(players)
+        ])
+
+        return this.gamesFormatterService.formatGameField(gameField, formattedPlayers, formattedOwnerPlayer)
+    }
+
+    private async formatGameState(game: Game, players: Player[], gameFields: GameField[], gameTurn: GameTurn): Promise<IGameState> {
+        const [formattedPlayers, formattedGameFields, formattedGameTurn] = await Promise.all([
+            await this.getformattedPlayers(players),
             await Promise.all(
                 gameFields.map(async (gameField: GameField) => {
                     const formattedGameFieldOwnerPlayer = gameField.ownerPlayerId
-                        ? this.gamesFormatterService.formatPlayer(
-                            await this.playersService.getOneOrThrow(gameField.ownerPlayerId),
-                            await this.usersService.getOneOrThrow((await this.playersService.getOneOrThrow(gameField.ownerPlayerId)).userId)
-                        )
+                        ? await this.getformattedPlayer(await this.playersService.getOneOrThrow(gameField.ownerPlayerId))
                         : null
 
-                    const gameFieldPlayers = await this.playersService.findAllByGameFieldId(gameField.id)
-                    const formattedGameFieldPlayers = await Promise.all(
-                        gameFieldPlayers.map(async (player: Player) => (
-                            this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
-                        ))
-                    )
+                    const formattedGameFieldPlayers = await this.getformattedPlayers(await this.playersService.findAllByGameFieldId(gameField.id))
                     return this.gamesFormatterService.formatGameField(gameField, formattedGameFieldPlayers, formattedGameFieldOwnerPlayer)
                 })
-            )
+            ),
+            (async () => {
+                const turnPlayer = await this.playersService.getOneOrThrow(gameTurn.playerId)
+
+                return this.gamesFormatterService.formatGameTurn(gameTurn, await this.getformattedPlayer(turnPlayer))
+            })()
         ])
 
-        return this.gamesFormatterService.formatGameState(game, formattedGameFields, formattedPlayers)
+        return this.gamesFormatterService.formatGameState(game, formattedGameFields, formattedPlayers, formattedGameTurn)
     }
 
     @UseGuards(WsAuthGuard)
@@ -159,7 +217,9 @@ export class GamesGateway implements OnGatewayConnection {
 
         this.pregameRoomsGateway.emitRemovePregameRoom(initGame.pregameRoom)
 
-        const formattedGameState = await this.formatGameState(initGame.game, initGame.players, initGame.gameFields)
+        const formattedGameState = await this.formatGameState(initGame.game, initGame.players, initGame.gameFields, initGame.gameTurn)
+
+        this.startTurnTimer(initGame.gameTurn)
 
         this.server.to(initGame.game.id).emit('start-game', {
             gameState: formattedGameState
@@ -178,8 +238,37 @@ export class GamesGateway implements OnGatewayConnection {
         const gameState = await this.gamesService.getGameState(userId)
 
         socket.emit('game-state', {
-            gameState: await this.formatGameState(gameState.game, gameState.players, gameState.gameFields)
+            gameState: await this.formatGameState(gameState.game, gameState.players, gameState.gameFields, gameState.gameTurn)
         })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('make-move')
+    private async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const movePlayer = await this.gamesService.movePlayer(userId)
+
+        this.startTurnTimer(movePlayer.gameTurn)
+
+        const [formattedNewGameField, formattedLeftGameField] = await Promise.all([
+            this.getFormattedGameField(movePlayer.newGameField),
+            this.getFormattedGameField(movePlayer.leftGameField)
+        ])
+
+        this.server.to(movePlayer.game.id).emit('make-move', {
+            player: this.gamesFormatterService.formatPlayer(
+                movePlayer.player,
+                await this.usersService.getOneOrThrow(movePlayer.player.userId)
+            ),
+            newGameField: formattedNewGameField,
+            leftGameField: formattedLeftGameField,
+            thrownDices: movePlayer.thrownDices
+        })
+
+        const nextGameTurn = await this.gamesService.defineNextGameTurn(movePlayer.gameTurn)
+
+        await this.startTurnTimer(nextGameTurn.gameTurn)
     }
 
     @UseGuards(WsAuthGuard)
@@ -206,7 +295,7 @@ export class GamesGateway implements OnGatewayConnection {
 
                 const [user, player] = await Promise.all([
                     this.usersService.findOne(message.userId),
-                    this.playersService.findOneByUserId(message.userId)
+                    this.playersService.findCurrentPlayerByUserId(message.userId)
                 ])
 
                 return {

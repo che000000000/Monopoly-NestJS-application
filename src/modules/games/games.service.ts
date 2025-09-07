@@ -16,6 +16,7 @@ import { MessagesService } from '../messages/messages.service';
 import { Message } from 'src/models/message.model';
 import { User } from 'src/models/user.model';
 import { ChatType } from 'src/models/chat.model';
+import { GameTurn, GameTurnStage } from 'src/models/game-turn.model';
 
 @Injectable()
 export class GamesService {
@@ -72,7 +73,36 @@ export class GamesService {
         }
     }
 
-    async initGame(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], pregameRoom: PregameRoom }> {
+    async defineNextGameTurn(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, palyer: Player }> {
+        const [gamePlayers, currentTurnPlayer] = await Promise.all([
+            this.playersService.findAllByGameId(gameTurn.gameId),
+            this.playersService.getOneOrThrow(gameTurn.playerId)
+        ])
+
+        const sortedPlayers = gamePlayers.sort((a, b) => a.turnNumber - b.turnNumber);
+
+        const currentPlayerIndex = sortedPlayers.findIndex(player =>
+            player.id === currentTurnPlayer.id
+        )
+
+        const nextPlayerIndex = (currentPlayerIndex + 1) % sortedPlayers.length
+
+        const nextPlayer = sortedPlayers[nextPlayerIndex]
+
+        await Promise.all([
+            this.gameTurnsService.updatePlayerId(gameTurn.id, nextPlayer.id),
+            this.gameTurnsService.updateStage(gameTurn.id, GameTurnStage.MOVE)
+        ])
+
+        const updatedGameTurn = await this.gameTurnsService.getOneOrThrow(gameTurn.id)
+
+        return {
+            gameTurn: updatedGameTurn,
+            palyer: nextPlayer
+        }
+    }
+
+    async initGame(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], gameTurn: GameTurn, pregameRoom: PregameRoom }> {
         const userAsPregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!userAsPregameRoomMember) {
             throw new BadRequestException(`Failed to start game. User not in the pregame room to start game.`)
@@ -105,11 +135,19 @@ export class GamesService {
             throw new InternalServerErrorException('Failed to start game. Go field not found.')
         }
 
-        const [players] = await Promise.all([
-            await Promise.all(pregameRoomMembers.map(async (member: PregameRoomMember, index) =>
-                await this.playersService.create(game.id, member.userId, goField.id, member.playerChip, PlayerStatus.COMMON, index + 1)
-            ))
-        ])
+        const players = await Promise.all(pregameRoomMembers.map(async (member: PregameRoomMember, index) =>
+            await this.playersService.create(game.id, member.userId, goField.id, member.playerChip, PlayerStatus.COMMON, index + 1)
+        ))
+        if (players.length === 0) {
+            throw new InternalServerErrorException(`Failed to start game. Players not defined.`)
+        }
+
+        let turnOwnerPlayer = players.find((player: Player) => player.turnNumber === 1)
+        if (!turnOwnerPlayer) {
+            turnOwnerPlayer = players[0]
+        }
+
+        const gameTurn = await this.gameTurnsService.create(game.id, turnOwnerPlayer.id, 30)
 
         await this.pregamesRoomsService.destroy(userAsPregameRoomMember.pregameRoomId)
 
@@ -117,36 +155,114 @@ export class GamesService {
             game,
             gameFields,
             players,
+            gameTurn,
             pregameRoom
         }
     }
 
-    async getGameState(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[] }> {
-        const userAsPlayer = await this.playersService.findOneByUserId(userId)
-        if (!userAsPlayer) {
+    async getGameState(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], gameTurn: GameTurn }> {
+        const currentPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!currentPlayer) {
             throw new BadRequestException(`Failed to get game state. User is not player of the game.`)
         }
 
-        const [game, gameFields, players] = await Promise.all([
-            this.getOneOrThrow(userAsPlayer.gameId),
-            this.gameFieldsService.findAllByGameId(userAsPlayer.gameId),
-            this.playersService.findAllByGameId(userAsPlayer.gameId),
+        const [game, gameFields, players, gameTurn] = await Promise.all([
+            this.getOneOrThrow(currentPlayer.gameId),
+            this.gameFieldsService.findAllByGameId(currentPlayer.gameId),
+            this.playersService.findAllByGameId(currentPlayer.gameId),
+            this.gameTurnsService.getOneByGameIdOrThrow(currentPlayer.gameId)
         ])
 
         return {
             game,
             gameFields,
             players,
+            gameTurn
+        }
+    }
+
+    private throwDices(): { dices: number[], summ: number } {
+        const DICES_COUNT = 2
+        const DICE_SIDES = 6
+
+        let dices: number[] = []
+        let summ: number = 0
+
+        while (dices.length < DICES_COUNT) {
+            const throwDiceResult = Math.floor(Math.random() * DICE_SIDES) + 1
+            dices.push(throwDiceResult)
+            summ += throwDiceResult
+        }
+
+        return {
+            dices,
+            summ
+        }
+    }
+
+    async movePlayer(userId: string): Promise<{ 
+        game: Game, 
+        player: Player, 
+        newGameField: GameField, 
+        leftGameField: GameField, 
+        gameTurn: GameTurn, 
+        thrownDices: {
+            dices: number[],
+            summ: number
+        }
+    }> {
+        const userAsPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!userAsPlayer) {
+            throw new BadRequestException(`Failed to move. User not in the game.`)
+        }
+
+        const [currentGameTurn, currentGameField, game] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(userAsPlayer.gameId),
+            this.gameFieldsService.getOneOrThrow(userAsPlayer.gameFieldId),
+            this.getOneOrThrow(userAsPlayer.gameId)
+        ])
+
+        if (currentGameTurn.playerId !== userAsPlayer.id) {
+            throw new BadRequestException(`Failed to move. Player. Player has no right to move`)
+        }
+        if (currentGameTurn.stage !== GameTurnStage.MOVE) {
+            throw new BadRequestException(`Failed to move. Player. Not move stage`)
+        }
+
+        const thrownDices = this.throwDices()
+
+        const isCircleCompleted = currentGameField.position + thrownDices.summ > 40
+        const newPosition = ((currentGameField.position + thrownDices.summ - 1) % 40) + 1;
+
+        if (isCircleCompleted) {
+            await this.playersService.updateBalance(userAsPlayer.id, userAsPlayer.balance + 200)
+        }
+
+        const newPositionGameField = await this.gameFieldsService.findOneByGameIdAndPosition(userAsPlayer.gameId, newPosition)
+        if (!newPositionGameField) {
+            throw new InternalServerErrorException(`Failed to move. New game field not found`)
+        }
+
+        await this.playersService.updateFieldId(userAsPlayer.id, newPositionGameField.id)
+        const updatedPlayer = await this.playersService.getOneOrThrow(userAsPlayer.id)
+
+        return {
+            game,
+            player: updatedPlayer,
+            newGameField: newPositionGameField,
+            leftGameField: currentGameField,
+            gameTurn: currentGameTurn,
+            thrownDices: thrownDices
         }
     }
 
     async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
-        const userAsPlayer = await this.playersService.findOneByUserId(userId)
-        if (!userAsPlayer) {
-            throw new BadRequestException(`Failed to get game chat messages page. User is not player.`)
+        const currentPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!currentPlayer) {
+            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
         }
 
-        const game = await this.getOneOrThrow(userAsPlayer.gameId)
+        const game = await this.getOneOrThrow(currentPlayer.gameId)
 
         const gameChat = await this.chatsService.findOne(game.chatId)
         if (!gameChat) {
@@ -157,18 +273,19 @@ export class GamesService {
     }
 
     async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
-        const [user, userAsPlayer] = await Promise.all([
+        const [user, currentPlayer] = await Promise.all([
             this.usersService.getOneOrThrow(userId),
-            this.playersService.findOneByUserId(userId),
+            this.playersService.findCurrentPlayerByUserId(userId),
         ])
-        if (!userAsPlayer) {
-            throw new NotFoundException(`Failed to send game chat message. User is not player.`)
+
+        if (!currentPlayer) {
+            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
         }
         if (messageText.length === 0) {
             throw new BadRequestException(`Failed to send game chat message. Message text must not be empty.`)
         }
 
-        const game = await this.getOneOrThrow(userAsPlayer.gameId)
+        const game = await this.getOneOrThrow(currentPlayer.gameId)
 
         const gameChat = await this.chatsService.findOne(game.chatId)
         if (!gameChat) {
@@ -180,8 +297,8 @@ export class GamesService {
         return {
             message: newMessage,
             user,
-            player: userAsPlayer,
-            gameId: userAsPlayer.gameId
+            player: currentPlayer,
+            gameId: currentPlayer.gameId
         }
     }
 }

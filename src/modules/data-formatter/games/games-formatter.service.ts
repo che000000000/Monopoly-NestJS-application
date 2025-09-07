@@ -12,6 +12,8 @@ import { IGameChatMessage } from "./interfaces/game-chat-message";
 import { IGameChatMessageSender } from "./interfaces/game-chat-message-sender";
 import { IPlayerPreview } from "./interfaces/player-preview";
 import { IGamePreview } from "./interfaces/game-preview";
+import { GameTurn } from "src/models/game-turn.model";
+import { IGameTurn } from "./interfaces/game-turn";
 
 @Injectable()
 export class GamesFormatterService {
@@ -62,6 +64,16 @@ export class GamesFormatterService {
         }
     }
 
+    formatGameTurn(gameTurn: GameTurn, formattedPlayer: IPlayer): IGameTurn {
+        return {
+            id: gameTurn.id,
+            player: formattedPlayer,
+            stage: gameTurn.stage,
+            expires: gameTurn.expires,
+            updatedAt: gameTurn.updatedAt
+        }
+    }
+
     formatGamePreview(game: Game, formattedPlayerPreviews: IPlayerPreview[]): IGamePreview {
         return {
             id: game.id,
@@ -78,11 +90,12 @@ export class GamesFormatterService {
         }
     }
 
-    formatGameState(game: Game, formattedGameFields: IGameField[], formattedPlayers: IPlayer[]): IGameState {
+    formatGameState(game: Game, formattedGameFields: IGameField[], formattedPlayers: IPlayer[], formattedGameTurn: IGameTurn): IGameState {
         return {
             id: game.id,
             players: formattedPlayers,
             fields: formattedGameFields,
+            turn: formattedGameTurn,
             houses: game.houses,
             hotels: game.hotels,
             createdAt: game.createdAt
