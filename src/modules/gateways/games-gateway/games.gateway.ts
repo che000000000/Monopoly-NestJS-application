@@ -249,8 +249,6 @@ export class GamesGateway implements OnGatewayConnection {
 
         const movePlayer = await this.gamesService.movePlayer(userId)
 
-        this.startTurnTimer(movePlayer.gameTurn)
-
         const [formattedNewGameField, formattedLeftGameField] = await Promise.all([
             this.getFormattedGameField(movePlayer.newGameField),
             this.getFormattedGameField(movePlayer.leftGameField)
@@ -268,7 +266,9 @@ export class GamesGateway implements OnGatewayConnection {
 
         const nextGameTurn = await this.gamesService.defineNextGameTurn(movePlayer.gameTurn)
 
-        await this.startTurnTimer(nextGameTurn.gameTurn)
+        setTimeout(async () => {
+            await this.startTurnTimer(nextGameTurn.gameTurn)
+        }, 1000)
     }
 
     @UseGuards(WsAuthGuard)
