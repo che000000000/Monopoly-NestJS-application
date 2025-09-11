@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { PlayerChip } from 'src/models/player.model';
-import { PregameRoomMember } from 'src/models/pregame-room-member.model';
+import { PlayerChip } from 'src/modules/players/model/player';
+import { PregameRoomMember } from './model/pregame-room-member';
 
 @Injectable()
 export class PregameRoomMembersService {

@@ -1,4 +1,4 @@
-import { ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from "src/models/action-card";
+import { ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from "../model/action-card";
 
 export const ACTION_CARDS = [
     {

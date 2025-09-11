@@ -1,5 +1,5 @@
 import { IsBoolean, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
-import { ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from "src/models/action-card";
+import { ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from "../model/action-card";
 
 export class CreateActionCardDto {
     @IsString()

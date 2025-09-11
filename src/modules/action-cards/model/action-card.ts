@@ -1,5 +1,5 @@
-import { Table, Column, Model, DataType, Default, ForeignKey, PrimaryKey } from 'sequelize-typescript';
-import { Game } from './game.model';
+import { Table, Column, Model, DataType, ForeignKey, PrimaryKey } from 'sequelize-typescript';
+import { Game } from 'src/modules/games/model/game';
 import { v4 } from 'uuid';
 
 export enum ActionCardDeckType {

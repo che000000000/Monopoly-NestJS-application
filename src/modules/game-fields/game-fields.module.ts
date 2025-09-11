@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { GameField } from 'src/models/game-field.model';
 import { GameFieldsService } from './game-fields.service';
+import { GameField } from './model/game-field';
 
 @Module({
   imports: [SequelizeModule.forFeature([GameField])],

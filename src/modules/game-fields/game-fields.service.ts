@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { GameField } from 'src/models/game-field.model';
 import { CreateFieldDto } from './dto/create-field.dto';
 import { GAME_FIELDS_DATA } from './data/game-fields';
+import { GameField } from './model/game-field';
 
 @Injectable()
 export class GameFieldsService {

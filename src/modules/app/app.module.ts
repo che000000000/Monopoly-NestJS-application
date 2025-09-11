@@ -2,37 +2,37 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { SequelizeModule } from '@nestjs/sequelize';
 import indexConfig from 'src/config/index.config';
-import { Account } from 'src/models/account.model';
 import { Token } from 'src/models/token.model';
-import { User } from 'src/models/user.model';
+import { User } from 'src/modules/users/model/user.model';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { AccountsModule } from '../accounts/accounts.module';
-import { Game } from 'src/models/game.model';
-import { PregameRoom } from 'src/models/pregame-room.model';
-import { Chat } from 'src/models/chat.model';
-import { Message } from 'src/models/message.model';
+import { Game } from 'src/modules/games/model/game';
+import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
+import { Message } from 'src/modules/messages/model/message';
 import { GamesModule } from '../games/games.module';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
 import { GatewaysModule } from '../gateways/gateways.module';
-import { ChatMember } from 'src/models/chat-members';
+import { ChatMember } from 'src/modules/chat-members/model/chat-member';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';
 import { MessagesModule } from '../messages/messages.module';
 import { RedisModule } from 'src/modules/redis/redis.module';
-import { Player } from 'src/models/player.model';
+import { Player } from 'src/modules/players/model/player';
 import { PlayersModule } from '../players/players.module';
-import { GameTurn } from 'src/models/game-turn.model';
-import { GameField } from 'src/models/game-field.model';
-import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
 import { DataFormatterModule } from '../data-formatter/data-formatter.module';
 import { GlobalChatsModule } from '../global-chat/global-chats.module';
 import { GameDeal } from 'src/models/game-deal';
 import { GameDealItem } from 'src/models/game-deal-item';
 import { GamesMasterModule } from '../games-master/games-master.module';
-import { ChanceItemsModule } from '../chance-items/chance-items.module';
-import { ActionCard } from 'src/models/action-card';
+import { ActionsCardsModule } from '../action-cards/action-cards.module';
+import { Account } from '../accounts/model/account.model';
+import { ActionCard } from '../action-cards/model/action-card';
+import { Chat } from '../chats/model/chat';
+import { GameField } from '../game-fields/model/game-field';
+import { GameTurn } from '../game-turns/model/game-turn';
+import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
 
 @Module({
   imports: [
@@ -76,7 +76,7 @@ import { ActionCard } from 'src/models/action-card';
     GatewaysModule, ChatsModule, ChatMembersModule,
     MessagesModule, GamesModule, PlayersModule,
     DataFormatterModule, GlobalChatsModule, GamesMasterModule,
-    ChanceItemsModule
+    ActionsCardsModule
   ],
 })
 export class AppModule { }

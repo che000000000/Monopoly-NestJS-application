@@ -1,8 +1,8 @@
 import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { GameTurn } from "./game-turn.model";
-import { Player } from "./player.model";
+import { Player } from "../modules/players/model/player";
 import { GameDealItem } from "./game-deal-item";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
 
 @Table({ tableName: 'GameDeals' })
 export class GameDeal extends Model {

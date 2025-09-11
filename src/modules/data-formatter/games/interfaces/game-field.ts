@@ -1,4 +1,4 @@
-import { GameFieldColor, GameFieldType } from "src/models/game-field.model";
+import { GameFieldColor, GameFieldType } from "src/modules/game-fields/model/game-field";
 import { IPlayer } from "./player";
 
 export interface IGameField {

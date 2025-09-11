@@ -1,4 +1,4 @@
-import { PlayerChip, PlayerStatus } from "src/models/player.model";
+import { PlayerChip, PlayerStatus } from "src/modules/players/model/player";
 import { IUser } from "../../interfaces/user";
 
 export interface IPlayerPreview {

@@ -1,19 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { GameField } from "src/models/game-field.model";
-import { Game } from "src/models/game.model";
-import { Player } from "src/models/player.model";
-import { User } from "src/models/user.model";
+import { Game } from "src/modules/games/model/game";
+import { Player } from "src/modules/players/model/player";
+import { User } from "src/modules/users/model/user.model";
 import { IPlayer } from "./interfaces/player";
 import { IGameField } from "./interfaces/game-field";
 import { IGameState } from "./interfaces/game-state";
 import { IGame } from "./interfaces/game";
-import { Message } from "src/models/message.model";
+import { Message } from "src/modules/messages/model/message";
 import { IGameChatMessage } from "./interfaces/game-chat-message";
 import { IGameChatMessageSender } from "./interfaces/game-chat-message-sender";
 import { IPlayerPreview } from "./interfaces/player-preview";
 import { IGamePreview } from "./interfaces/game-preview";
-import { GameTurn } from "src/models/game-turn.model";
 import { IGameTurn } from "./interfaces/game-turn";
+import { GameField } from "src/modules/game-fields/model/game-field";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
 
 @Injectable()
 export class GamesFormatterService {

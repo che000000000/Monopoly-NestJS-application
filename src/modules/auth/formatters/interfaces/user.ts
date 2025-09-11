@@ -1,4 +1,4 @@
-import { UserRole } from "src/models/user.model";
+import { UserRole } from "src/modules/users/model/user.model";
 
 export interface FormattedUser {
     id: string,

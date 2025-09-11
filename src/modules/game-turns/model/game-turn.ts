@@ -1,8 +1,8 @@
 import { Column, DataType, ForeignKey, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { GameDeal } from "src/models/game-deal";
+import { Game } from "src/modules/games/model/game";
+import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
-import { Player } from "./player.model";
-import { Game } from "./game.model";
-import { GameDeal } from "./game-deal";
 
 export enum GameTurnStage {
     MOVE = 'MOVE',

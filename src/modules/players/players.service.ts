@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
+import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/player';
 import { UsersService } from '../users/users.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';

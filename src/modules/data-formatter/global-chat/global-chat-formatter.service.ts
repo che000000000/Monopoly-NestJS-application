@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Message } from 'src/models/message.model';
-import { User } from 'src/models/user.model';
+import { Message } from 'src/modules/messages/model/message';
+import { User } from 'src/modules/users/model/user.model';
 import { IGlobalChatMessage } from './interfaces/global-chat-message';
 
 @Injectable()

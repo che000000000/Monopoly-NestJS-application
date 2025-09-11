@@ -1,5 +1,5 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
-import { GameFieldColor, GameFieldType } from "src/models/game-field.model";
+import { GameFieldColor, GameFieldType } from "../model/game-field";
 
 export class CreateFieldDto {
     @IsUUID()

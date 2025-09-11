@@ -1,6 +1,6 @@
 import { Controller, Get, ParseUUIDPipe, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { UserRole } from 'src/models/user.model';
+import { UserRole } from 'src/modules/users/model/user.model';
 import { Authorization } from '../auth/decorators/authorization.decorator';
 import { ExtractId } from '../auth/decorators/extract-id.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';

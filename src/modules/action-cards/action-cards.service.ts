@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { ActionCard } from 'src/models/action-card';
+import { ActionCard } from './model/action-card';
 import { ACTION_CARDS } from './data/ACTION_CARDS';
 import { CreateActionCardDto } from './dto/create-action-card';
 
 @Injectable()
-export class ChanceItemsService {
+export class ActionCardsService {
     constructor(@InjectModel(ActionCard) private readonly chanceItemsRepository: typeof ActionCard) { }
 
     async create(dto: CreateActionCardDto): Promise<ActionCard> {

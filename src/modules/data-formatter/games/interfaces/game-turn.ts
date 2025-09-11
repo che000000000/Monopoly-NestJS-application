@@ -1,4 +1,4 @@
-import { GameTurnStage } from "src/models/game-turn.model";
+import { GameTurnStage } from "src/modules/game-turns/model/game-turn";
 import { IPlayer } from "./player";
 
 export interface IGameTurn {

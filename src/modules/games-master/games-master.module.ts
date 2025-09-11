@@ -9,7 +9,7 @@ import { GameTurnsModule } from '../game-turns/game-turns.module';
 import { GameFieldsModule } from '../game-fields/game-fields.module';
 import { MessagesModule } from '../messages/messages.module';
 import { UsersModule } from '../users/users.module';
-import { ChanceItemsModule } from '../chance-items/chance-items.module';
+import { ActionsCardsModule } from '../action-cards/action-cards.module';
 
 @Module({
 	imports: [
@@ -17,7 +17,7 @@ import { ChanceItemsModule } from '../chance-items/chance-items.module';
 		PlayersModule,
 		GameFieldsModule,
 		GameTurnsModule,
-		ChanceItemsModule,
+		ActionsCardsModule,
 		UsersModule,
 		MessagesModule,
 		ChatsModule,

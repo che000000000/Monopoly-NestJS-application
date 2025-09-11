@@ -10,23 +10,21 @@ import { GameTurnsService } from "../../game-turns/game-turns.service";
 import { WsAuthGuard } from "../guards/wsAuth.guard";
 import { PregameRoomsGateway } from "../pregame-rooms-gateway/pregame-rooms.gateway";
 import { ErrorType } from "../constants/error-types";
-import { Player, PlayerStatus } from "src/models/player.model";
+import { Player, PlayerStatus } from "src/modules/players/model/player";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
-import { GameField, GameFieldType } from "src/models/game-field.model";
-import { GetGameStateDto } from "./dto/get-game-state";
-import { Game } from "src/models/game.model";
+import { Game } from "src/modules/games/model/game";
 import { IGameState } from "src/modules/data-formatter/games/interfaces/game-state";
 import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
 import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
-import { Message } from "src/models/message.model";
-import { User } from "src/models/user.model";
+import { Message } from "src/modules/messages/model/message";
 import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
 import { GetGamesPageDto } from "./dto/get-games-page";
-import { GameTurn, GameTurnStage } from "src/models/game-turn.model";
 import { GameFieldsService } from "src/modules/game-fields/game-fields.service";
 import { IPlayer } from "src/modules/data-formatter/games/interfaces/player";
 import { IGameField } from "src/modules/data-formatter/games/interfaces/game-field";
 import { GamesMasterService } from "src/modules/games-master/games-master.service";
+import { GameField, GameFieldType } from "src/modules/game-fields/model/game-field";
+import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({

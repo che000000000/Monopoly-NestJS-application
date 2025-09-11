@@ -1,4 +1,4 @@
-import { GameFieldColor, GameFieldType } from "src/models/game-field.model";
+import { GameFieldColor, GameFieldType } from "../model/game-field";
 
 export const GAME_FIELDS_DATA = [
 	{

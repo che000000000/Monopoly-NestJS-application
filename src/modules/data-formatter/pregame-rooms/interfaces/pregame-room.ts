@@ -1,4 +1,4 @@
-import { PlayerChip } from "src/models/player.model";
+import { PlayerChip } from "src/modules/players/model/player";
 import { IPregameRoomMember } from "./pregame-room-member";
 
 export interface IPregameRoom {

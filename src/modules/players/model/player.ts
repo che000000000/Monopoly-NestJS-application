@@ -1,11 +1,11 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { Game } from "./game.model";
-import { User } from "./user.model";
-import { GameTurn } from "./game-turn.model";
-import { GameField } from "./game-field.model";
-import { GameDealItem } from "./game-deal-item";
-import { GameDeal } from "./game-deal";
+import { Game } from "../../games/model/game";
+import { User } from "../../users/model/user.model";
+import { GameDealItem } from "../../../models/game-deal-item";
+import { GameDeal } from "../../../models/game-deal";
+import { GameField } from "src/modules/game-fields/model/game-field";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
 
 export enum PlayerChip {
     CART = 'CART',

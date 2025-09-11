@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Message } from 'src/models/message.model';
+import { Message } from 'src/modules/messages/model/message';
 
 @Injectable()
 export class MessagesService {

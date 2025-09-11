@@ -1,5 +1,5 @@
-import { PlayerChip } from "src/models/player.model"
-import { UserRole } from "src/models/user.model"
+import { PlayerChip } from "src/modules/players/model/player"
+import { UserRole } from "src/modules/users/model/user.model"
 
 export interface IGameChatMessageSender {
     id: string,

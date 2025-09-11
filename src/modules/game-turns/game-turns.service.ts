@@ -1,8 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { GameTurn, GameTurnStage } from 'src/models/game-turn.model';
-import { Game } from 'src/models/game.model';
-import { Player } from 'src/models/player.model';
+import { GameTurn, GameTurnStage } from './model/game-turn';
 
 @Injectable()
 export class GameTurnsService {

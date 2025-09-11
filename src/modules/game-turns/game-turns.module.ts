@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GameTurnsService } from './game-turns.service';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { GameTurn } from 'src/models/game-turn.model';
+import { GameTurn } from './model/game-turn';
 
 @Module({
   imports: [SequelizeModule.forFeature([GameTurn])],

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Account } from 'src/models/account.model';
 import { CreateAccountDto } from './dto/create-account.dto';
+import { Account } from './model/account.model';
 
 @Injectable()
 export class AccountsService {

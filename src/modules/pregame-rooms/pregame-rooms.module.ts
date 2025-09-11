@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PregameRoomsService } from './pregame-rooms.service';
 import { SequelizeModule } from '@nestjs/sequelize';
-import { PregameRoom } from 'src/models/pregame-room.model';
+import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
 import { UsersModule } from '../users/users.module';
 import { ChatsModule } from '../chats/chats.module';
 import { ChatMembersModule } from '../chat-members/chat-members.module';

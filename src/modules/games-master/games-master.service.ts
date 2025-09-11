@@ -8,16 +8,16 @@ import { GameTurnsService } from '../game-turns/game-turns.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { ChatsService } from '../chats/chats.service';
 import { MessagesService } from '../messages/messages.service';
-import { GameField, GameFieldType } from 'src/models/game-field.model';
-import { GameTurn, GameTurnStage } from 'src/models/game-turn.model';
-import { Player, PlayerStatus } from 'src/models/player.model';
-import { Game } from 'src/models/game.model';
-import { PregameRoom } from 'src/models/pregame-room.model';
-import { ChatType } from 'src/models/chat.model';
-import { PregameRoomMember } from 'src/models/pregame-room-member.model';
-import { Message } from 'src/models/message.model';
-import { User } from 'src/models/user.model';
-import { ChanceItemsService } from '../chance-items/chance-items.service';
+import { Player, PlayerStatus } from 'src/modules/players/model/player';
+import { Game } from 'src/modules/games/model/game';
+import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
+import { Message } from 'src/modules/messages/model/message';
+import { User } from 'src/modules/users/model/user.model';
+import { ActionCardsService } from '../action-cards/action-cards.service';
+import { ChatType } from '../chats/model/chat';
+import { GameField, GameFieldType } from '../game-fields/model/game-field';
+import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
+import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
 
 @Injectable()
 export class GamesMasterService {
@@ -26,7 +26,7 @@ export class GamesMasterService {
         private readonly playersService: PlayersService,
         private readonly gameFieldsService: GameFieldsService,
         private readonly gameTurnsService: GameTurnsService,
-        private readonly chanceItemsService: ChanceItemsService,
+        private readonly actionCardsService: ActionCardsService,
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
@@ -123,7 +123,7 @@ export class GamesMasterService {
             await Promise.all(pregameRoomMembers.map(async (member: PregameRoomMember, index) =>
                 await this.playersService.create(game.id, member.userId, goField.id, member.playerChip, PlayerStatus.COMMON, index + 1)
             )),
-            this.chanceItemsService.createGameChanceItems(game.id)
+            this.actionCardsService.createGameChanceItems(game.id)
         ])
         if (players.length === 0) {
             throw new InternalServerErrorException(`Failed to start game. Players not defined.`)
@@ -327,4 +327,6 @@ export class GamesMasterService {
             gameTurn
         }
     }
+
+    async 
 }
