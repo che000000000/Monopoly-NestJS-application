@@ -6,7 +6,7 @@ import { AccountsService } from '../accounts/accounts.service';
 import { OauthRegisterDto } from './dto/oauthRegister.dto';
 import { AuthService } from '../auth/auth.service';
 import { Request } from 'express';
-import { AuthMethod } from 'src/models/user.model';
+import { AuthMethod } from 'src/modules/users/model/user.model';
 
 @Injectable()
 export class OauthService {

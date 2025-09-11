@@ -1,0 +1,40 @@
+import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { v4 } from "uuid";
+import { Player } from "../modules/players/model/player";
+import { GameDealItem } from "./game-deal-item";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
+
+@Table({ tableName: 'GameDeals' })
+export class GameDeal extends Model {
+    @PrimaryKey
+    @Column({
+        type: DataType.UUID,
+        allowNull: false,
+        defaultValue: () => v4()
+    })
+    declare id: string
+
+    @ForeignKey(() => GameTurn)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    declare gameTurnId: string
+
+    @ForeignKey(() => Player)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    declare creatorPlayerId: string
+
+    @ForeignKey(() => Player)
+    @Column({
+        type: DataType.UUID,
+        allowNull: false
+    })
+    declare consideringPlayerId: string
+
+    @HasMany(() => GameDealItem)
+    gameDealItem: GameDealItem[]
+}

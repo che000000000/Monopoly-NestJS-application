@@ -1,8 +1,8 @@
 import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { PregameRoom } from "src/modules/pregame-rooms/model/pregame-room";
+import { User } from "src/modules/users/model/user.model";
+import { PlayerChip } from "src/modules/players/model/player";
 import { v4 } from "uuid";
-import { User } from "./user.model";
-import { PregameRoom } from "./pregame-room.model";
-import { PlayerChip } from "./player.model";
 
 @Table({tableName: 'PregameRoomMembers'})
 export class PregameRoomMember extends Model {

@@ -1,4 +1,4 @@
-import { PlayerChip } from "src/models/player.model"
+import { PlayerChip } from "src/modules/players/model/player"
 import { IUser } from "../../interfaces/user"
 
 export interface IPregameRoomMember {

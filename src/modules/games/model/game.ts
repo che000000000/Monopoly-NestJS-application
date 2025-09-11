@@ -1,9 +1,10 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { Chat } from "./chat.model";
-import { Player } from "./player.model";
-import { GameField } from "./game-field.model";
-import { GameTurn } from "./game-turn.model";
+import { Player } from "../../players/model/player";
+import { ActionCard } from "src/modules/action-cards/model/action-card";
+import { Chat } from "src/modules/chats/model/chat";
+import { GameField } from "src/modules/game-fields/model/game-field";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -42,4 +43,7 @@ export class Game extends Model {
 
     @HasOne(() => GameTurn)
     turn: GameTurn
+
+    @HasMany(() => ActionCard)
+    actionCards: ActionCard[]
 }

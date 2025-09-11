@@ -1,11 +1,16 @@
-import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { GameDeal } from "src/models/game-deal";
+import { Game } from "src/modules/games/model/game";
+import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
-import { Player } from "./player.model";
-import { Game } from "./game.model";
 
 export enum GameTurnStage {
     MOVE = 'MOVE',
-    CHOOSE = 'CHOOSE'
+    BUY_GAME_FIELD = 'BUY_GAME_FIELD',
+    PAY_RENT = 'PAY_RENT',
+    PAY_TAX = 'PAY_TAX',
+    AYCTION = 'AUCTION',
+    DEAL = 'DEAL'
 }
 
 @Table({ tableName: 'GameTurns' })
@@ -44,4 +49,7 @@ export class GameTurn extends Model {
         allowNull: false
     })
     declare playerId: string
+
+    @HasOne(() => GameDeal)
+    gameDeal: GameDeal
 }

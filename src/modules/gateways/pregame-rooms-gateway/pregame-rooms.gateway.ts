@@ -1,9 +1,7 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
 import { InternalServerErrorException, UseFilters, UseGuards, ValidationPipe } from "@nestjs/common";
-import { PregameRoomMember } from "src/models/pregame-room-member.model";
-import { User } from "src/models/user.model";
-import { Message } from "src/models/message.model";
+import { Message } from "src/modules/messages/model/message";
 import { WsExceptionsFilter } from "../filters/WsExcepton.filter";
 import { PregameRoomsService } from "src/modules/pregame-rooms/pregame-rooms.service";
 import { PregameRoomMembersService } from "src/modules/pregame-room-members/pregame-room-members.service";
@@ -18,7 +16,8 @@ import { SetPeregameRoomMemberSlotDto } from "./dto/set-pregame-room-member-slot
 import { SetPregameRoomMemberPlayerChipDto } from "./dto/set-pregame-room-member-player-chip.dto";
 import { PregameRoomsFormatterService } from "src/modules/data-formatter/pregame-rooms/pregame-rooms-formatter.service";
 import { ChatsService } from "src/modules/chats/chats.service";
-import { PregameRoom } from "src/models/pregame-room.model";
+import { PregameRoom } from "src/modules/pregame-rooms/model/pregame-room";
+import { PregameRoomMember } from "src/modules/pregame-room-members/model/pregame-room-member";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({

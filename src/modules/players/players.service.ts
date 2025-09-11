@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
+import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/player';
 import { UsersService } from '../users/users.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';
@@ -83,6 +83,14 @@ export class PlayersService {
     async updateBalance(id: string, balance: number): Promise<number> {
         const [affectedCount] = await this.playersRepository.update(
             { balance },
+            { where: { id } }
+        )
+        return affectedCount
+    }
+
+    async updatePaymentForCircle(id: string, paymentForCircle: boolean): Promise<number> {
+        const [affectedCount] = await this.playersRepository.update(
+            { paymentForCircle },
             { where: { id } }
         )
         return affectedCount

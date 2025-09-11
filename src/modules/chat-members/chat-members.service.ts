@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { ChatMember } from 'src/models/chat-members';
+import { ChatMember } from 'src/modules/chat-members/model/chat-member';
 
 @Injectable()
 export class ChatMembersService {

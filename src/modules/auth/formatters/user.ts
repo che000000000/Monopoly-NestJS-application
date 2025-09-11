@@ -1,4 +1,4 @@
-import { User } from "src/models/user.model"
+import { User } from "src/modules/users/model/user.model"
 import { FormattedUser } from "./interfaces/user"
 
 export function formatUser (user: User): FormattedUser {

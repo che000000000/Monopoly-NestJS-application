@@ -1,6 +1,6 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Chat, ChatType } from 'src/models/chat.model';
+import { Chat, ChatType } from './model/chat';
 
 @Injectable()
 export class ChatsService {

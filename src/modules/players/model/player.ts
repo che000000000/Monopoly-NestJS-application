@@ -1,9 +1,11 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { Game } from "./game.model";
-import { User } from "./user.model";
-import { GameTurn } from "./game-turn.model";
-import { GameField } from "./game-field.model";
+import { Game } from "../../games/model/game";
+import { User } from "../../users/model/user.model";
+import { GameDealItem } from "../../../models/game-deal-item";
+import { GameDeal } from "../../../models/game-deal";
+import { GameField } from "src/modules/game-fields/model/game-field";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
 
 export enum PlayerChip {
     CART = 'CART',
@@ -52,6 +54,20 @@ export class Player extends Model {
     })
     declare balance: number
 
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false,
+        defaultValue: () => 0
+    })
+    declare getOutOfJailCardsCount: number
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => true
+    })
+    declare paymentForCircle: boolean
+
     @ForeignKey(() => Game)
     @Column({
         type: DataType.UUID,
@@ -78,4 +94,10 @@ export class Player extends Model {
 
     @HasMany(() => GameField)
     ownFields: GameField[]
+
+    @HasOne(() => GameDeal)
+    gameDeal: GameDeal
+
+    @HasMany(() => GameDealItem)
+    gameDealItem: GameDealItem[]
 }

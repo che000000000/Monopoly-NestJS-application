@@ -1,10 +1,10 @@
-import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { v4 } from "uuid";
-import { Account } from "./account.model";
-import { ChatMember } from "./chat-members";
-import { Message } from "./message.model";
-import { Player } from "./player.model";
-import { PregameRoomMember } from "./pregame-room-member.model";
+import { ChatMember } from "../../chat-members/model/chat-member";
+import { Message } from "../../messages/model/message";
+import { Player } from "../../players/model/player";
+import { Account } from "src/modules/accounts/model/account.model";
+import { PregameRoomMember } from "src/modules/pregame-room-members/model/pregame-room-member";
 
 export enum UserRole {
     REGULAR = 'REGULAR',

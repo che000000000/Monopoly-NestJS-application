@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
-import { AuthMethod, User } from 'src/models/user.model';
+import { AuthMethod, User } from 'src/modules/users/model/user.model';
 import { LoginDto } from './dto/login.dto';
 import { Request, Response } from 'express';
 import * as bcrypt from 'bcrypt';

@@ -2,10 +2,9 @@ import { BadRequestException, Injectable, InternalServerErrorException } from '@
 import { UsersService } from '../users/users.service';
 import { ChatsService } from '../chats/chats.service';
 import { MessagesService } from '../messages/messages.service';
-import { ChatMembersService } from '../chat-members/chat-members.service';
-import { Message } from 'src/models/message.model';
-import { Chat, ChatType } from 'src/models/chat.model';
-import { User } from 'src/models/user.model';
+import { Message } from 'src/modules/messages/model/message';
+import { User } from 'src/modules/users/model/user.model';
+import { Chat, ChatType } from '../chats/model/chat';
 
 @Injectable()
 export class GlobalChatsService {

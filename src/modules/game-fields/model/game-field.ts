@@ -1,7 +1,7 @@
 import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Game } from "src/modules/games/model/game";
+import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
-import { Player } from "./player.model";
-import { Game } from "./game.model";
 
 export enum GameFieldType {
     PROPERTY = 'PROPERTY',

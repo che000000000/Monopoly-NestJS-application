@@ -1,6 +1,6 @@
 import { Column, DataType, ForeignKey, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { User } from "src/modules/users/model/user.model";
 import { v4 } from "uuid";
-import { User } from "./user.model";
 
 @Table({ tableName: 'Accounts' })
 export class Account extends Model {

@@ -1,16 +1,16 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { PregameRoom } from 'src/models/pregame-room.model';
+import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
 import { UsersService } from '../users/users.service';
 import { ChatsService } from '../chats/chats.service';
 import { MessagesService } from '../messages/messages.service';
 import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
-import { Chat, ChatType } from 'src/models/chat.model';
-import { PregameRoomMember } from 'src/models/pregame-room-member.model';
-import { Player, PlayerChip, PlayerStatus } from 'src/models/player.model';
-import { Message } from 'src/models/message.model';
-import { User } from 'src/models/user.model';
+import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/player';
+import { Message } from 'src/modules/messages/model/message';
+import { User } from 'src/modules/users/model/user.model';
 import { PlayersService } from '../players/players.service';
+import { Chat, ChatType } from '../chats/model/chat';
+import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
 @Injectable()
 export class PregameRoomsService {
     constructor(

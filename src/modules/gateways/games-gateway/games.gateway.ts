@@ -10,22 +10,21 @@ import { GameTurnsService } from "../../game-turns/game-turns.service";
 import { WsAuthGuard } from "../guards/wsAuth.guard";
 import { PregameRoomsGateway } from "../pregame-rooms-gateway/pregame-rooms.gateway";
 import { ErrorType } from "../constants/error-types";
-import { Player, PlayerStatus } from "src/models/player.model";
+import { Player, PlayerStatus } from "src/modules/players/model/player";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
-import { GameField } from "src/models/game-field.model";
-import { GetGameStateDto } from "./dto/get-game-state";
-import { Game } from "src/models/game.model";
+import { Game } from "src/modules/games/model/game";
 import { IGameState } from "src/modules/data-formatter/games/interfaces/game-state";
 import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
 import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
-import { Message } from "src/models/message.model";
-import { User } from "src/models/user.model";
+import { Message } from "src/modules/messages/model/message";
 import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
 import { GetGamesPageDto } from "./dto/get-games-page";
-import { GameTurn } from "src/models/game-turn.model";
 import { GameFieldsService } from "src/modules/game-fields/game-fields.service";
 import { IPlayer } from "src/modules/data-formatter/games/interfaces/player";
 import { IGameField } from "src/modules/data-formatter/games/interfaces/game-field";
+import { GamesMasterService } from "src/modules/games-master/games-master.service";
+import { GameField, GameFieldType } from "src/modules/game-fields/model/game-field";
+import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -37,6 +36,7 @@ import { IGameField } from "src/modules/data-formatter/games/interfaces/game-fie
 })
 export class GamesGateway implements OnGatewayConnection {
     constructor(
+        private readonly gamesMasterService: GamesMasterService,
         private readonly usersService: UsersService,
         private readonly gamesService: GamesService,
         private readonly playersService: PlayersService,
@@ -93,7 +93,7 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     private async turnTimeout(gameTurn: GameTurn): Promise<void> {
-        const nextGameTurn = await this.gamesService.defineNextGameTurn(gameTurn)
+        const nextGameTurn = await this.gamesMasterService.defineNextGameTurn(gameTurn)
 
         this.startTurnTimer(nextGameTurn.gameTurn)
     }
@@ -176,7 +176,7 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('get-game-previews-page')
-    private async getGamePreviewsPage(
+    async getGamePreviewsPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: GetGamesPageDto
     ): Promise<void> {
@@ -205,10 +205,10 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('start-game')
-    private async startGame(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    async startGame(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const initGame = await this.gamesService.initGame(userId)
+        const initGame = await this.gamesMasterService.initGame(userId)
 
         await Promise.all(
             initGame.players.map(async (player: Player) => {
@@ -232,10 +232,10 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('game-state')
-    private async getGameState(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    async getGameState(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const gameState = await this.gamesService.getGameState(userId)
+        const gameState = await this.gamesMasterService.getGameState(userId)
 
         socket.emit('game-state', {
             gameState: await this.formatGameState(gameState.game, gameState.players, gameState.gameFields, gameState.gameTurn)
@@ -244,10 +244,10 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('make-move')
-    private async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const movePlayer = await this.gamesService.movePlayer(userId)
+        const movePlayer = await this.gamesMasterService.makeMove(userId)
 
         const [formattedNewGameField, formattedLeftGameField] = await Promise.all([
             this.getFormattedGameField(movePlayer.newGameField),
@@ -264,16 +264,30 @@ export class GamesGateway implements OnGatewayConnection {
             thrownDices: movePlayer.thrownDices
         })
 
-        const nextGameTurn = await this.gamesService.defineNextGameTurn(movePlayer.gameTurn)
+        const purchasableTypes = [
+            GameFieldType.PROPERTY,
+            GameFieldType.RAILROAD,
+            GameFieldType.UTILITY
+        ]
+
+        const canBuy = purchasableTypes.includes(movePlayer.newGameField.type) &&
+            !movePlayer.newGameField.ownerPlayerId &&
+            movePlayer.newGameField.basePrice
+
+        canBuy
+            ? await this.gameTurnsService.updateStage(movePlayer.gameTurn.id, GameTurnStage.BUY_GAME_FIELD)
+            : await this.gameTurnsService.updateStage(movePlayer.gameTurn.id, GameTurnStage.PAY_RENT)
+
+        const updatedGameTurn = await this.gameTurnsService.getOneOrThrow(movePlayer.gameTurn.id)
 
         setTimeout(async () => {
-            await this.startTurnTimer(nextGameTurn.gameTurn)
+            await this.startTurnTimer(updatedGameTurn)
         }, 1000)
     }
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('game-chat-messages-page')
-    private async getGameChatMessagesPage(
+    async getGameChatMessagesPage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: GetGameChatMessagesPageDto
     ): Promise<void> {
@@ -284,7 +298,7 @@ export class GamesGateway implements OnGatewayConnection {
             pageSize: dto.pageSize ? dto.pageSize : 12
         }
 
-        const gameChatMessagesPage = await this.gamesService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
+        const gameChatMessagesPage = await this.gamesMasterService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
 
         const messagesWithFormattedSender = await Promise.all(
             gameChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
@@ -319,17 +333,39 @@ export class GamesGateway implements OnGatewayConnection {
 
     @UseGuards(WsAuthGuard)
     @SubscribeMessage('send-game-chat-message')
-    private async sendGameChatMessage(
+    async sendGameChatMessage(
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: SendGameChatMessageDto
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const sendGameChatMessage = await this.gamesService.sendGameChatMessage(userId, dto.messageText)
+        const sendGameChatMessage = await this.gamesMasterService.sendGameChatMessage(userId, dto.messageText)
         const formattedGameChatMessageSender = this.gamesFormatterService.formatGameChatMessageSender(sendGameChatMessage.user, sendGameChatMessage.player)
 
         this.server.to(sendGameChatMessage.gameId).emit('send-game-chat-message', {
             message: this.gamesFormatterService.formatGameChatMessage(sendGameChatMessage.message, formattedGameChatMessageSender)
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage(`buy-game-field`)
+    async buyGameField(@ConnectedSocket() socket: SocketWithSession) {
+        const userId = this.extractUserId(socket)
+
+        const buyGameField = await this.gamesMasterService.buyGameField(userId)
+
+        const nextGameTurn = await this.gamesMasterService.defineNextGameTurn(buyGameField.gameTurn)
+
+        await this.startTurnTimer(nextGameTurn.gameTurn)
+
+        const [formattedGameField, formattedPlayer] = await Promise.all([
+            this.getFormattedGameField(buyGameField.gameField),
+            this.getformattedPlayer(buyGameField.player)
+        ])
+
+        this.server.to(buyGameField.player.gameId).emit('buy-game-field', {
+            gameField: formattedGameField,
+            player: formattedPlayer
         })
     }
 }

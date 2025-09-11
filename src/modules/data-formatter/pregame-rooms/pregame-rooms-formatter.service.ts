@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { PregameRoomMember } from 'src/models/pregame-room-member.model';
-import { User } from 'src/models/user.model';
+import { User } from 'src/modules/users/model/user.model';
 import { IPregameRoomMember } from './interfaces/pregame-room-member';
 import { ICompressedPregameRoom, IPregameRoom } from './interfaces/pregame-room';
-import { PregameRoom } from 'src/models/pregame-room.model';
-import { PlayerChip } from 'src/models/player.model';
-import { Message } from 'src/models/message.model';
+import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
+import { PlayerChip } from 'src/modules/players/model/player';
+import { Message } from 'src/modules/messages/model/message';
 import { IPregameRoomChatMessage } from './interfaces/pregame-room-chat-message';
+import { PregameRoomMember } from 'src/modules/pregame-room-members/model/pregame-room-member';
 
 @Injectable()
 export class PregameRoomsFormatterService {

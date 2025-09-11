@@ -9,7 +9,7 @@ import { GlobalChatMessagesPageDto } from "./dto/global-chat-messages-page";
 import { WsAuthGuard } from "../guards/wsAuth.guard";
 import { GlobalChatFormatterService } from "src/modules/data-formatter/global-chat/global-chat-formatter.service";
 import { SendGlobalChatMessageDto } from "./dto/send-global-chat-message";
-import { Message } from "src/models/message.model";
+import { Message } from "src/modules/messages/model/message";
 import { UsersService } from "src/modules/users/users.service";
 
 @UseFilters(WsExceptionsFilter)

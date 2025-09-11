@@ -1,9 +1,9 @@
-import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Game } from "src/modules/games/model/game";
+import { Message } from "src/modules/messages/model/message";
+import { PregameRoom } from "src/modules/pregame-rooms/model/pregame-room";
+import { ChatMember } from "src/modules/chat-members/model/chat-member";
 import { v4 } from "uuid";
-import { Game } from "./game.model";
-import { PregameRoom } from "./pregame-room.model";
-import { Message } from "./message.model";
-import { ChatMember } from "./chat-members";
 
 export enum ChatType {
     GLOBAL = 'GLOBAL',
