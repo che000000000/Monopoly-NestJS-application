@@ -1,15 +1,10 @@
 import { GameFieldColor, GameFieldType } from "src/models/game-field.model";
 
-export const gameFieldsData = [
+export const GAME_FIELDS_DATA = [
 	{
 		name: "Старт",
 		type: GameFieldType.GO,
-		color: null,
 		position: 1,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Житная ул.",
@@ -24,12 +19,7 @@ export const gameFieldsData = [
 	{
 		name: "Общественная казна",
 		type: GameFieldType.COMMUNITY_CHEST,
-		color: null,
 		position: 3,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Нагаинская ул.",
@@ -44,21 +34,15 @@ export const gameFieldsData = [
 	{
 		name: "Подоходный налог",
 		type: GameFieldType.TAX,
-		color: null,
 		position: 5,
-		basePrice: null,
-		housePrice: null,
 		buildsCount: 0,
 		rent: [200]
 	},
 	{
 		name: "Рижская железная дорога",
 		type: GameFieldType.RAILROAD,
-		color: null,
 		position: 6,
 		basePrice: 200,
-		housePrice: null,
-		buildsCount: null,
 		rent: [25, 50, 100, 200]
 	},
 	{
@@ -74,12 +58,7 @@ export const gameFieldsData = [
 	{
 		name: "Шанс",
 		type: GameFieldType.CHANCE,
-		color: null,
 		position: 8,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Ул. Огеева",
@@ -104,15 +83,10 @@ export const gameFieldsData = [
 	{
 		name: "Просто посетили",
 		type: GameFieldType.JUST_VISITING,
-		color: null,
 		position: 11,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
-		name: "Ул. Полякова",
+		name: "Ул. Полянка",
 		type: GameFieldType.PROPERTY,
 		color: GameFieldColor.PURPLE,
 		position: 12,
@@ -124,11 +98,8 @@ export const gameFieldsData = [
 	{
 		name: "Мосэнерго",
 		type: GameFieldType.UTILITY,
-		color: null,
 		position: 13,
 		basePrice: 150,
-		housePrice: null,
-		buildsCount: null,
 		rent: [4, 10]
 	},
 	{
@@ -154,11 +125,8 @@ export const gameFieldsData = [
 	{
 		name: "Курская железная дорога",
 		type: GameFieldType.RAILROAD,
-		color: null,
 		position: 16,
 		basePrice: 200,
-		housePrice: null,
-		buildsCount: null,
 		rent: [25, 50, 100, 200]
 	},
 	{
@@ -174,12 +142,7 @@ export const gameFieldsData = [
 	{
 		name: "Общественная казна",
 		type: GameFieldType.COMMUNITY_CHEST,
-		color: null,
 		position: 18,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Ул. Вавилова",
@@ -204,12 +167,7 @@ export const gameFieldsData = [
 	{
 		name: "Бесплатная парковка",
 		type: GameFieldType.FREE_PARKING,
-		color: null,
 		position: 21,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Ул. Тверская",
@@ -224,12 +182,7 @@ export const gameFieldsData = [
 	{
 		name: "Шанс",
 		type: GameFieldType.CHANCE,
-		color: null,
 		position: 23,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Пушкинская ул.",
@@ -254,11 +207,8 @@ export const gameFieldsData = [
 	{
 		name: "Казанская железная дорога",
 		type: GameFieldType.RAILROAD,
-		color: null,
 		position: 26,
 		basePrice: 200,
-		housePrice: null,
-		buildsCount: null,
 		rent: [25, 50, 100, 200]
 	},
 	{
@@ -284,11 +234,8 @@ export const gameFieldsData = [
 	{
 		name: "Мосисток",
 		type: GameFieldType.UTILITY,
-		color: null,
 		position: 29,
 		basePrice: 150,
-		housePrice: null,
-		buildsCount: null,
 		rent: [4, 10]
 	},
 	{
@@ -304,12 +251,7 @@ export const gameFieldsData = [
 	{
 		name: "Отправляйтесь в тюрьму",
 		type: GameFieldType.GO_TO_JAIL,
-		color: null,
 		position: 31,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Ул. Щусева",
@@ -334,12 +276,7 @@ export const gameFieldsData = [
 	{
 		name: "Общественная казна",
 		type: GameFieldType.COMMUNITY_CHEST,
-		color: null,
 		position: 34,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Кутузовский проспект",
@@ -354,22 +291,14 @@ export const gameFieldsData = [
 	{
 		name: "Ярославский вокзал",
 		type: GameFieldType.RAILROAD,
-		color: null,
 		position: 36,
 		basePrice: 200,
-		housePrice: null,
-		buildsCount: null,
 		rent: [25, 50, 100, 200]
 	},
 	{
 		name: "Шанс",
 		type: GameFieldType.CHANCE,
-		color: null,
 		position: 37,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
-		rent: null
 	},
 	{
 		name: "Ул. Малая бронная",
@@ -384,11 +313,7 @@ export const gameFieldsData = [
 	{
 		name: "Сверхналог",
 		type: GameFieldType.TAX,
-		color: null,
 		position: 39,
-		basePrice: null,
-		housePrice: null,
-		buildsCount: null,
 		rent: [100]
 	},
 	{

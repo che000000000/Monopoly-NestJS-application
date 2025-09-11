@@ -28,6 +28,11 @@ import { PregameRoomMember } from 'src/models/pregame-room-member.model';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
 import { DataFormatterModule } from '../data-formatter/data-formatter.module';
 import { GlobalChatsModule } from '../global-chat/global-chats.module';
+import { GameDeal } from 'src/models/game-deal';
+import { GameDealItem } from 'src/models/game-deal-item';
+import { GamesMasterModule } from '../games-master/games-master.module';
+import { ChanceItemsModule } from '../chance-items/chance-items.module';
+import { ActionCard } from 'src/models/action-card';
 
 @Module({
   imports: [
@@ -60,7 +65,8 @@ import { GlobalChatsModule } from '../global-chat/global-chats.module';
             PregameRoom, PregameRoomMember,
             Chat, Message, ChatMember,
             Game, Player, GameTurn,
-            GameField
+            GameField, GameDeal, GameDealItem,
+            ActionCard
           ]
         }
       }
@@ -69,7 +75,8 @@ import { GlobalChatsModule } from '../global-chat/global-chats.module';
     UsersModule, PregameRoomsModule, PregameRoomMembersModule,
     GatewaysModule, ChatsModule, ChatMembersModule,
     MessagesModule, GamesModule, PlayersModule,
-    DataFormatterModule, GlobalChatsModule
+    DataFormatterModule, GlobalChatsModule, GamesMasterModule,
+    ChanceItemsModule
   ],
 })
 export class AppModule { }

@@ -87,4 +87,12 @@ export class PlayersService {
         )
         return affectedCount
     }
+
+    async updatePaymentForCircle(id: string, paymentForCircle: boolean): Promise<number> {
+        const [affectedCount] = await this.playersRepository.update(
+            { paymentForCircle },
+            { where: { id } }
+        )
+        return affectedCount
+    }
 }

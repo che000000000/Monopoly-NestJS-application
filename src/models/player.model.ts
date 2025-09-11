@@ -4,6 +4,8 @@ import { Game } from "./game.model";
 import { User } from "./user.model";
 import { GameTurn } from "./game-turn.model";
 import { GameField } from "./game-field.model";
+import { GameDealItem } from "./game-deal-item";
+import { GameDeal } from "./game-deal";
 
 export enum PlayerChip {
     CART = 'CART',
@@ -52,6 +54,20 @@ export class Player extends Model {
     })
     declare balance: number
 
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false,
+        defaultValue: () => 0
+    })
+    declare getOutOfJailCardsCount: number
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => true
+    })
+    declare paymentForCircle: boolean
+
     @ForeignKey(() => Game)
     @Column({
         type: DataType.UUID,
@@ -78,4 +94,10 @@ export class Player extends Model {
 
     @HasMany(() => GameField)
     ownFields: GameField[]
+
+    @HasOne(() => GameDeal)
+    gameDeal: GameDeal
+
+    @HasMany(() => GameDealItem)
+    gameDealItem: GameDealItem[]
 }

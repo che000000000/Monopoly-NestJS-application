@@ -12,6 +12,7 @@ import { ChatsModule } from "../chats/chats.module";
 import { GlobalChatsModule } from "../global-chat/global-chats.module";
 import { GlobalChatGateway } from "./global-chat-gateway/global-chat.gateway";
 import { GameFieldsModule } from "../game-fields/game-fields.module";
+import { GamesMasterModule } from "../games-master/games-master.module";
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { GameFieldsModule } from "../game-fields/game-fields.module";
         ChatsModule,
         PregameRoomsModule,
         PregameRoomMembersModule,
+        GamesMasterModule,
         GamesModule,
         PlayersModule,
         GameTurnsModule,

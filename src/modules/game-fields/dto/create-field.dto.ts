@@ -16,7 +16,7 @@ export class CreateFieldDto {
 
     @IsEnum(GameFieldColor)
     @IsOptional()
-    color: GameFieldColor | null
+    color?: GameFieldColor
 
     @IsNumber()
     @IsNotEmpty()
@@ -25,17 +25,17 @@ export class CreateFieldDto {
     @IsArray()
     @IsOptional()
     @IsNumber({}, { each: true })
-    rent?: number[] | null
+    rent?: number[]
 
     @IsNumber()
     @IsOptional()
-    basePrice?: number | null
+    basePrice?: number
 
     @IsNumber()
     @IsOptional()
-    housePrice?: number | null
+    housePrice?: number
 
     @IsNumber()
     @IsOptional()
-    buildsCount?: number | null
+    buildsCount?: number
 }
