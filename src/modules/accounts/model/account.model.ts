@@ -25,14 +25,14 @@ export class Account extends Model {
     declare provider: string
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: true,
         unique: true,
     })
     declare refreshToken?: string | null
 
     @Column({
-        type: DataType.STRING,
+        type: DataType.TEXT,
         allowNull: true,
         unique: true,
     })

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { GameTurn, GameTurnStage } from './model/game-turn';
+import { ActionCard } from '../action-cards/model/action-card';
 
 @Injectable()
 export class GameTurnsService {
@@ -46,27 +47,11 @@ export class GameTurnsService {
         })
     }
 
-    async updatePlayerId(id: string, playerId: string): Promise<number> {
-        const [affectedCount] = await this.gameTurnsRepository.update(
-            { playerId },
-            { where: { id } }
+    async updateOne(id: string, updates: Partial<GameTurn>): Promise<GameTurn | null> {
+        const [affectedCount, [updatedGameTurn]] = await this.gameTurnsRepository.update(
+            updates,
+            { where: { id }, returning: true }
         )
-        return affectedCount
-    }
-
-    async updateStage(id: string, stage: GameTurnStage): Promise<number> {
-        const [affectedCount] = await this.gameTurnsRepository.update(
-            { stage },
-            { where: { id } }
-        )
-        return affectedCount
-    }
-
-    async updateExpires(id: string, expires: number): Promise<number> {
-        const [affectedCount] = await this.gameTurnsRepository.update(
-            { expires },
-            { where: { id } }
-        )
-        return affectedCount
+        return affectedCount > 0 ? updatedGameTurn : null
     }
 }

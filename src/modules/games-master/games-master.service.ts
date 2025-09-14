@@ -18,6 +18,9 @@ import { ChatType } from '../chats/model/chat';
 import { GameField, GameFieldType } from '../game-fields/model/game-field';
 import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
+import { ActionCard, ActionCardDeckType } from '../action-cards/model/action-card';
+import { GamePaymentsService } from '../game-payments/game-payments.service';
+import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
 
 @Injectable()
 export class GamesMasterService {
@@ -27,6 +30,7 @@ export class GamesMasterService {
         private readonly gameFieldsService: GameFieldsService,
         private readonly gameTurnsService: GameTurnsService,
         private readonly actionCardsService: ActionCardsService,
+        private readonly gamePaymentsService: GamePaymentsService,
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
@@ -34,32 +38,24 @@ export class GamesMasterService {
         private readonly messagesService: MessagesService
     ) { }
 
-    async defineNextGameTurn(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, palyer: Player }> {
-        const [gamePlayers, currentTurnPlayer] = await Promise.all([
-            this.playersService.findAllByGameId(gameTurn.gameId),
-            this.playersService.getOneOrThrow(gameTurn.playerId)
-        ])
+    async defineNextGameTurn(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
+        const gamePlayers = await this.playersService.findAllByGameId(gameTurn.gameId)
+        const sortedPlayers = gamePlayers.sort((a, b) => a.turnNumber - b.turnNumber)
 
-        const sortedPlayers = gamePlayers.sort((a, b) => a.turnNumber - b.turnNumber);
-
-        const currentPlayerIndex = sortedPlayers.findIndex(player =>
-            player.id === currentTurnPlayer.id
+        const currentPlayerIndex = sortedPlayers.findIndex((player: Player) =>
+            player.id === gameTurn.playerId
         )
-
         const nextPlayerIndex = (currentPlayerIndex + 1) % sortedPlayers.length
-
         const nextPlayer = sortedPlayers[nextPlayerIndex]
 
-        await Promise.all([
-            this.gameTurnsService.updatePlayerId(gameTurn.id, nextPlayer.id),
-            this.gameTurnsService.updateStage(gameTurn.id, GameTurnStage.MOVE)
-        ])
-
-        const updatedGameTurn = await this.gameTurnsService.getOneOrThrow(gameTurn.id)
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { playerId: nextPlayer.id, stage: GameTurnStage.MOVE })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed to define next game turn. Game turn was not updated.`)
+        }
 
         return {
             gameTurn: updatedGameTurn,
-            palyer: nextPlayer
+            player: nextPlayer
         }
     }
 
@@ -76,8 +72,10 @@ export class GamesMasterService {
             throw new InternalServerErrorException(`Failed to move. New game field not found`)
         }
 
-        await this.playersService.updateFieldId(player.id, gameField.id)
-        const updatedPlayer = await this.playersService.getOneOrThrow(player.id)
+        const updatedPlayer = await this.playersService.updateOne(player.id, { gameFieldId: gameField.id })
+        if (!updatedPlayer) {
+            throw new Error(`Failed to move player. Player was not updated.`)
+        }
 
         return {
             player: updatedPlayer,
@@ -147,7 +145,7 @@ export class GamesMasterService {
         }
     }
 
-    async getGameState(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], gameTurn: GameTurn }> {
+    async getGameState(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], gameTurn: GameTurn, actionCard: ActionCard | null }> {
         const currentPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
         if (!currentPlayer) {
             throw new BadRequestException(`Failed to get game state. User is not player of the game.`)
@@ -157,18 +155,19 @@ export class GamesMasterService {
             this.gamesService.getOneOrThrow(currentPlayer.gameId),
             this.gameFieldsService.findAllByGameId(currentPlayer.gameId),
             this.playersService.findAllByGameId(currentPlayer.gameId),
-            this.gameTurnsService.getOneByGameIdOrThrow(currentPlayer.gameId)
+            this.gameTurnsService.getOneByGameIdOrThrow(currentPlayer.gameId),
         ])
 
         return {
             game,
             gameFields,
             players,
-            gameTurn
+            gameTurn,
+            actionCard: gameTurn.actionCardId ? await this.actionCardsService.findOne(gameTurn.actionCardId) : null
         }
     }
 
-    private throwDices(): { dices: number[], summ: number } {
+    private throwDices(): { dices: number[], summ: number, isDouble: boolean } {
         const DICES_COUNT = 2
         const DICE_SIDES = 6
 
@@ -183,7 +182,8 @@ export class GamesMasterService {
 
         return {
             dices,
-            summ
+            summ,
+            isDouble: dices[0] === dices[1] ? true : false
         }
     }
 
@@ -191,47 +191,49 @@ export class GamesMasterService {
         game: Game, player: Player, newGameField: GameField, leftGameField: GameField, gameTurn: GameTurn,
         thrownDices: {
             dices: number[],
-            summ: number
+            summ: number,
+            isDouble: boolean
         }
     }> {
-        const userAsPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
-        if (!userAsPlayer) {
+        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!player) {
             throw new BadRequestException(`Failed to move. User not in the game.`)
         }
 
-        const [currentGameTurn, currentGameField, game] = await Promise.all([
-            this.gameTurnsService.getOneByGameIdOrThrow(userAsPlayer.gameId),
-            this.gameFieldsService.getOneOrThrow(userAsPlayer.gameFieldId),
-            this.gamesService.getOneOrThrow(userAsPlayer.gameId)
+        const [gameTurn, currentGameField, game] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gameFieldsService.getOneOrThrow(player.gameFieldId),
+            this.gamesService.getOneOrThrow(player.gameId)
         ])
 
-        if (currentGameTurn.playerId !== userAsPlayer.id) {
+        if (gameTurn.playerId !== player.id) {
             throw new BadRequestException(`Failed to move. Player. Player has no right to move`)
         }
-        if (currentGameTurn.stage !== GameTurnStage.MOVE) {
+        if (gameTurn.stage !== GameTurnStage.MOVE) {
             throw new BadRequestException(`Failed to move. Player. Not move stage`)
         }
 
         const thrownDices = this.throwDices()
+        const newPosition = ((currentGameField.position + thrownDices.summ - 1) % 40) + 1
 
-        const isCircleCompleted = currentGameField.position + thrownDices.summ > 40
-        const newPosition = ((currentGameField.position + thrownDices.summ - 1) % 40) + 1;
-
-        if (isCircleCompleted) {
+        if (currentGameField.position + thrownDices.summ > 40) {
             await Promise.all([
-                this.playersService.updateBalance(userAsPlayer.id, userAsPlayer.balance + 200),
-                this.playersService.updatePaymentForCircle(userAsPlayer.id, true)
+                this.playersService.updateOne(player.id, { balance: player.balance + 200, paymentForCircle: true }),
+                this.gameTurnsService.updateOne(gameTurn.id, { stepsCount: thrownDices.summ })
             ])
         }
 
-        const movePlayer = await this.movePlayer(userAsPlayer.id, newPosition)
+        const [movePlayer, updatedGameTurn] = await Promise.all([
+            this.movePlayer(player.id, newPosition),
+            this.gameTurnsService.getOneOrThrow(gameTurn.id)
+        ])
 
         return {
             game,
             player: movePlayer.player,
             newGameField: movePlayer.newGameField,
             leftGameField: movePlayer.leftGameField,
-            gameTurn: currentGameTurn,
+            gameTurn: updatedGameTurn,
             thrownDices: thrownDices
         }
     }
@@ -282,51 +284,215 @@ export class GamesMasterService {
         }
     }
 
+    async processPayPropertyRent(gameField: GameField, gameTurn: GameTurn): Promise<{ gamePayment: GamePayment, gameTurn: GameTurn }> {
+        if (!gameField.ownerPlayerId || !gameField.rent) {
+            throw new Error(`Failed to process pay property rent. No need to pay rent.`)
+        }
+
+        const newGamePayment = await this.gamePaymentsService.create(
+            GamePaymentType.PAY_RENT,
+            gameField.rent[gameField.buildsCount || 0],
+        )
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, gamePaymentId: newGamePayment.id })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed process pay property rent. Game turn was not updated`)
+        }
+
+        return {
+            gamePayment: newGamePayment,
+            gameTurn: updatedGameTurn
+        }
+    }
+
+    async processPayRailoadRent(gameField: GameField, gameTurn: GameTurn): Promise<{ gamePayment: GamePayment, gameTurn: GameTurn }> {
+        if (!gameField.ownerPlayerId || !gameField.rent) {
+            throw new Error(`Failed to process pay railroad rent. No need to pay rent.`)
+        }
+
+        const ownerPlayerRailroads = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.RAILROAD)
+
+        const newGamePayment = await this.gamePaymentsService.create(
+            GamePaymentType.PAY_RENT,
+            gameField.rent[ownerPlayerRailroads.length - 1],
+        )
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, gamePaymentId: newGamePayment.id })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed process pay railroad rent. Game turn was not updated`)
+        }
+
+        return {
+            gamePayment: newGamePayment,
+            gameTurn: updatedGameTurn
+        }
+    }
+
+    async processBuyGameField(gameField: GameField, gameTurn: GameTurn): Promise<{ gamePayment: GamePayment, gameTurn: GameTurn }> {
+        if (!gameField.basePrice) {
+            throw new InternalServerErrorException(`Failed to process buy game field. Game field base price not found.`)
+        }
+
+        const newGamePayment = await this.gamePaymentsService.create(GamePaymentType.BUY_GAME_FIELD, gameField.basePrice)
+
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.BUY_GAME_FIELD, gamePaymentId: newGamePayment.id })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed to process buy game field. Game turn was not updated.`)
+        }
+
+        return {
+            gamePayment: newGamePayment,
+            gameTurn: updatedGameTurn
+        }
+    }
+
+    async processHitGameFiled(player: Player, gameField: GameField, gameTurn: GameTurn)
+        : Promise<{ gameTurn: GameTurn, gamePayment: GamePayment | null, actionCard: ActionCard | null }> {
+        switch (gameField.type) {
+            case GameFieldType.PROPERTY: {
+                if (gameField.ownerPlayerId && gameField.ownerPlayerId !== player.id) {
+                    const processedPayPropertyRent = await this.processPayPropertyRent(gameField, gameTurn)
+                    return {
+                        gameTurn: processedPayPropertyRent.gameTurn,
+                        gamePayment: processedPayPropertyRent.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                if (!gameField.ownerPlayerId) {
+                    const processedBuyGameField = await this.processBuyGameField(gameField, gameTurn)
+                    return {
+                        gameTurn: processedBuyGameField.gameTurn,
+                        gamePayment: processedBuyGameField.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                return {
+                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gamePayment: null,
+                    actionCard: null
+                }
+            }
+            case GameFieldType.RAILROAD: {
+                if (gameField.ownerPlayerId && gameField.ownerPlayerId !== player.id) {
+                    const processedPayRailroadRent = await this.processPayRailoadRent(gameField, gameTurn)
+
+                    return {
+                        gameTurn: processedPayRailroadRent.gameTurn,
+                        gamePayment: processedPayRailroadRent.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                if (!gameField.ownerPlayerId) {
+                    const processedBuyGameField = await this.processBuyGameField(gameField, gameTurn)
+                    return {
+                        gameTurn: processedBuyGameField.gameTurn,
+                        gamePayment: processedBuyGameField.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                return {
+                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gamePayment: null,
+                    actionCard: null
+                }
+            }
+            default: return {
+                gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                gamePayment: null,
+                actionCard: null
+            }
+        }
+    }
+
     async buyGameField(userId: string): Promise<{ player: Player, gameField: GameField, gameTurn: GameTurn }> {
         const player = await this.playersService.findCurrentPlayerByUserId(userId)
         if (!player) {
             throw new BadRequestException(`Failed to buy game field. User not in the game.`)
         }
 
-        const [gameField, gameTurn] = await Promise.all([
-            this.gameFieldsService.getOneOrThrow(player.gameFieldId),
-            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId)
+        const [gameTurn, gameField] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gameFieldsService.getOneOrThrow(player.gameFieldId)
         ])
-        if (gameTurn.playerId !== player.id || gameTurn.stage !== GameTurnStage.BUY_GAME_FIELD) {
-            throw new BadRequestException(`Failed to buy game field. User has not game turn or incorrect game turn stage.`)
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to buy game field. Player has no turn rights.`)
         }
-        if (gameField.ownerPlayerId) {
-            throw new BadRequestException(`Failed to buy game field. Game field has owner already.`)
+        if (!gameTurn.gamePaymentId) {
+            throw new InternalServerErrorException(`Failed to buy game field. Game payment not found.`)
         }
 
-        const purchasableTypes = [
-            GameFieldType.PROPERTY,
-            GameFieldType.RAILROAD,
-            GameFieldType.UTILITY
-        ]
-        if (!purchasableTypes.includes(gameField.type) || !gameField.basePrice) {
-            throw new BadRequestException(`Failed to buy game field. The field is not subject to purchase`)
+        const gamePayment = await this.gamePaymentsService.getOneOrThrow(gameTurn.gamePaymentId)
+        if (gamePayment.type !== GamePaymentType.BUY_GAME_FIELD) {
+            throw new BadRequestException(`Failed to buy game field. Payment not for buy game field.`)
         }
-        if (gameField.basePrice > player.balance) {
-            throw new BadRequestException(`Failed to buy game field. Not enough money to buy game field.`)
+        if (player.balance < gamePayment.amount) {
+            throw new BadRequestException(`Failed to buy game field. Not enough balance to buy game field.`)
         }
 
-        await Promise.all([
-            this.gameFieldsService.updatePlayerOwnerId(gameField.id, player.id),
-            this.playersService.updateBalance(player.id, player.balance - gameField.basePrice)
+        const [updatedPlayer, updatedGameField] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
+            this.gameFieldsService.updateOne(gameField.id, { ownerPlayerId: player.id }),
+            this.gamePaymentsService.destroy(gamePayment.id)
         ])
-
-        const [updatedPlayer, boughtGameField] = await Promise.all([
-            this.playersService.getOneOrThrow(player.id),
-            this.gameFieldsService.getOneOrThrow(gameField.id)
-        ])
+        if (!updatedPlayer) {
+            throw new Error(`Failed to buy game filed. Player was not updated.`)
+        }
+        if (!updatedGameField) {
+            throw new Error(`Failed to buy game filed. Game field was not updated.`)
+        }
 
         return {
             player: updatedPlayer,
-            gameField: boughtGameField,
-            gameTurn
+            gameField: updatedGameField,
+            gameTurn: gameTurn
         }
     }
 
-    async 
+    async payRent(userId: string): Promise<{ payingPlayer: Player, getPaymentPlayer: Player, gameTurn: GameTurn }> {
+        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to pay rent. User not in the game.`)
+        }
+
+        const [gameTurn, gameField] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        ])
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to pay rent. Player has no turn rights.`)
+        }
+        if (!gameTurn.gamePaymentId) {
+            throw new InternalServerErrorException(`Failed to pay rent. Game payment not found.`)
+        }
+        if (!gameField.ownerPlayerId) {
+            throw new Error(`Failed to pay rent. Game field has no owner player.`)
+        }
+
+        const [gamePayment, gameFieldOwnerPlayer] = await Promise.all([
+            this.gamePaymentsService.getOneOrThrow(gameTurn.gamePaymentId),
+            this.playersService.getOneOrThrow(gameField.ownerPlayerId)
+        ])
+        if (gamePayment.type !== GamePaymentType.PAY_RENT) {
+            throw new BadRequestException(`Failed to buy game field. No needs to pay rent.`)
+        }
+        if (player.balance < gamePayment.amount) {
+            throw new BadRequestException(`Failed to pay reny. Not enough balance to payment.`)
+        }
+
+        const [payingPlayer, getPaymentPlayer] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
+            this.playersService.updateOne(gameFieldOwnerPlayer.id, { balance: gameFieldOwnerPlayer.balance + gamePayment.amount })
+        ])
+        if (!payingPlayer || !getPaymentPlayer) {
+            throw new Error(`Failed to pay rent. Anyone player was not updated.`)
+        }
+
+        return {
+            payingPlayer,
+            getPaymentPlayer,
+            gameTurn
+        }
+    }
 }

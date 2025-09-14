@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CreateFieldDto } from './dto/create-field.dto';
 import { GAME_FIELDS_DATA } from './data/game-fields';
-import { GameField } from './model/game-field';
+import { GameField, GameFieldType } from './model/game-field';
 
 @Injectable()
 export class GameFieldsService {
@@ -31,6 +31,12 @@ export class GameFieldsService {
         })
     }
 
+    async findAllByOwnerPlayerIdAndType(ownerPlayerId: string, type: GameFieldType): Promise<GameField[]> {
+        return await this.gameFieldsRepository.findAll({
+            where: { ownerPlayerId, type }
+        })
+    }
+
     async getOneOrThrow(id: string): Promise<GameField> {
         const gameField = await this.findOne(id)
         if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)
@@ -56,11 +62,11 @@ export class GameFieldsService {
         return newFields
     }
 
-    async updatePlayerOwnerId(id: string, ownerPlayerId: string): Promise<number> {
-        const [affectedCount] = await this.gameFieldsRepository.update(
-            { ownerPlayerId },
-            { where: { id } }
+    async updateOne(id: string, updates: Partial<GameField>): Promise<GameField | null> {
+        const [affectedCount, [gameField]] = await this.gameFieldsRepository.update(
+            updates,
+            { where: { id }, returning: true}
         )
-        return affectedCount
+        return affectedCount > 0 ? gameField : null
     }
 }
