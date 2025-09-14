@@ -4,6 +4,7 @@ import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/play
 import { UsersService } from '../users/users.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';
+import { GameTurn } from '../game-turns/model/game-turn';
 
 @Injectable()
 export class PlayersService {
@@ -66,33 +67,17 @@ export class PlayersService {
         })
     }
 
-    async dstroy(id: string): Promise<number> {
+    async destroy(id: string): Promise<number> {
         return await this.playersRepository.destroy({
             where: { id }
         })
     }
 
-    async updateFieldId(id: string, gameFieldId: string): Promise<number> {
-        const [affectedCount] = await this.playersRepository.update(
-            { gameFieldId },
-            { where: { id } }
+    async updateOne(id: string, updates: Partial<Player>): Promise<Player | null> {
+        const [affectedCount, [Player]] = await this.playersRepository.update(
+            updates,
+            { where: { id }, returning: true }
         )
-        return affectedCount
-    }
-
-    async updateBalance(id: string, balance: number): Promise<number> {
-        const [affectedCount] = await this.playersRepository.update(
-            { balance },
-            { where: { id } }
-        )
-        return affectedCount
-    }
-
-    async updatePaymentForCircle(id: string, paymentForCircle: boolean): Promise<number> {
-        const [affectedCount] = await this.playersRepository.update(
-            { paymentForCircle },
-            { where: { id } }
-        )
-        return affectedCount
+        return affectedCount > 0 ? Player : null
     }
 }

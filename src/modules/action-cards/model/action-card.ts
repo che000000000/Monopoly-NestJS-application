@@ -1,4 +1,5 @@
-import { Table, Column, Model, DataType, ForeignKey, PrimaryKey } from 'sequelize-typescript';
+import { Table, Column, Model, DataType, ForeignKey, PrimaryKey, HasOne } from 'sequelize-typescript';
+import { GameTurn } from 'src/modules/game-turns/model/game-turn';
 import { Game } from 'src/modules/games/model/game';
 import { v4 } from 'uuid';
 
@@ -9,7 +10,8 @@ export enum ActionCardDeckType {
 
 export enum ActionCardType {
     MOVE = 'MOVE',
-    MONEY = 'MONEY',
+    PAY_MONEY = 'PAY_MONEY',
+    GET_MONEY = 'GET_MONEY',
     PAY_PLAYERS = 'PAY_PLAYERS',
     JAIL = 'JAIL',
     GET_OUT_OF_JAIL = 'GET_OUT_OF_JAIL',
@@ -127,4 +129,7 @@ export class ActionCard extends Model {
         allowNull: false
     })
     declare gameId: string
+
+    @HasOne(() => GameTurn)
+    gameTurn: GameTurn
 }

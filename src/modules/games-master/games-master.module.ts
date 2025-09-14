@@ -10,6 +10,7 @@ import { GameFieldsModule } from '../game-fields/game-fields.module';
 import { MessagesModule } from '../messages/messages.module';
 import { UsersModule } from '../users/users.module';
 import { ActionsCardsModule } from '../action-cards/action-cards.module';
+import { GamePaymentsModule } from '../game-payments/game-payments.module';
 
 @Module({
 	imports: [
@@ -18,6 +19,7 @@ import { ActionsCardsModule } from '../action-cards/action-cards.module';
 		GameFieldsModule,
 		GameTurnsModule,
 		ActionsCardsModule,
+		GamePaymentsModule,
 		UsersModule,
 		MessagesModule,
 		ChatsModule,

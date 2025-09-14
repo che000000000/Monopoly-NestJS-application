@@ -33,6 +33,8 @@ import { Chat } from '../chats/model/chat';
 import { GameField } from '../game-fields/model/game-field';
 import { GameTurn } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
+import { GamePayment } from '../game-payments/model/game-payment';
+import { GamePaymentsModule } from '../game-payments/game-payments.module';
 
 @Module({
   imports: [
@@ -66,7 +68,7 @@ import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-me
             Chat, Message, ChatMember,
             Game, Player, GameTurn,
             GameField, GameDeal, GameDealItem,
-            ActionCard
+            ActionCard, GamePayment
           ]
         }
       }
@@ -76,7 +78,7 @@ import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-me
     GatewaysModule, ChatsModule, ChatMembersModule,
     MessagesModule, GamesModule, PlayersModule,
     DataFormatterModule, GlobalChatsModule, GamesMasterModule,
-    ActionsCardsModule
+    ActionsCardsModule, GamePaymentsModule
   ],
 })
 export class AppModule { }

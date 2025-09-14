@@ -52,7 +52,7 @@ export const ACTION_CARDS = [
     {
         description: 'Штраф за превышение скорости M15',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.PAY_MONEY,
         amount: -15,
     },
     {
@@ -79,13 +79,13 @@ export const ACTION_CARDS = [
     {
         description: 'Наступил срок исполнения платежа по вашей ссуде на строительство. Получите М150',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.PAY_MONEY,
         amount: 150,
     },
     {
         description: 'Банк платит вам дивиденты в размере М50',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 50,
     },
     {
@@ -111,7 +111,7 @@ export const ACTION_CARDS = [
     {
         description: 'Наступил срок исполнения платежа по отпускному фонду. Получите М100',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 100,
     },
     {
@@ -124,13 +124,13 @@ export const ACTION_CARDS = [
     {
         description: 'Банковская ошибка в вашу пользу. Получите М200',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 200,
     },
     {
         description: 'Наступил срок исполнения платежа по страхованию жизни. Получите М100',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 100,
     },
     {
@@ -143,13 +143,13 @@ export const ACTION_CARDS = [
     {
         description: 'Получите М25 за консалтинговые услуги',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 25,
     },
     {
         description: 'Возмещение подоходного налога. Получите М20',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 20,
     },
     {
@@ -160,25 +160,25 @@ export const ACTION_CARDS = [
     {
         description: 'Вы заняли второе место на конкурсе красоты. Получите М10',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 10,
     },
     {
         description: 'Оплатите расходы на госпитализацию в размере М100',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.PAY_MONEY,
         amount: -100,
     },
     {
         description: 'Оплатите обучение в размере М50',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.PAY_MONEY,
         amount: -50,
     },
     {
         description: 'Вы получаете в наследство М100',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 100,
     },
     {
@@ -192,13 +192,13 @@ export const ACTION_CARDS = [
     {
         description: 'Визит к врачу. Заплатите М50',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.PAY_MONEY,
         amount: -50,
     },
     {
         description: 'На продаже акций вы зарабатываете М50',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 50,
     },
     {

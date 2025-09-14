@@ -14,6 +14,10 @@ import { IGamePreview } from "./interfaces/game-preview";
 import { IGameTurn } from "./interfaces/game-turn";
 import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
+import { IActionCard } from "./interfaces/action-card";
+import { ActionCard } from "src/modules/action-cards/model/action-card";
+import { GamePayment } from "src/modules/game-payments/model/game-payment";
+import { IGamePayment } from "./interfaces/game-payment";
 
 @Injectable()
 export class GamesFormatterService {
@@ -64,13 +68,32 @@ export class GamesFormatterService {
         }
     }
 
-    formatGameTurn(gameTurn: GameTurn, formattedPlayer: IPlayer): IGameTurn {
+    formatGamePayment(gamePayment: GamePayment): IGamePayment {
+        return {
+            id: gamePayment.id,
+            type: gamePayment.type,
+            amount: gamePayment.amount,
+        }
+    }
+
+    formatGameTurn(gameTurn: GameTurn, formattedPlayer: IPlayer, formattedActionCard?: IActionCard, formattedGamePayment?: IGamePayment): IGameTurn {
         return {
             id: gameTurn.id,
             player: formattedPlayer,
             stage: gameTurn.stage,
+            actionCard: formattedActionCard ?? null,
+            gamePayment: formattedGamePayment ?? null,
             expires: gameTurn.expires,
             updatedAt: gameTurn.updatedAt
+        }
+    }
+
+    formatActionCard(actionCard: ActionCard): IActionCard {
+        return {
+            id: actionCard.id,
+            description: actionCard.description,
+            deckType: actionCard.deckType,
+            type: actionCard.type
         }
     }
 
