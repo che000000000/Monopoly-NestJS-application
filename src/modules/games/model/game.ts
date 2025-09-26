@@ -5,6 +5,7 @@ import { ActionCard } from "src/modules/action-cards/model/action-card";
 import { Chat } from "src/modules/chats/model/chat";
 import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
+import { GamePayment } from "src/modules/game-payments/model/game-payment";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -43,6 +44,9 @@ export class Game extends Model {
 
     @HasOne(() => GameTurn)
     turn: GameTurn
+
+    @HasOne(() => GamePayment)
+    gamePayment: GamePayment
 
     @HasMany(() => ActionCard)
     actionCards: ActionCard[]

@@ -402,4 +402,30 @@ export class GamesGateway implements OnGatewayConnection {
             await this.startTurnTimer(nextGameTurn)
         }, 500)
     }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('pay-tax')
+    async payTax(@ConnectedSocket() socket: SocketWithSession) {
+        const userId = this.extractUserId(socket)
+
+        const payTax = await this.gamesMasterService.payTax(userId)
+
+        let nextGameTurn: GameTurn | null = payTax.gameTurn
+        if (payTax.gameTurn.isDouble) {
+            nextGameTurn = await this.gameTurnsService.updateOne(payTax.gameTurn.id, { stage: GameTurnStage.MOVE })
+            if (!nextGameTurn) {
+                throw new Error(`Failed to define next turn. Game turn was not updated.`)
+            }
+        } else {
+            nextGameTurn = (await this.gamesMasterService.defineNextGameTurn(payTax.gameTurn)).gameTurn
+        }
+
+        this.server.to(payTax.gameTurn.gameId).emit('pay-tax', {
+            player: await this.getformattedPlayer(payTax.player),
+        })
+
+        setTimeout(async () => {
+            await this.startTurnTimer(nextGameTurn)
+        }, 500)
+    }
 }

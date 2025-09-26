@@ -20,10 +20,11 @@ export class GamePaymentsService {
         return gamePayment
     }
 
-    async create(type: GamePaymentType, amount: number): Promise<GamePayment> {
+    async create(type: GamePaymentType, amount: number, gameId: string): Promise<GamePayment> {
         return await this.gamePaymentsRepository.create({
             type,
             amount,
+            gameId
         })
     }
 
