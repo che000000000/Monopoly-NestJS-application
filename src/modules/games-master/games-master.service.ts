@@ -292,6 +292,7 @@ export class GamesMasterService {
         const newGamePayment = await this.gamePaymentsService.create(
             GamePaymentType.PAY_RENT,
             gameField.rent[gameField.buildsCount || 0],
+            gameTurn.gameId
         )
         const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, gamePaymentId: newGamePayment.id })
         if (!updatedGameTurn) {
@@ -309,15 +310,41 @@ export class GamesMasterService {
             throw new Error(`Failed to process pay railroad rent. No need to pay rent.`)
         }
 
-        const ownerPlayerRailroads = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.RAILROAD)
+        const railroadsOwner = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.RAILROAD)
 
         const newGamePayment = await this.gamePaymentsService.create(
             GamePaymentType.PAY_RENT,
-            gameField.rent[ownerPlayerRailroads.length - 1],
+            gameField.rent[railroadsOwner.length - 1],
+            gameTurn.gameId
         )
+
         const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, gamePaymentId: newGamePayment.id })
         if (!updatedGameTurn) {
             throw new Error(`Failed process pay railroad rent. Game turn was not updated`)
+        }
+
+        return {
+            gamePayment: newGamePayment,
+            gameTurn: updatedGameTurn
+        }
+    }
+
+    async processPayUtilityRent(gameField: GameField, gameTurn: GameTurn): Promise<{ gamePayment: GamePayment, gameTurn: GameTurn }> {
+        if (!gameField.ownerPlayerId || !gameField.rent) {
+            throw new Error(`Failed to process pay utility rent. No need to pay rent.`)
+        }
+
+        const utilitesOwner = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.UTILITY)
+
+        const newGamePayment = await this.gamePaymentsService.create(
+            GamePaymentType.PAY_RENT,
+            gameField.rent[utilitesOwner.length - 1] * gameTurn.stepsCount,
+            gameTurn.gameId
+        )
+
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, gamePaymentId: newGamePayment.id })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed process pay utility rent. Game turn was not updated`)
         }
 
         return {
@@ -331,11 +358,37 @@ export class GamesMasterService {
             throw new InternalServerErrorException(`Failed to process buy game field. Game field base price not found.`)
         }
 
-        const newGamePayment = await this.gamePaymentsService.create(GamePaymentType.BUY_GAME_FIELD, gameField.basePrice)
+        const newGamePayment = await this.gamePaymentsService.create(
+            GamePaymentType.BUY_GAME_FIELD,
+            gameField.basePrice,
+            gameTurn.gameId
+        )
 
         const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.BUY_GAME_FIELD, gamePaymentId: newGamePayment.id })
         if (!updatedGameTurn) {
             throw new Error(`Failed to process buy game field. Game turn was not updated.`)
+        }
+
+        return {
+            gamePayment: newGamePayment,
+            gameTurn: updatedGameTurn
+        }
+    }
+
+    async processPayTax(gameField: GameField, gameTurn: GameTurn): Promise<{ gamePayment: GamePayment, gameTurn: GameTurn }> {
+        if (!gameField.rent) {
+            throw new InternalServerErrorException(`Failed to process pay tax. Game field rent not found.`)
+        }
+
+        const newGamePayment = await this.gamePaymentsService.create(
+            GamePaymentType.PAY_TAX,
+            gameField.rent[0],
+            gameTurn.gameId
+        )
+
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_TAX, gamePaymentId: newGamePayment.id })
+        if (!updatedGameTurn) {
+            throw new Error(`Failed to process pay tax. Game turn was not updated.`)
         }
 
         return {
@@ -375,7 +428,6 @@ export class GamesMasterService {
             case GameFieldType.RAILROAD: {
                 if (gameField.ownerPlayerId && gameField.ownerPlayerId !== player.id) {
                     const processedPayRailroadRent = await this.processPayRailoadRent(gameField, gameTurn)
-
                     return {
                         gameTurn: processedPayRailroadRent.gameTurn,
                         gamePayment: processedPayRailroadRent.gamePayment,
@@ -395,6 +447,39 @@ export class GamesMasterService {
                 return {
                     gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
                     gamePayment: null,
+                    actionCard: null
+                }
+            }
+            case GameFieldType.UTILITY: {
+                if (gameField.ownerPlayerId && gameField.ownerPlayerId !== player.id) {
+                    const processedPayRailroadRent = await this.processPayUtilityRent(gameField, gameTurn)
+                    return {
+                        gameTurn: processedPayRailroadRent.gameTurn,
+                        gamePayment: processedPayRailroadRent.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                if (!gameField.ownerPlayerId) {
+                    const processedBuyGameField = await this.processBuyGameField(gameField, gameTurn)
+                    return {
+                        gameTurn: processedBuyGameField.gameTurn,
+                        gamePayment: processedBuyGameField.gamePayment,
+                        actionCard: null
+                    }
+                }
+
+                return {
+                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gamePayment: null,
+                    actionCard: null
+                }
+            }
+            case GameFieldType.TAX: {
+                const processedPayTax = await this.processPayTax(gameField, gameTurn)
+                return {
+                    gameTurn: processedPayTax.gameTurn,
+                    gamePayment: processedPayTax.gamePayment,
                     actionCard: null
                 }
             }
@@ -460,6 +545,9 @@ export class GamesMasterService {
             this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
             this.gameFieldsService.getOneOrThrow(player.gameFieldId)
         ])
+        if (gameTurn.stage !== GameTurnStage.PAY_RENT) {
+            throw new BadRequestException(`Failed to pay tax. Not pay tax game turn stage.`)
+        }
         if (gameTurn.playerId !== player.id) {
             throw new BadRequestException(`Failed to pay rent. Player has no turn rights.`)
         }
@@ -467,23 +555,21 @@ export class GamesMasterService {
             throw new InternalServerErrorException(`Failed to pay rent. Game payment not found.`)
         }
         if (!gameField.ownerPlayerId) {
-            throw new Error(`Failed to pay rent. Game field has no owner player.`)
+            throw new InternalServerErrorException(`Failed to pay rent. Game field has no owner player.`)
         }
 
         const [gamePayment, gameFieldOwnerPlayer] = await Promise.all([
             this.gamePaymentsService.getOneOrThrow(gameTurn.gamePaymentId),
             this.playersService.getOneOrThrow(gameField.ownerPlayerId)
         ])
-        if (gamePayment.type !== GamePaymentType.PAY_RENT) {
-            throw new BadRequestException(`Failed to buy game field. No needs to pay rent.`)
-        }
         if (player.balance < gamePayment.amount) {
-            throw new BadRequestException(`Failed to pay reny. Not enough balance to payment.`)
+            throw new BadRequestException(`Failed to pay rent. Not enough balance to pay payment.`)
         }
 
         const [payingPlayer, getPaymentPlayer] = await Promise.all([
             this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
-            this.playersService.updateOne(gameFieldOwnerPlayer.id, { balance: gameFieldOwnerPlayer.balance + gamePayment.amount })
+            this.playersService.updateOne(gameFieldOwnerPlayer.id, { balance: gameFieldOwnerPlayer.balance + gamePayment.amount }),
+            this.gamePaymentsService.destroy(gamePayment.id)
         ])
         if (!payingPlayer || !getPaymentPlayer) {
             throw new Error(`Failed to pay rent. Anyone player was not updated.`)
@@ -492,6 +578,45 @@ export class GamesMasterService {
         return {
             payingPlayer,
             getPaymentPlayer,
+            gameTurn
+        }
+    }
+
+    async payTax(userId: string): Promise<{ player: Player, gameTurn: GameTurn }> {
+        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to pay tax. User not in the game.`)
+        }
+
+        const [gameTurn, gameField] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        ])
+        if (gameTurn.stage !== GameTurnStage.PAY_TAX) {
+            throw new BadRequestException(`Failed to pay tax. Not pay tax game turn stage.`)
+        }
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to pay tax. Player has no turn rights.`)
+        }
+        if (!gameTurn.gamePaymentId) {
+            throw new InternalServerErrorException(`Failed to pay tax. Game payment not found.`)
+        }
+
+        const gamePayment = await this.gamePaymentsService.getOneOrThrow(gameTurn.gamePaymentId)
+        if (player.balance < gamePayment.amount) {
+            throw new BadRequestException(`Failed to pay tax. Not enough balance to pay tax.`)
+        }
+
+        const [upatedPlayer] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
+            this.gamePaymentsService.destroy(gamePayment.id)
+        ])
+        if (!upatedPlayer) {
+            throw new Error(`Failed to pay rent. Anyone player was not updated.`)
+        }
+
+        return {
+            player: upatedPlayer,
             gameTurn
         }
     }

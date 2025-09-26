@@ -10,6 +10,7 @@ export enum GameTurnStage {
     MOVE = 'MOVE',
     BUY_GAME_FIELD = 'BUY_GAME_FIELD',
     PAY_RENT = 'PAY_RENT',
+    PAY_TAX = 'PAY_TAX',
     CHANCE = 'CHANCE',
     COMMUNITY_CHEST = 'COMMUNITY_CHEST',
     GET_ACTION_CARD_PAID = 'GET_ACTION_CARD_PAID',
@@ -37,9 +38,10 @@ export class GameTurn extends Model {
 
     @Column({
         type: DataType.INTEGER,
-        allowNull: true
+        allowNull: false,
+        defaultValue: () => 0
     })
-    declare stepsCount: number | null
+    declare stepsCount: number
 
     @Column({
         type: DataType.BOOLEAN,
@@ -49,7 +51,7 @@ export class GameTurn extends Model {
     declare isDouble: boolean 
 
     @Column({
-        type: DataType.BOOLEAN,
+        type: DataType.INTEGER,
         allowNull: false,
         defaultValue: () => 0
     })
