@@ -354,12 +354,20 @@ export class GamesGateway implements OnGatewayConnection {
 
         const buyGameField = await this.gamesMasterService.buyGameField(userId)
 
-        const nextGameTurn = await this.gamesMasterService.defineNextGameTurn(buyGameField.gameTurn)
-
         const [formattedPlayer, formattedGameField] = await Promise.all([
             this.getformattedPlayer(buyGameField.player),
             this.getFormattedGameField(buyGameField.gameField)
         ])
+
+        let nextGameTurn: GameTurn | null = buyGameField.gameTurn
+        if (buyGameField.gameTurn.isDouble) {
+            nextGameTurn = await this.gameTurnsService.updateOne(buyGameField.gameTurn.id, { stage: GameTurnStage.MOVE })
+            if (!nextGameTurn) {
+                throw new Error(`Failed to define next turn. Game turn was not updated.`)
+            }
+        } else {
+            nextGameTurn = (await this.gamesMasterService.defineNextGameTurn(buyGameField.gameTurn)).gameTurn
+        }
 
         this.server.to(buyGameField.player.gameId).emit('buy-game-field', {
             player: formattedPlayer,
@@ -367,7 +375,7 @@ export class GamesGateway implements OnGatewayConnection {
         })
 
         setTimeout(async () => {
-            await this.startTurnTimer(nextGameTurn.gameTurn)
+            await this.startTurnTimer(nextGameTurn)
         }, 500)
     }
 

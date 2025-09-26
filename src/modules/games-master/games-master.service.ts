@@ -217,16 +217,16 @@ export class GamesMasterService {
         const newPosition = ((currentGameField.position + thrownDices.summ - 1) % 40) + 1
 
         if (currentGameField.position + thrownDices.summ > 40) {
-            await Promise.all([
-                this.playersService.updateOne(player.id, { balance: player.balance + 200, paymentForCircle: true }),
-                this.gameTurnsService.updateOne(gameTurn.id, { stepsCount: thrownDices.summ })
-            ])
+            await this.playersService.updateOne(player.id, { balance: player.balance + 200, paymentForCircle: true })
         }
 
         const [movePlayer, updatedGameTurn] = await Promise.all([
             this.movePlayer(player.id, newPosition),
-            this.gameTurnsService.getOneOrThrow(gameTurn.id)
+            this.gameTurnsService.updateOne(gameTurn.id, { stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble })
         ])
+        if (!updatedGameTurn) {
+            throw new Error(`Failed to make move. Game turn was not updated.`)
+        }
 
         return {
             game,
@@ -420,7 +420,7 @@ export class GamesMasterService {
                 }
 
                 return {
-                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gameTurn: gameTurn.isDouble ? gameTurn : (await this.defineNextGameTurn(gameTurn)).gameTurn,
                     gamePayment: null,
                     actionCard: null
                 }
@@ -445,7 +445,7 @@ export class GamesMasterService {
                 }
 
                 return {
-                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gameTurn: gameTurn.isDouble ? gameTurn : (await this.defineNextGameTurn(gameTurn)).gameTurn,
                     gamePayment: null,
                     actionCard: null
                 }
@@ -470,7 +470,7 @@ export class GamesMasterService {
                 }
 
                 return {
-                    gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                    gameTurn: gameTurn.isDouble ? gameTurn : (await this.defineNextGameTurn(gameTurn)).gameTurn,
                     gamePayment: null,
                     actionCard: null
                 }
@@ -484,7 +484,7 @@ export class GamesMasterService {
                 }
             }
             default: return {
-                gameTurn: (await this.defineNextGameTurn(gameTurn)).gameTurn,
+                gameTurn: gameTurn.isDouble ? gameTurn : (await this.defineNextGameTurn(gameTurn)).gameTurn,
                 gamePayment: null,
                 actionCard: null
             }
