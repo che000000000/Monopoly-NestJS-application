@@ -7,14 +7,14 @@ import { GameFieldsModule } from '../game-fields/game-fields.module';
 import { GameTurnsModule } from '../game-turns/game-turns.module';
 
 @Module({
-  imports: [
-    SequelizeModule.forFeature([Player]),
-    UsersModule,
-    GameFieldsModule,
-    GameTurnsModule
-  ],
-  providers: [PlayersService],
-  exports: [PlayersService]
+    imports: [
+        SequelizeModule.forFeature([Player]),
+        UsersModule,
+        GameFieldsModule,
+        GameTurnsModule
+    ],
+    providers: [PlayersService],
+    exports: [PlayersService]
 })
 
-export class PlayersModule {}
+export class PlayersModule { }

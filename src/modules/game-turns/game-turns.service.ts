@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { GameTurn, GameTurnStage } from './model/game-turn';
-import { ActionCard } from '../action-cards/model/action-card';
+import { GameTurn } from './model/game-turn';
 
 @Injectable()
 export class GameTurnsService {
@@ -9,7 +8,7 @@ export class GameTurnsService {
         @InjectModel(GameTurn) private readonly gameTurnsRepository: typeof GameTurn
     ) { }
 
-    async findOne(id: string): Promise<GameTurn | null> {
+    async findOneById(id: string): Promise<GameTurn | null> {
         return await this.gameTurnsRepository.findOne({
             where: { id }
         })
@@ -22,7 +21,7 @@ export class GameTurnsService {
     }
 
     async getOneOrThrow(id: string): Promise<GameTurn> {
-        const gameTurn = await this.findOne(id)
+        const gameTurn = await this.findOneById(id)
         if (!gameTurn) throw new NotFoundException(`Failed to get game turn. Turn doesn't exist.`)
         return gameTurn
     }
@@ -33,12 +32,12 @@ export class GameTurnsService {
         return foundGameTurn
     }
 
-    async create(gameId: string, playerId: string, expires: number): Promise<GameTurn> {
-        return await this.gameTurnsRepository.create({
-            gameId,
-            playerId,
-            expires
-        })
+    async create(params: Partial<GameTurn>): Promise<GameTurn> {
+        try {
+            return await this.gameTurnsRepository.create(params)
+        } catch (error) {
+            throw new Error(`Failed to create gameTurn. ${error.message}`)
+        }
     }
 
     async destroy(id: string): Promise<number> {
@@ -47,11 +46,20 @@ export class GameTurnsService {
         })
     }
 
-    async updateOne(id: string, updates: Partial<GameTurn>): Promise<GameTurn | null> {
+    async updateOne(id: string, updates: Partial<GameTurn>): Promise<GameTurn> {
+        const gameTurn = await this.findOneById(id)
+        if (!gameTurn) {
+            throw new Error(`Failed to update gameTurn with id: ${id}. gameTurn not found.`)
+        }
+
         const [affectedCount, [updatedGameTurn]] = await this.gameTurnsRepository.update(
             updates,
             { where: { id }, returning: true }
         )
-        return affectedCount > 0 ? updatedGameTurn : null
+        if (affectedCount === 0) {
+            throw new Error(`gameTurn with id: ${id} wasn't updated. No fields were changed.`)
+        }
+
+        return updatedGameTurn
     }
 }

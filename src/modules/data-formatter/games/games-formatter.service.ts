@@ -1,101 +1,26 @@
 import { Injectable } from "@nestjs/common";
 import { Game } from "src/modules/games/model/game";
-import { Player } from "src/modules/players/model/player";
-import { User } from "src/modules/users/model/user.model";
-import { IPlayer } from "./interfaces/player";
-import { IGameField } from "./interfaces/game-field";
 import { IGameState } from "./interfaces/game-state";
-import { IGame } from "./interfaces/game";
-import { Message } from "src/modules/messages/model/message";
-import { IGameChatMessage } from "./interfaces/game-chat-message";
-import { IGameChatMessageSender } from "./interfaces/game-chat-message-sender";
-import { IPlayerPreview } from "./interfaces/player-preview";
 import { IGamePreview } from "./interfaces/game-preview";
-import { IGameTurn } from "./interfaces/game-turn";
-import { GameField } from "src/modules/game-fields/model/game-field";
-import { GameTurn } from "src/modules/game-turns/model/game-turn";
-import { IActionCard } from "./interfaces/action-card";
-import { ActionCard } from "src/modules/action-cards/model/action-card";
-import { GamePayment } from "src/modules/game-payments/model/game-payment";
-import { IGamePayment } from "./interfaces/game-payment";
+import { IPlayerPreview } from "../players/interfaces/player-preview";
+import { PlayersService } from "src/modules/players/players.service";
+import { PlayersFormatterService } from "../players/players-formatter.service";
+import { GameFieldsService } from "src/modules/game-fields/game-fields.service";
+import { GameFieldsFormatterService } from "../game-fields/game-fields-formatter.service";
+import { GameTurnsService } from "src/modules/game-turns/game-turns.service";
+import { GameTurnsFormatterService } from "../game-turns/game-turns-formatter.service";
+import { FormatGameState } from "./interfaces/format-game-state";
 
 @Injectable()
 export class GamesFormatterService {
-    formatPlayer(player: Player, user: User): IPlayer {
-        return {
-            id: player.id,
-            user:
-            {
-                id: user.id,
-                name: user.name,
-                avatarUrl: user.avatarUrl,
-                role: user.role
-            },
-            chip: player.chip,
-            status: player.status,
-            turnNumber: player.turnNumber,
-            balance: player.balance
-        }
-    }
-
-    formatGameField(gameField: GameField, onFieldFormattedPlayers: IPlayer[] | null, ownerFormattedPlayer: IPlayer | null): IGameField {
-        return {
-            id: gameField.id,
-            name: gameField.name,
-            type: gameField.type,
-            color: gameField.color,
-            position: gameField.position,
-            rent: gameField.rent,
-            basePrice: gameField.basePrice,
-            housePrice: gameField.housePrice,
-            buildsCount: gameField.buildsCount,
-            players: onFieldFormattedPlayers,
-            owner: ownerFormattedPlayer,
-        }
-    }
-
-    formatPlayerPreview(player: Player, user: User): IPlayerPreview {
-        return {
-            id: player.id,
-            user: {
-                id: user.id,
-                name: user.name,
-                avatarUrl: user.avatarUrl,
-                role: user.role
-            },
-            chip: player.chip,
-            status: player.status
-        }
-    }
-
-    formatGamePayment(gamePayment: GamePayment): IGamePayment {
-        return {
-            id: gamePayment.id,
-            type: gamePayment.type,
-            amount: gamePayment.amount,
-        }
-    }
-
-    formatGameTurn(gameTurn: GameTurn, formattedPlayer: IPlayer, formattedActionCard?: IActionCard, formattedGamePayment?: IGamePayment): IGameTurn {
-        return {
-            id: gameTurn.id,
-            player: formattedPlayer,
-            stage: gameTurn.stage,
-            actionCard: formattedActionCard ?? null,
-            gamePayment: formattedGamePayment ?? null,
-            expires: gameTurn.expires,
-            updatedAt: gameTurn.updatedAt
-        }
-    }
-
-    formatActionCard(actionCard: ActionCard): IActionCard {
-        return {
-            id: actionCard.id,
-            description: actionCard.description,
-            deckType: actionCard.deckType,
-            type: actionCard.type
-        }
-    }
+    constructor(
+        private readonly playersService: PlayersService,
+        private readonly gameFieldsService: GameFieldsService,
+        private readonly gameTurnsService: GameTurnsService,
+        private readonly playersFormatterService: PlayersFormatterService,
+        private readonly gameFieldsFormatterService: GameFieldsFormatterService,
+        private readonly gameTurnsFormatterService: GameTurnsFormatterService
+    ) { }
 
     formatGamePreview(game: Game, formattedPlayerPreviews: IPlayerPreview[]): IGamePreview {
         return {
@@ -105,42 +30,46 @@ export class GamesFormatterService {
         }
     }
 
-    formatGame(game: Game, formattedPlayers: IPlayer[]): IGame {
-        return {
-            id: game.id,
-            players: formattedPlayers,
-            createdAt: game.createdAt
-        }
+    async formatGamePreviewAsync(game: Game): Promise<IGamePreview> {
+        const players = await this.playersFormatterService.formatPlayerPreviewsAsync(
+            await this.playersService.findAllByGameId(game.id)
+        )
+
+        return this.formatGamePreview(game, players)
     }
 
-    formatGameState(game: Game, formattedGameFields: IGameField[], formattedPlayers: IPlayer[], formattedGameTurn: IGameTurn): IGameState {
+    formatGameState(payload: FormatGameState): IGameState {
+        const { game, fields, players, turn } = payload
+
         return {
             id: game.id,
-            players: formattedPlayers,
-            fields: formattedGameFields,
-            turn: formattedGameTurn,
+            players,
+            fields,
+            turn: turn,
             houses: game.houses,
             hotels: game.hotels,
             createdAt: game.createdAt
         }
     }
 
-    formatGameChatMessageSender(user: User, player: Player): IGameChatMessageSender {
-        return {
-            id: user.id,
-            name: user.name,
-            avatarUrl: user.avatarUrl,
-            chip: player.chip,
-            role: user.role
-        }
-    }
+    async formatGameStateAsync(game: Game): Promise<IGameState> {
+        const [gameFields, players, gameTurn] = await Promise.all([
+            this.gameFieldsFormatterService.formatGameFieldsAsync(
+                await this.gameFieldsService.findAllByGameId(game.id)
+            ),
+            this.playersFormatterService.formatPlayersAsync(
+                await this.playersService.findAllByGameId(game.id)
+            ),
+            this.gameTurnsFormatterService.formatGameTurnAsync(
+                await this.gameTurnsService.getOneByGameIdOrThrow(game.id)
+            )
+        ])
 
-    formatGameChatMessage(message: Message, sender: IGameChatMessageSender | null): IGameChatMessage {
-        return {
-            id: message.id,
-            text: message.text,
-            sender,
-            createdAt: message.createdAt
-        }
+        return this.formatGameState({
+            game,
+            fields: gameFields,
+            players,
+            turn: gameTurn
+        })
     }
 }

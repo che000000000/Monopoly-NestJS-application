@@ -45,9 +45,6 @@ export class Game extends Model {
     @HasOne(() => GameTurn)
     turn: GameTurn
 
-    @HasOne(() => GamePayment)
-    gamePayment: GamePayment
-
     @HasMany(() => ActionCard)
     actionCards: ActionCard[]
 }

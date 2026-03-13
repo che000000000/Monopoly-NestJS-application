@@ -1,4 +1,4 @@
-import { Column, DataType, ForeignKey, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { GameDeal } from "src/models/game-deal";
 import { ActionCard } from "src/modules/action-cards/model/action-card";
 import { GamePayment } from "src/modules/game-payments/model/game-payment";
@@ -11,10 +11,7 @@ export enum GameTurnStage {
     BUY_GAME_FIELD = 'BUY_GAME_FIELD',
     PAY_RENT = 'PAY_RENT',
     PAY_TAX = 'PAY_TAX',
-    CHANCE = 'CHANCE',
-    COMMUNITY_CHEST = 'COMMUNITY_CHEST',
-    GET_ACTION_CARD_PAID = 'GET_ACTION_CARD_PAID',
-    PAY_ACTION_CARD = 'PAY_ACTION_CARD',
+    ACTION_CARD = 'ACTION_CARD',
     AYCTION = 'AUCTION',
     DEAL = 'DEAL'
 }
@@ -48,7 +45,7 @@ export class GameTurn extends Model {
         allowNull: false,
         defaultValue: () => false
     })
-    declare isDouble: boolean 
+    declare isDouble: boolean
 
     @Column({
         type: DataType.INTEGER,
@@ -84,13 +81,9 @@ export class GameTurn extends Model {
     })
     declare actionCardId: string | null
 
-    @ForeignKey(() => GamePayment)
-    @Column({
-        type: DataType.UUID,
-        allowNull: true
-    })
-    declare gamePaymentId: string | null
-
     @HasOne(() => GameDeal)
     gameDeal: GameDeal
+
+    @HasMany(() => GamePayment)
+    gamePayments: GamePayment[]
 }

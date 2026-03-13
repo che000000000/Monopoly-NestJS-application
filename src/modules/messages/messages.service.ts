@@ -30,7 +30,7 @@ export class MessagesService {
         const [messagesList, totalCount] = await Promise.all([
             this.messagesRepository.findAll({
                 where: { chatId },
-                order: [['createdAt', 'DESC']],
+                order: [['createdAt', 'ASC']],
                 limit: pageSize ? pageSize : 12,
                 offset: (pageNumber - 1) * pageSize,
             }),

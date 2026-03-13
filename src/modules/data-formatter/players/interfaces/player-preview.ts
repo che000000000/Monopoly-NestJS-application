@@ -1,5 +1,5 @@
 import { PlayerChip, PlayerStatus } from "src/modules/players/model/player";
-import { IUser } from "../../interfaces/user";
+import { IUser } from "../../users/interfaces/user";
 
 export interface IPlayerPreview {
     id: string,

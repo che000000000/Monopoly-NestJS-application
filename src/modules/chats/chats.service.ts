@@ -12,16 +12,16 @@ export class ChatsService {
         })
     }
 
-    async findOneWhereChatTypeGlobal(): Promise<Chat | null> {
-        return await this.chatsRepository.findOne({
-            where: { type: ChatType.GLOBAL}
-        })
-    }
-
     async getOneOrThrow(id: string): Promise<Chat> {
         const foundChat = await this.findOne(id)
         if (!foundChat) throw new NotFoundException('Failed to get chat. Chat not found.')
         return foundChat
+    }
+
+    async findOneWhereChatTypeGlobal(): Promise<Chat | null> {
+        return await this.chatsRepository.findOne({
+            where: { type: ChatType.GLOBAL}
+        })
     }
 
     async create(type: ChatType): Promise<Chat> {
