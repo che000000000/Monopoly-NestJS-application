@@ -110,7 +110,7 @@ export class GamesGateway implements OnGatewayConnection {
             this.turnTimeout(gameTurn)
         }, gameTurn.expires * 1000))
 
-        this.server.to(gameTurn.gameId).emit('new-game-turn',
+        this.server.to(gameTurn.gameId).emit('set-game-turn',
             await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
         )
     }
@@ -228,19 +228,20 @@ export class GamesGateway implements OnGatewayConnection {
 
         const { gameId, gameTurn, player, leftGameField, newGameField, thrownDices } = await this.gamesMasterService.makeMove(userId)
 
-        const [formattedNewGameField, formattedLeftGameField] = await Promise.all([
-            this.gameFieldsFormatterService.formatGameFieldAsync(newGameField),
-            this.gameFieldsFormatterService.formatGameFieldAsync(leftGameField)
-        ])
+        this.server.to(gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+        this.server.to(gameId).emit('throw-dices', (
+            thrownDices
+        ))
 
-        this.server.to(gameId).emit('make-move', {
-            player: await this.playersFormatterService.formatPlayerAsync(player),
-            newGameField: formattedNewGameField,
-            leftGameField: formattedLeftGameField,
-            thrownDices: thrownDices
-        })
-
-        await this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
+        setTimeout(async () => {
+            this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
+            this.server.to(gameId).emit('make-move', {
+                player: await this.playersFormatterService.formatPlayerAsync(player),
+                gameFields: await this.gameFieldsFormatterService.formatGameFieldsAsync([leftGameField, newGameField])
+            })
+        }, 1000)
     }
 
     @UseGuards(WsAuthGuard)
