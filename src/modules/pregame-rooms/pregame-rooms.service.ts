@@ -100,7 +100,7 @@ export class PregameRoomsService {
         return await this.messagesService.getMessagesPage(pregameRoomChat.id, pageNumber, pageSize)
     }
 
-    async initPregameRoom(userId: string): Promise<{ pregameRoom: PregameRoom, pregameRoomMember: PregameRoomMember, chat: Chat }> {
+    async initPregameRoom(userId: string): Promise<PregameRoom> {
         const [user, userPlayers] = await Promise.all([
             this.usersService.findOne(userId),
             this.playersService.findAllByUserId(userId)
@@ -113,16 +113,10 @@ export class PregameRoomsService {
         }
 
         const newChat = await this.chatsService.create(ChatType.PREGAME)
-
         const newPregameRoom = await this.create(newChat.id)
-
-        const newPregameRoomMember = await this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
+        await this.pregameRoomMembersService.create(newPregameRoom.id, user.id, true, PlayerChip.HAT, 1,)
         
-        return {
-            pregameRoom: newPregameRoom,
-            pregameRoomMember: newPregameRoomMember,
-            chat: newChat,
-        }
+        return newPregameRoom
     }
 
     async addMember(userId: string, pregameRoomId: string, slot: number): Promise<PregameRoomMember> {
@@ -169,7 +163,7 @@ export class PregameRoomsService {
         return pregameRoomMember
     }
 
-    async setPregameRoomMemberSlot(userId: string, slot: number): Promise<{ pregameRoom: PregameRoom, pregameRoomMembers: PregameRoomMember[] }> {
+    async setPregameRoomMemberSlot(userId: string, slot: number): Promise<PregameRoom> {
         if (slot < 1 && slot > 4) {
             throw new BadRequestException('Failed to set pregame room member slot. non existed slot selected.')
         }
@@ -192,15 +186,10 @@ export class PregameRoomsService {
             this.pregameRoomMembersService.updateSlot(pregameRoomMember.id, slot)
         ])
 
-        const updatedPregameRoomMembers = await this.pregameRoomMembersService.findAllByPregameRoomId(pregameRoomMember.pregameRoomId)
-
-        return {
-            pregameRoom,
-            pregameRoomMembers: updatedPregameRoomMembers
-        }
+        return pregameRoom
     }
 
-    async sendPregameRoomMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, pregameRoomId: string }> {
+    async sendPregameRoomMessage(userId: string, messageText: string): Promise<{ message: Message, pregameRoomId: string }> {
         if (messageText.length === 0) {
             throw new BadRequestException('Failed to send pregame room message. Message text is emty.')
         }
@@ -227,7 +216,6 @@ export class PregameRoomsService {
 
         return {
             message: newMessage,
-            user,
             pregameRoomId: pregameRoomMember.pregameRoomId
         }
     }

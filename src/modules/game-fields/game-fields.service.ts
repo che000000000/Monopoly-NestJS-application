@@ -10,6 +10,12 @@ export class GameFieldsService {
         @InjectModel(GameField) private readonly gameFieldsRepository: typeof GameField
     ) { }
 
+    async getOneOrThrow(id: string): Promise<GameField> {
+        const gameField = await this.findOne(id)
+        if (!gameField) throw new NotFoundException(`Failed to get game_field with id: ${id}.`)
+        return gameField
+    }
+
     async findOne(id: string): Promise<GameField | null> {
         return await this.gameFieldsRepository.findOne({
             where: { id }
@@ -20,6 +26,12 @@ export class GameFieldsService {
         return await this.gameFieldsRepository.findAll({
             where: { gameId }
         })
+    }
+
+    async getOneByGameIdAndPosition(gameId: string, position: number): Promise<GameField> {
+        const gameField = await this.findOneByGameIdAndPosition(gameId, position)
+        if (!gameField) throw new NotFoundException(`Failed to get GameField by gameId:${gameId} and position: ${position}.`)
+        return gameField
     }
 
     async findOneByGameIdAndPosition(gameId: string, position: number): Promise<GameField | null> {
@@ -37,10 +49,13 @@ export class GameFieldsService {
         })
     }
 
-    async getOneOrThrow(id: string): Promise<GameField> {
-        const gameField = await this.findOne(id)
-        if (!gameField) throw new NotFoundException(`Failet to get game field. Game field doesn't exists.`)
-        return gameField
+    async findAllByGameIdAndType(gameId: string, type: GameFieldType): Promise<GameField[]> {
+        return await this.gameFieldsRepository.findAll({
+            where: {
+                gameId,
+                type
+            }
+        })
     }
 
     async create(dto: CreateFieldDto): Promise<GameField> {
@@ -62,11 +77,20 @@ export class GameFieldsService {
         return newFields
     }
 
-    async updateOne(id: string, updates: Partial<GameField>): Promise<GameField | null> {
-        const [affectedCount, [gameField]] = await this.gameFieldsRepository.update(
+    async updateOne(id: string, updates: Partial<GameField>): Promise<GameField> {
+        const gameField = await this.findOne(id)
+        if (!gameField) {
+            throw new Error(`Failed to update gameField with id: ${id}. gameField not found`)
+        }
+
+        const [affectedCount, [updatedGameField]] = await this.gameFieldsRepository.update(
             updates,
-            { where: { id }, returning: true}
+            { where: { id }, returning: true }
         )
-        return affectedCount > 0 ? gameField : null
+        if (affectedCount === 0) {
+            throw new Error(`gameField with id: ${id} wasn't updated. No fields were changed.`)
+        }
+
+        return updatedGameField
     }
 }

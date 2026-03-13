@@ -1,4 +1,4 @@
-import { IUser } from "../../interfaces/user"
+import { IUser } from "../../users/interfaces/user"
 
 export interface IGlobalChatMessage {
     id: string,

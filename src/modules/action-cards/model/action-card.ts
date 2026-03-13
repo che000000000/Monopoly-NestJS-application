@@ -10,22 +10,18 @@ export enum ActionCardDeckType {
 
 export enum ActionCardType {
     MOVE = 'MOVE',
+    MOVE_BACK = 'MOVE_BACK',
     PAY_MONEY = 'PAY_MONEY',
     GET_MONEY = 'GET_MONEY',
     PAY_PLAYERS = 'PAY_PLAYERS',
-    JAIL = 'JAIL',
+    GET_PAYMENT_FROM_PLAYERS = 'GET_PAYMENT_FROM_PLAYERS',
     GET_OUT_OF_JAIL = 'GET_OUT_OF_JAIL',
-    UTILITY = 'UTILITY',
-    RAILROAD = 'RAILROAD',
-    PROPERTY_REPAIR = 'PROPERTY_REPAIR',
-    MOVE_BACK = 'MOVE_BACK'
+    PROPERTY_REPAIR = 'PROPERTY_REPAIR'
 }
 
 export enum ActionCardMoveDirection {
     ABSOLUTE = 'ABSOLUTE',
-    NEAREST = 'NEAREST',
-    FORWARD = 'FORWARD',
-    BACKWARD = 'BACKWARD'
+    NEAREST = 'NEAREST'
 }
 
 export enum ActionCardPropertyType {
@@ -75,6 +71,12 @@ export class ActionCard extends Model {
     declare moveDirection: ActionCardMoveDirection
 
     @Column({
+        type: DataType.ENUM(...Object.values(ActionCardPropertyType)),
+        allowNull: true
+    })
+    declare propertyType: ActionCardPropertyType
+
+    @Column({
         type: DataType.INTEGER,
         allowNull: true
     })
@@ -85,12 +87,6 @@ export class ActionCard extends Model {
         allowNull: true
     })
     declare targetPosition: number
-
-    @Column({
-        type: DataType.ENUM(...Object.values(ActionCardPropertyType)),
-        allowNull: true
-    })
-    declare propertyType: ActionCardPropertyType
 
     @Column({
         type: DataType.INTEGER,
@@ -105,10 +101,10 @@ export class ActionCard extends Model {
     declare hotelCost: number
 
     @Column({
-        type: DataType.BOOLEAN,
+        type: DataType.INTEGER,
         allowNull: true
     })
-    declare doubleRent: boolean
+    declare rentFactor: number
 
     @Column({
         type: DataType.BOOLEAN,

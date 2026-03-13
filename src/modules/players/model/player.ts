@@ -6,6 +6,8 @@ import { GameDealItem } from "../../../models/game-deal-item";
 import { GameDeal } from "../../../models/game-deal";
 import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
+import { PlayerCard } from "src/modules/player-cards/model/player-card.model";
+import { GamePayment } from "src/modules/game-payments/model/game-payment";
 
 export enum PlayerChip {
     CART = 'CART',
@@ -100,4 +102,19 @@ export class Player extends Model {
 
     @HasMany(() => GameDealItem)
     gameDealItem: GameDealItem[]
+
+    @HasMany(() => PlayerCard)
+    playerCards: PlayerCard[]
+
+    @HasMany(() => GamePayment, {
+        foreignKey: 'payerPlayerId',
+        as: 'sentPayments'
+    })
+    sentPayments: GamePayment[]
+
+    @HasMany(() => GamePayment, {
+        foreignKey: 'receiverPlayerId',
+        as: 'receivedPayments'
+    })
+    paymentReceivers: GamePayment[]
 }

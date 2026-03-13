@@ -30,7 +30,7 @@ export class GlobalChatsService {
         return await this.messagesService.getMessagesPage(globalChat.id, options.pageNumber, options.pageSize)
     }
 
-    async sendGlobalChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User }> {
+    async sendGlobalChatMessage(userId: string, messageText: string): Promise<Message> {
         const user = await this.usersService.findOne(userId)
         if (!user) {
             throw new InternalServerErrorException(`Failed to send global chat message. User not found`)
@@ -42,9 +42,6 @@ export class GlobalChatsService {
 
         const globalChat = await this.findGlobalChatOrCreate()
 
-        return {
-            message: await this.messagesService.create(userId, globalChat.id, messageText),
-            user
-        }
+        return await this.messagesService.create(userId, globalChat.id, messageText)
     }
 }

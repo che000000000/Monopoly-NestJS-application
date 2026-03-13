@@ -15,9 +15,21 @@ export class GamesService {
     }
 
     async getOneOrThrow(id: string): Promise<Game> {
-        const foundGame = await this.findOne(id)
-        if (!foundGame) throw new NotFoundException('Failed to get game.')
-        return foundGame
+        const game = await this.findOne(id)
+        if (!game) throw new NotFoundException('Failed to get game.')
+        return game
+    }
+
+    async findOneByChatId(chatId: string): Promise<Game | null> {
+        return await this.gamesRepository.findOne({
+            where: { chatId }
+        })
+    }
+
+    async getOneByChatIdOrThrow(chatId: string): Promise<Game> {
+        const game = await this.findOneByChatId(chatId)
+        if (!game) throw new NotFoundException('Failed to get game.')
+        return game
     }
 
     async create(chatId: string): Promise<Game> {

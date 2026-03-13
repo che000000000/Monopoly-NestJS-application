@@ -4,7 +4,6 @@ import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/play
 import { UsersService } from '../users/users.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';
-import { GameTurn } from '../game-turns/model/game-turn';
 
 @Injectable()
 export class PlayersService {
@@ -15,10 +14,32 @@ export class PlayersService {
         private readonly gameTurnsService: GameTurnsService
     ) { }
 
-    async findOne(id: string): Promise<Player | null> {
+    async findOneById(id: string): Promise<Player | null> {
         return await this.playersRepository.findOne({
             where: { id }
         })
+    }
+
+    async getOneByIdOrThrow(id: string): Promise<Player> {
+        const player = await this.findOneById(id)
+        if (!player) {
+            throw new NotFoundException(`Failed to get player by id: ${id}.`)
+        }
+        return player
+    }
+
+    async findOneByUserIdAndGameId(userId: string, gameId: string): Promise<Player | null> {
+        return await this.playersRepository.findOne({
+            where: { userId, gameId }
+        })
+    }
+
+    async getOneByUserIdAndGameIdOrThrow(userId: string, gameId: string): Promise<Player> {
+        const player = await this.findOneByUserIdAndGameId(userId, gameId)
+        if (!player) {
+            throw new Error(`Failed to get player by userId: ${userId} and gameId: ${gameId}.`)
+        }
+        return player
     }
 
     async findAllByUserId(userId: string): Promise<Player[]> {
@@ -49,22 +70,12 @@ export class PlayersService {
         })
     }
 
-    async getOneOrThrow(id: string): Promise<Player> {
-        const player = await this.findOne(id)
-        if (!player) throw new NotFoundException(`Failed to get player. Player doesn't exist.`)
-        return player
-    }
-
-    async create(gameId: string, userId: string, gameFieldId: string, chip: PlayerChip, status: PlayerStatus, turnNumber: number): Promise<Player> {
-        return await this.playersRepository.create({
-            gameId,
-            userId,
-            gameFieldId,
-            chip,
-            status,
-            turnNumber,
-            balance: 1500,
-        })
+    async create(params: Partial<Player>): Promise<Player> {
+        try {
+            return await this.playersRepository.create(params)
+        } catch (error) {
+            throw new Error(`Failed to create player. ${error.message}`)
+        }
     }
 
     async destroy(id: string): Promise<number> {
@@ -73,11 +84,20 @@ export class PlayersService {
         })
     }
 
-    async updateOne(id: string, updates: Partial<Player>): Promise<Player | null> {
-        const [affectedCount, [Player]] = await this.playersRepository.update(
+    async updateOne(id: string, updates: Partial<Player>): Promise<Player> {
+        const player = await this.findOneById(id)
+        if (!player) {
+            throw new Error(`Failed to update player with id: ${id}. player not found`)
+        }
+
+        const [affectedCount, [updatedPlayer]] = await this.playersRepository.update(
             updates,
             { where: { id }, returning: true }
         )
-        return affectedCount > 0 ? Player : null
+        if (affectedCount === 0) {
+            throw new Error(`player with id: ${id} wasn't updated. No fields were changed.`)
+        }
+
+        return updatedPlayer
     }
 }

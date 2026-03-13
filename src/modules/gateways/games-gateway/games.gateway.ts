@@ -13,20 +13,18 @@ import { ErrorType } from "../constants/error-types";
 import { Player, PlayerStatus } from "src/modules/players/model/player";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
 import { Game } from "src/modules/games/model/game";
-import { IGameState } from "src/modules/data-formatter/games/interfaces/game-state";
 import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
 import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
-import { Message } from "src/modules/messages/model/message";
-import { IGameChatMessageSender } from "src/modules/data-formatter/games/interfaces/game-chat-message-sender";
 import { GetGamesPageDto } from "./dto/get-games-page";
-import { GameFieldsService } from "src/modules/game-fields/game-fields.service";
-import { IPlayer } from "src/modules/data-formatter/games/interfaces/player";
-import { IGameField } from "src/modules/data-formatter/games/interfaces/game-field";
 import { GamesMasterService } from "src/modules/games-master/games-master.service";
-import { GameField, GameFieldType } from "src/modules/game-fields/model/game-field";
-import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn";
-import { ActionCard } from "src/modules/action-cards/model/action-card";
-import { GamePayment } from "src/modules/game-payments/model/game-payment";
+import { GameTurn } from "src/modules/game-turns/model/game-turn";
+import { GameTurnsFormatterService } from "src/modules/data-formatter/game-turns/game-turns-formatter.service";
+import { GamePaymentsFormatterService } from "src/modules/data-formatter/game-payments/game-payments-formatter.service";
+import { ActionCardsFormatterService } from "src/modules/data-formatter/action-cards/action-cards-formatter.service";
+import { GameFieldsFormatterService } from "src/modules/data-formatter/game-fields/game-fields-formatter.service";
+import { GameChatFormatterService } from "src/modules/data-formatter/game-chat/game-chat-formatter.service";
+import { PayPaymentDto } from "./dto/pay-payment";
+import { PlayersFormatterService } from "src/modules/data-formatter/players/players-formatter.service";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -42,10 +40,15 @@ export class GamesGateway implements OnGatewayConnection {
         private readonly usersService: UsersService,
         private readonly gamesService: GamesService,
         private readonly playersService: PlayersService,
-        private readonly gamesFormatterService: GamesFormatterService,
         private readonly pregameRoomsGateway: PregameRoomsGateway,
-        private readonly gameFiedlsService: GameFieldsService,
-        private readonly gameTurnsService: GameTurnsService
+        private readonly gameTurnsService: GameTurnsService,
+        private readonly gamesFormatterService: GamesFormatterService,
+        private readonly playersFormatterService: PlayersFormatterService,
+        private readonly gameTurnsFormatterService: GameTurnsFormatterService,
+        private readonly gamePaymentsFormatterService: GamePaymentsFormatterService,
+        private readonly actionCardsFormatterService: ActionCardsFormatterService,
+        private readonly gameFieldsFormatterService: GameFieldsFormatterService,
+        private readonly gameChatFormatterService: GameChatFormatterService
     ) { }
 
     private turnTimers: Map<string, NodeJS.Timeout> = new Map()
@@ -95,92 +98,29 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     private async turnTimeout(gameTurn: GameTurn): Promise<void> {
-        const nextGameTurn = await this.gamesMasterService.defineNextGameTurn(gameTurn)
+        const nextGameTurn = await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
 
-        this.startTurnTimer(nextGameTurn.gameTurn)
+        this.startTurnTimer(nextGameTurn)
     }
 
-    private async startTurnTimer(gameTurn: GameTurn, gamePayment?: GamePayment, actionCard?: ActionCard): Promise<void> {
-        await this.clearTurnTimer(gameTurn.id)
+    private async startTurnTimer(gameTurn: GameTurn): Promise<void> {
+        await this.clearTurnTimer(gameTurn)
 
-        const gameTurnPlayer = await this.playersService.getOneOrThrow(gameTurn.playerId)
-
-        this.server.to(gameTurn.gameId).emit('new-game-turn', {
-            gameTurn: this.gamesFormatterService.formatGameTurn(
-                gameTurn,
-                await this.getformattedPlayer(gameTurnPlayer),
-                actionCard ? this.gamesFormatterService.formatActionCard(actionCard) : undefined,
-                gamePayment ? this.gamesFormatterService.formatGamePayment(gamePayment) : undefined
-            )
-        })
-        
-        this.turnTimers.set(gameTurn.id, setTimeout(() => {
+        this.turnTimers.set(gameTurn.gameId, setTimeout(() => {
             this.turnTimeout(gameTurn)
         }, gameTurn.expires * 1000))
-    }
 
-    private async clearTurnTimer(gameTurnId: string): Promise<void> {
-        const foundTimer = this.turnTimers.get(gameTurnId)
-        if (!foundTimer) return
-
-        clearTimeout(foundTimer)
-        this.turnTimers.delete(gameTurnId)
-    }
-
-    private async getformattedPlayer(player: Player): Promise<IPlayer> {
-        return this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
-    }
-
-    private async getformattedPlayers(players: Player[]): Promise<IPlayer[]> {
-        return await Promise.all(
-            players.map(async (player: Player) => (
-                this.gamesFormatterService.formatPlayer(player, await this.usersService.getOneOrThrow(player.userId))
-            ))
+        this.server.to(gameTurn.gameId).emit('new-game-turn',
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
         )
     }
 
-    private async getFormattedGameField(gameField: GameField): Promise<IGameField> {
-        const [ownerPlayer, players] = await Promise.all([
-            gameField.ownerPlayerId ? this.playersService.getOneOrThrow(gameField.ownerPlayerId) : null,
-            this.playersService.findAllByGameFieldId(gameField.id)
-        ])
+    private async clearTurnTimer(gameTurn: GameTurn): Promise<void> {
+        const turnTimer = this.turnTimers.get(gameTurn.gameId)
+        if (!turnTimer) return
 
-        const [formattedOwnerPlayer, formattedPlayers] = await Promise.all([
-            ownerPlayer
-                ? this.getformattedPlayer(ownerPlayer)
-                : null,
-            this.getformattedPlayers(players)
-        ])
-
-        return this.gamesFormatterService.formatGameField(gameField, formattedPlayers, formattedOwnerPlayer)
-    }
-
-    private async formatGameState(game: Game, players: Player[], gameFields: GameField[], gameTurn: GameTurn, actionCard?: ActionCard, gamePayment?: GamePayment): Promise<IGameState> {
-        const [formattedPlayers, formattedGameFields, formattedGameTurn] = await Promise.all([
-            await this.getformattedPlayers(players),
-            await Promise.all(
-                gameFields.map(async (gameField: GameField) => {
-                    const formattedGameFieldOwnerPlayer = gameField.ownerPlayerId
-                        ? await this.getformattedPlayer(await this.playersService.getOneOrThrow(gameField.ownerPlayerId))
-                        : null
-
-                    const formattedGameFieldPlayers = await this.getformattedPlayers(await this.playersService.findAllByGameFieldId(gameField.id))
-                    return this.gamesFormatterService.formatGameField(gameField, formattedGameFieldPlayers, formattedGameFieldOwnerPlayer)
-                })
-            ),
-            (async () => {
-                const turnPlayer = await this.playersService.getOneOrThrow(gameTurn.playerId)
-
-                return this.gamesFormatterService.formatGameTurn(
-                    gameTurn,
-                    await this.getformattedPlayer(turnPlayer),
-                    actionCard ? this.gamesFormatterService.formatActionCard(actionCard) : undefined,
-                    gamePayment ? this.gamesFormatterService.formatGamePayment(gamePayment) : undefined
-                )
-            })()
-        ])
-
-        return this.gamesFormatterService.formatGameState(game, formattedGameFields, formattedPlayers, formattedGameTurn)
+        clearTimeout(turnTimer)
+        this.turnTimers.delete(gameTurn.gameId)
     }
 
     @UseGuards(WsAuthGuard)
@@ -189,24 +129,15 @@ export class GamesGateway implements OnGatewayConnection {
         @ConnectedSocket() socket: SocketWithSession,
         @MessageBody() dto: GetGamesPageDto
     ): Promise<void> {
-        const userId = this.extractUserId(socket)
-
         const getGamesPage = await this.gamesService.getGamesPage()
 
         const formattedGamePrevies = await Promise.all(
-            getGamesPage.gamesList.map(async (game: Game) => {
-                const players = await this.playersService.findAllByGameId(game.id)
-                const formattedPlayerPreviews = await Promise.all(
-                    players.map(async (player: Player) => (
-                        this.gamesFormatterService.formatPlayerPreview(player, await this.usersService.getOneOrThrow(player.userId))
-                    ))
-                )
-
-                return this.gamesFormatterService.formatGamePreview(game, formattedPlayerPreviews)
-            })
+            getGamesPage.gamesList.map(async (game: Game) =>
+                this.gamesFormatterService.formatGamePreviewAsync(game)
+            )
         )
 
-        socket.emit('get-game-previews-page', {
+        socket.emit('game-previews-page', {
             gamePreviewsList: formattedGamePrevies,
             totalCount: getGamesPage.totalCount
         })
@@ -226,17 +157,15 @@ export class GamesGateway implements OnGatewayConnection {
 
         this.pregameRoomsGateway.emitRemovePregameRoom(initGame.pregameRoom)
 
-        const formattedGameState = await this.formatGameState(initGame.game, initGame.players, initGame.gameFields, initGame.gameTurn)
-
         this.startTurnTimer(initGame.gameTurn)
 
-        this.server.to(initGame.game.id).emit('start-game', {
-            gameState: formattedGameState
-        })
+        this.server.to(initGame.game.id).emit('start-game',
+            await this.gamesFormatterService.formatGameStateAsync(initGame.game)
+        )
 
-        this.server.emit('new-game', {
-            game: this.gamesFormatterService.formatGame(initGame.game, formattedGameState.players)
-        })
+        this.server.emit('new-game',
+            await this.gamesFormatterService.formatGamePreviewAsync(initGame.game)
+        )
     }
 
     @UseGuards(WsAuthGuard)
@@ -244,16 +173,16 @@ export class GamesGateway implements OnGatewayConnection {
     async getGameState(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const gameState = await this.gamesMasterService.getGameState(userId)
+        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to get game state. User not in the game as player.`)
+        }
 
-        socket.emit('game-state', {
-            gameState: await this.formatGameState(
-                gameState.game, gameState.players, gameState.gameFields, gameState.gameTurn,
-                gameState.actionCard
-                    ? gameState.actionCard
-                    : undefined
-            )
-        })
+        const game = await this.gamesService.getOneOrThrow(player.gameId)
+
+        socket.emit('game-state',
+            await this.gamesFormatterService.formatGameStateAsync(game)
+        )
     }
 
     @UseGuards(WsAuthGuard)
@@ -271,33 +200,8 @@ export class GamesGateway implements OnGatewayConnection {
 
         const gameChatMessagesPage = await this.gamesMasterService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
 
-        const messagesWithFormattedSender = await Promise.all(
-            gameChatMessagesPage.messagesList.reverse().map(async (message: Message) => {
-                if (!message.userId) return {
-                    message,
-                    sender: null
-                }
-
-                const [user, player] = await Promise.all([
-                    this.usersService.findOne(message.userId),
-                    this.playersService.findCurrentPlayerByUserId(message.userId)
-                ])
-
-                return {
-                    message,
-                    sender: user && player
-                        ? this.gamesFormatterService.formatGameChatMessageSender(user, player)
-                        : null
-                }
-            })
-        )
-
         socket.emit('game-chat-messages-page', {
-            messagesList: messagesWithFormattedSender.map((messageWithSender: { message: Message, sender: IGameChatMessageSender | null }) => (
-                this.gamesFormatterService.formatGameChatMessage(
-                    messageWithSender.message,
-                    messageWithSender.sender
-                ))),
+            messagesList: await this.gameChatFormatterService.formatGameChatMessagesAsync(gameChatMessagesPage.messagesList),
             totalCount: gameChatMessagesPage.totalCount
         })
     }
@@ -311,11 +215,10 @@ export class GamesGateway implements OnGatewayConnection {
         const userId = this.extractUserId(socket)
 
         const sendGameChatMessage = await this.gamesMasterService.sendGameChatMessage(userId, dto.messageText)
-        const formattedGameChatMessageSender = this.gamesFormatterService.formatGameChatMessageSender(sendGameChatMessage.user, sendGameChatMessage.player)
 
-        this.server.to(sendGameChatMessage.gameId).emit('send-game-chat-message', {
-            message: this.gamesFormatterService.formatGameChatMessage(sendGameChatMessage.message, formattedGameChatMessageSender)
-        })
+        this.server.to(sendGameChatMessage.gameId).emit('game-chat-message', 
+            await this.gameChatFormatterService.formatGameChatMessageAsync(sendGameChatMessage.message)
+        )
     }
 
     @UseGuards(WsAuthGuard)
@@ -323,117 +226,42 @@ export class GamesGateway implements OnGatewayConnection {
     async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const movePlayer = await this.gamesMasterService.makeMove(userId)
+        const { gameId, gameTurn, player, leftGameField, newGameField, thrownDices } = await this.gamesMasterService.makeMove(userId)
 
         const [formattedNewGameField, formattedLeftGameField] = await Promise.all([
-            this.getFormattedGameField(movePlayer.newGameField),
-            this.getFormattedGameField(movePlayer.leftGameField)
+            this.gameFieldsFormatterService.formatGameFieldAsync(newGameField),
+            this.gameFieldsFormatterService.formatGameFieldAsync(leftGameField)
         ])
 
-        this.server.to(movePlayer.game.id).emit('make-move', {
-            player: this.gamesFormatterService.formatPlayer(
-                movePlayer.player,
-                await this.usersService.getOneOrThrow(movePlayer.player.userId)
-            ),
+        this.server.to(gameId).emit('make-move', {
+            player: await this.playersFormatterService.formatPlayerAsync(player),
             newGameField: formattedNewGameField,
             leftGameField: formattedLeftGameField,
-            thrownDices: movePlayer.thrownDices
+            thrownDices: thrownDices
         })
 
-        const processHitGameFiled = await this.gamesMasterService.processHitGameFiled(movePlayer.player, movePlayer.newGameField, movePlayer.gameTurn)
-
-        setTimeout(async () => {
-            await this.startTurnTimer(processHitGameFiled.gameTurn, processHitGameFiled.gamePayment ?? undefined, processHitGameFiled.actionCard ?? undefined)
-        }, 1000)
+        await this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
     }
 
     @UseGuards(WsAuthGuard)
-    @SubscribeMessage('buy-game-field')
-    async payGamePayment(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+    @SubscribeMessage('accept-payment')
+    async acceptPayment(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: PayPaymentDto
+    ): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const buyGameField = await this.gamesMasterService.buyGameField(userId)
+        const { gameId, gameTurn, players, gameFields } = await this.gamesMasterService.executePayment(userId, dto.paymentId)
 
-        const [formattedPlayer, formattedGameField] = await Promise.all([
-            this.getformattedPlayer(buyGameField.player),
-            this.getFormattedGameField(buyGameField.gameField)
-        ])
+        this.server.to(gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync(players)
+        ))
+        this.server.to(gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        ))
 
-        let nextGameTurn: GameTurn | null = buyGameField.gameTurn
-        if (buyGameField.gameTurn.isDouble) {
-            nextGameTurn = await this.gameTurnsService.updateOne(buyGameField.gameTurn.id, { stage: GameTurnStage.MOVE })
-            if (!nextGameTurn) {
-                throw new Error(`Failed to define next turn. Game turn was not updated.`)
-            }
-        } else {
-            nextGameTurn = (await this.gamesMasterService.defineNextGameTurn(buyGameField.gameTurn)).gameTurn
+        if (gameTurn) {
+            this.startTurnTimer(gameTurn)
         }
-
-        this.server.to(buyGameField.player.gameId).emit('buy-game-field', {
-            player: formattedPlayer,
-            gameField: formattedGameField
-        })
-
-        setTimeout(async () => {
-            await this.startTurnTimer(nextGameTurn)
-        }, 500)
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('pay-rent')
-    async payRent(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const payRent = await this.gamesMasterService.payRent(userId)
-
-        const [payingPlayer, getPaymentPlayer] = await Promise.all([
-            this.getformattedPlayer(payRent.payingPlayer),
-            this.getformattedPlayer(payRent.getPaymentPlayer)
-        ])
-
-        let nextGameTurn: GameTurn | null = payRent.gameTurn
-        if (payRent.gameTurn.isDouble) {
-            nextGameTurn = await this.gameTurnsService.updateOne(payRent.gameTurn.id, { stage: GameTurnStage.MOVE })
-            if (!nextGameTurn) {
-                throw new Error(`Failed to define next turn. Game turn was not updated.`)
-            }
-        } else {
-            nextGameTurn = (await this.gamesMasterService.defineNextGameTurn(payRent.gameTurn)).gameTurn
-        }
-
-        this.server.to(payRent.gameTurn.gameId).emit('pay-rent', {
-            payingPlayer,
-            getPaymentPlayer
-        })
-
-        setTimeout(async () => {
-            await this.startTurnTimer(nextGameTurn)
-        }, 500)
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('pay-tax')
-    async payTax(@ConnectedSocket() socket: SocketWithSession) {
-        const userId = this.extractUserId(socket)
-
-        const payTax = await this.gamesMasterService.payTax(userId)
-
-        let nextGameTurn: GameTurn | null = payTax.gameTurn
-        if (payTax.gameTurn.isDouble) {
-            nextGameTurn = await this.gameTurnsService.updateOne(payTax.gameTurn.id, { stage: GameTurnStage.MOVE })
-            if (!nextGameTurn) {
-                throw new Error(`Failed to define next turn. Game turn was not updated.`)
-            }
-        } else {
-            nextGameTurn = (await this.gamesMasterService.defineNextGameTurn(payTax.gameTurn)).gameTurn
-        }
-
-        this.server.to(payTax.gameTurn.gameId).emit('pay-tax', {
-            player: await this.getformattedPlayer(payTax.player),
-        })
-
-        setTimeout(async () => {
-            await this.startTurnTimer(nextGameTurn)
-        }, 500)
     }
 }

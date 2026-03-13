@@ -1,12 +1,29 @@
 import { ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from "../model/action-card";
 
-export const ACTION_CARDS = [
+interface ActionCardSeedData {
+    description: string;
+    deckType: ActionCardDeckType;
+    type: ActionCardType;
+    amount?: number;
+    moveDirection?: ActionCardMoveDirection;
+    moveSteps?: number;
+    targetPosition?: number;
+    propertyType?: ActionCardPropertyType;
+    houseCost?: number;
+    hotelCost?: number;
+    rentFactor?: number;
+    paymentForCircleValue?: boolean;
+    isActive?: boolean;
+}
+
+export const ACTION_CARDS: ActionCardSeedData[] = [
     {
         description: 'Отправляйтесь на Ул. Арбат',
         deckType: ActionCardDeckType.CHANCE,
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 40,
+        paymentForCircleValue: false,
     },
     {
         description: 'Отправляйтесь на Площадь Маяковского. Если вы проходите поле Вперед, получите M200',
@@ -14,6 +31,7 @@ export const ACTION_CARDS = [
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 25,
+        paymentForCircleValue: true,
     },
     {
         description: 'Вас избрали председателем совета директоров. Заплатите каждому игроку по M50',
@@ -27,12 +45,14 @@ export const ACTION_CARDS = [
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 6,
+        paymentForCircleValue: true,
     },
     {
         description: 'Отправляйтесь прямо в тюрьму, не проходите поле Вперёд и не получайте М200',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.JAIL,
-        goToJail: true,
+        type: ActionCardType.MOVE,
+        moveDirection: ActionCardMoveDirection.ABSOLUTE,
+        targetPosition: 31,
         paymentForCircleValue: false,
     },
     {
@@ -41,13 +61,15 @@ export const ACTION_CARDS = [
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 1,
+        paymentForCircleValue: true,
     },
     {
-        description: 'Идите на ближайшее поле коммунального предприятия. Если оно не находится в собственности, можете выкупить его. Если оно находится в собственности, бросьте кубики и заплатите владельцу сумму, в десять раз превышающую сумму выпавших очков',
+        description: 'Идите на ближайшее поле коммунального предприятия. Если оно не находится в собственности, можете выкупить его.',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.UTILITY,
+        type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.NEAREST,
         propertyType: ActionCardPropertyType.UTILITY,
+        paymentForCircleValue: false
     },
     {
         description: 'Штраф за превышение скорости M15',
@@ -58,10 +80,10 @@ export const ACTION_CARDS = [
     {
         description: 'Идите на ближайшую Ж/Д станцию. Если она не находится в собственности, можете выкупить её. Если она находится в собственности, заплатите владельцу арендную плату, вдвое превышающую обычную',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.RAILROAD,
+        type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.NEAREST,
         propertyType: ActionCardPropertyType.RAILROAD,
-        doubleRent: true,
+        rentFactor: 2,
     },
     {
         description: 'Бесплатное освобождение из тюрьмы. Карточка сохраняется до того момента, пока не будет использована',
@@ -71,15 +93,16 @@ export const ACTION_CARDS = [
     {
         description: 'Идите на ближайшую Ж/Д станцию. Если она находится в собственности, заплатите владельцу арендную плату, вдвое превышающую обычную',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.RAILROAD,
+        type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.NEAREST,
         propertyType: ActionCardPropertyType.RAILROAD,
-        doubleRent: true,
+        paymentForCircleValue: false,
+        rentFactor: 2,
     },
     {
         description: 'Наступил срок исполнения платежа по вашей ссуде на строительство. Получите М150',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.PAY_MONEY,
+        type: ActionCardType.GET_MONEY,
         amount: 150,
     },
     {
@@ -94,6 +117,7 @@ export const ACTION_CARDS = [
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 12,
+        paymentForCircleValue: true,
     },
     {
         description: 'Вернитесь на три поля назад',
@@ -136,8 +160,9 @@ export const ACTION_CARDS = [
     {
         description: 'Отправляйтесь прямо в тюрьму, не проходите поле Вперед и не получайте М200',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.JAIL,
-        goToJail: true,
+        type: ActionCardType.MOVE,
+        moveDirection: ActionCardMoveDirection.ABSOLUTE,
+        targetPosition: 31,
         paymentForCircleValue: false,
     },
     {
@@ -187,7 +212,7 @@ export const ACTION_CARDS = [
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.ABSOLUTE,
         targetPosition: 1,
-        amount: 200,
+        paymentForCircleValue: true,
     },
     {
         description: 'Визит к врачу. Заплатите М50',
@@ -204,7 +229,7 @@ export const ACTION_CARDS = [
     {
         description: 'Сегодня ваш день рождения. Получите по М10 от каждого игрока',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.PAY_PLAYERS,
+        type: ActionCardType.GET_PAYMENT_FROM_PLAYERS,
         amount: 10,
     }
 ]
