@@ -8,6 +8,7 @@ import { v4 } from "uuid";
 
 export enum GameTurnStage {
     MOVE = 'MOVE',
+    THROWING_DICES = 'THROWING_DICES',
     BUY_GAME_FIELD = 'BUY_GAME_FIELD',
     PAY_RENT = 'PAY_RENT',
     PAY_TAX = 'PAY_TAX',

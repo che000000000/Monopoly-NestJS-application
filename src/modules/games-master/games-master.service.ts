@@ -272,7 +272,7 @@ export class GamesMasterService {
 
         const [movePlayer, updatedGameTurn] = await Promise.all([
             this.movePlayer(player.id, newPosition),
-            this.gameTurnsService.updateOne(gameTurn.id, { stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble, doublesCount: gameTurn.doublesCount + 1 })
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.THROWING_DICES, stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble, doublesCount: gameTurn.doublesCount + 1 })
         ])
         if (!updatedGameTurn) {
             throw new Error(`Failed to make move. Game turn was not updated.`)
@@ -434,10 +434,6 @@ export class GamesMasterService {
         ])
 
         return updatedGameTurn
-    }
-
-    private async prepareActionCardRequirement(gameTurn: GameTurn): Promise<any> {
-        
     }
 
     async handlePlayerHitGameFieled(player: Player, gameField: GameField, gameTurn: GameTurn): Promise<GameTurn> {
