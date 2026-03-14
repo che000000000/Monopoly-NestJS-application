@@ -37,16 +37,12 @@ import { PlayersFormatterService } from "src/modules/data-formatter/players/play
 export class GamesGateway implements OnGatewayConnection {
     constructor(
         private readonly gamesMasterService: GamesMasterService,
-        private readonly usersService: UsersService,
         private readonly gamesService: GamesService,
         private readonly playersService: PlayersService,
         private readonly pregameRoomsGateway: PregameRoomsGateway,
-        private readonly gameTurnsService: GameTurnsService,
         private readonly gamesFormatterService: GamesFormatterService,
         private readonly playersFormatterService: PlayersFormatterService,
         private readonly gameTurnsFormatterService: GameTurnsFormatterService,
-        private readonly gamePaymentsFormatterService: GamePaymentsFormatterService,
-        private readonly actionCardsFormatterService: ActionCardsFormatterService,
         private readonly gameFieldsFormatterService: GameFieldsFormatterService,
         private readonly gameChatFormatterService: GameChatFormatterService
     ) { }
@@ -264,5 +260,22 @@ export class GamesGateway implements OnGatewayConnection {
         if (gameTurn) {
             this.startTurnTimer(gameTurn)
         }
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('accept-forced-move')
+    async acceptForcedMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, player, leftGameField, newGameField} = await this.gamesMasterService.executeForcedMove(userId)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            [await this.playersFormatterService.formatPlayerAsync(player)]
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([leftGameField, newGameField])
+        ))
+
+        this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
     }
 }

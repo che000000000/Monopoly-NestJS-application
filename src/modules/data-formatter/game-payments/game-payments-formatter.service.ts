@@ -30,9 +30,9 @@ export class GamePaymentsFormatterService {
             this.playersFormatterService.formatPlayerAsync(
                 await this.playersService.getOneByIdOrThrow(gamePayment.payerPlayerId)
             ),
-            gamePayment.receiverPaymentPlayerId
+            gamePayment.receiverPlayerId
                 ? this.playersFormatterService.formatPlayerAsync(
-                    await this.playersService.getOneByIdOrThrow(gamePayment.receiverPaymentPlayerId)
+                    await this.playersService.getOneByIdOrThrow(gamePayment.receiverPlayerId)
                 )
                 : undefined
         ])

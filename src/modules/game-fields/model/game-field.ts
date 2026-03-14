@@ -1,4 +1,5 @@
-import { Column, DataType, ForeignKey, HasMany, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
+import { ForcedMove } from "src/modules/forced-moves/model/forced-move";
 import { Game } from "src/modules/games/model/game";
 import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
@@ -27,7 +28,7 @@ export enum GameFieldColor {
     BLUE = '#4b85dbff'
 }
 
-@Table({tableName: 'GameFields'})
+@Table({ tableName: 'GameFields' })
 export class GameField extends Model {
     @PrimaryKey
     @Column({
@@ -101,4 +102,16 @@ export class GameField extends Model {
 
     @HasMany(() => Player)
     standingPlayers: Player[]
+
+    @HasOne(() => ForcedMove, {
+        foreignKey: 'fromGameFieldId',
+        as: 'fromGameField'
+    })
+    fromGameField: ForcedMove
+
+    @HasOne(() => ForcedMove, {
+        foreignKey: 'toGameFieldId',
+        as: 'toGameField'
+    })
+    toGameField: ForcedMove
 }

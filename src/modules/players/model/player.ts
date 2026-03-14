@@ -56,20 +56,6 @@ export class Player extends Model {
     })
     declare balance: number
 
-    @Column({
-        type: DataType.INTEGER,
-        allowNull: false,
-        defaultValue: () => 0
-    })
-    declare getOutOfJailCardsCount: number
-
-    @Column({
-        type: DataType.BOOLEAN,
-        allowNull: false,
-        defaultValue: () => true
-    })
-    declare paymentForCircle: boolean
-
     @ForeignKey(() => Game)
     @Column({
         type: DataType.UUID,
@@ -90,6 +76,20 @@ export class Player extends Model {
         allowNull: false,
     })
     declare gameFieldId: string
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => true
+    })
+    declare paymentForCircle: boolean
+
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false,
+        defaultValue: () => 0
+    })
+    declare getOutOfJailCardsCount: number
 
     @HasOne(() => GameTurn)
     gameTurn: GameTurn
@@ -116,5 +116,5 @@ export class Player extends Model {
         foreignKey: 'receiverPlayerId',
         as: 'receivedPayments'
     })
-    paymentReceivers: GamePayment[]
+    receivedPayments: GamePayment[]
 }
