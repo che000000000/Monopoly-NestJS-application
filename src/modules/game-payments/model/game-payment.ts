@@ -52,7 +52,7 @@ export class GamePayment extends Model {
         type: DataType.UUID,
         allowNull: true
     })
-    declare receiverPaymentPlayerId: string
+    declare receiverPlayerId: string
 
     @ForeignKey(() => GameTurn)
     @Column({

@@ -41,8 +41,8 @@ export class ActionCardsService {
         return newFields
     }
 
-    async getRandomActiveActionCardOrThrow(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard> {
-        const activeActionCards = await this.getAllIsActiveByGameIdAndDeckTypeOrThrow(gameId, deckType)
+    async getRandomActiveActionCard(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard> {
+        const activeActionCards = await this.getAllIsActiveByGameIdAndDeckType(gameId, deckType)
 
         if(activeActionCards.length === 0) {
             throw new Error(`Failed to get random action card. activeActionCards is empty.`)
@@ -51,7 +51,7 @@ export class ActionCardsService {
         return activeActionCards[Math.floor(Math.random() * activeActionCards.length)]
     }
 
-    async getAllIsActiveByGameIdAndDeckTypeOrThrow(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {
+    async getAllIsActiveByGameIdAndDeckType(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {
         const actionCards = await this.findAllByGameIdAndDeckType(gameId, deckType)
         if (actionCards.length === 0) {
             throw new NotFoundException(`Failed to get all is active action cards by gameId: ${gameId} and deck type: ${deckType}.`)
@@ -70,6 +70,23 @@ export class ActionCardsService {
         return await this.actionCardsRepository.findAll({
             where: { gameId, deckType }
         })
+    }
+
+    async updateOneById(id: string, updates: Partial<ActionCard>): Promise<ActionCard> {
+        const gameTurn = await this.findOne(id)
+        if (!gameTurn) {
+            throw new Error(`Failed to update actionCard with id: ${id}. actionCard not found.`)
+        }
+
+        const [affectedCount, [updatedGameTurn]] = await this.actionCardsRepository.update(
+            updates,
+            { where: { id }, returning: true }
+        )
+        if (affectedCount === 0) {
+            throw new Error(`actionCard with id: ${id} wasn't updated. No fields were changed.`)
+        }
+
+        return updatedGameTurn
     }
 
     private async activateActionCardsByGameIdAndDeckType(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {

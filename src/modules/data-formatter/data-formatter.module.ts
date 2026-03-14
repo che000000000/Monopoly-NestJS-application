@@ -21,6 +21,8 @@ import { UsersFormatterService } from './users/users-formatter.service';
 import { PregameRoomChatFormatterService } from './pregame-room-chat/pregame-room-chat-formatter.service';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
+import { ForcedMovesFormatterService } from './forced-moves/forced-moves.service';
+import { ForcedMovesModule } from '../forced-moves/forced-moves.module';
 
 @Module({
 	imports: [
@@ -34,7 +36,8 @@ import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-m
 		ChatsModule,
 		MessagesModule,
 		PregameRoomsModule,
-		PregameRoomMembersModule
+		PregameRoomMembersModule,
+		ForcedMovesModule
 	],
 	providers: [
 		UsersFormatterService,
@@ -47,7 +50,8 @@ import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-m
 		PregameRoomsFormatterService,
 		PregameRoomChatFormatterService,
 		GlobalChatFormatterService,
-		GameChatFormatterService
+		GameChatFormatterService,
+		ForcedMovesFormatterService
 	],
 	exports: [
 		UsersFormatterService,
@@ -60,7 +64,8 @@ import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-m
 		PregameRoomChatFormatterService,
 		GamesFormatterService,
 		GlobalChatFormatterService,
-		GameChatFormatterService
+		GameChatFormatterService,
+		ForcedMovesFormatterService
 	]
 })
 

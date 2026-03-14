@@ -37,50 +37,54 @@ import { GamePayment } from '../game-payments/model/game-payment';
 import { GamePaymentsModule } from '../game-payments/game-payments.module';
 import { PlayerCard } from '../player-cards/model/player-card.model';
 import { PlayerCardsModule } from '../player-cards/player-cards.module';
+import { ForcedMovesModule } from '../forced-moves/forced-moves.module';
+import { ForcedMove } from '../forced-moves/model/forced-move';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      load: [indexConfig],
-      isGlobal: true
-    }),
-    SequelizeModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const connectConfig = {
-          host: configService.get('pgdb.host'),
-          port: configService.get('pgdb.port'),
-          username: configService.get('pgdb.username'),
-          database: configService.get('pgdb.dbName'),
-          password: configService.get('pgdb.password'),
-        }
-        if (!connectConfig.host || !connectConfig.port || !connectConfig.username || !connectConfig.database || !connectConfig.password) {
-          throw new Error("Failed connect to database. Missing connection params!")
-        }
-        return {
-          ...connectConfig,
-          dialect: 'postgres',
-          autoLoadModels: true,
-          synchronize: true,
-          logging: false,
-          models: [
-            User, Account, Token,
-            PregameRoom, PregameRoomMember,
-            Chat, Message, ChatMember,
-            Game, Player, GameTurn,
-            GameField, GameDeal, GameDealItem,
-            ActionCard, GamePayment, PlayerCard
-          ]
-        }
-      }
-    }),
-    RedisModule, AuthModule, AccountsModule,
-    UsersModule, PregameRoomsModule, PregameRoomMembersModule,
-    GatewaysModule, ChatsModule, ChatMembersModule,
-    MessagesModule, GamesModule, PlayersModule,
-    DataFormatterModule, GlobalChatsModule, GamesMasterModule,
-    ActionsCardsModule, GamePaymentsModule, PlayerCardsModule
-  ],
+    imports: [
+        ConfigModule.forRoot({
+            load: [indexConfig],
+            isGlobal: true
+        }),
+        SequelizeModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (configService: ConfigService) => {
+                const connectConfig = {
+                    host: configService.get('pgdb.host'),
+                    port: configService.get('pgdb.port'),
+                    username: configService.get('pgdb.username'),
+                    database: configService.get('pgdb.dbName'),
+                    password: configService.get('pgdb.password'),
+                }
+                if (!connectConfig.host || !connectConfig.port || !connectConfig.username || !connectConfig.database || !connectConfig.password) {
+                    throw new Error("Failed connect to database. Missing connection params!")
+                }
+                return {
+                    ...connectConfig,
+                    dialect: 'postgres',
+                    autoLoadModels: true,
+                    synchronize: true,
+                    logging: false,
+                    models: [
+                        User, Account, Token,
+                        PregameRoom, PregameRoomMember,
+                        Chat, Message, ChatMember,
+                        Game, Player, GameTurn,
+                        GameField, GameDeal, GameDealItem,
+                        ActionCard, GamePayment, PlayerCard,
+                        ForcedMove
+                    ]
+                }
+            }
+        }),
+        RedisModule, AuthModule, AccountsModule,
+        UsersModule, PregameRoomsModule, PregameRoomMembersModule,
+        GatewaysModule, ChatsModule, ChatMembersModule,
+        MessagesModule, GamesModule, PlayersModule,
+        DataFormatterModule, GlobalChatsModule, GamesMasterModule,
+        ActionsCardsModule, GamePaymentsModule, PlayerCardsModule,
+        ForcedMovesModule
+    ],
 })
 export class AppModule { }

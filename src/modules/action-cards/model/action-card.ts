@@ -10,7 +10,6 @@ export enum ActionCardDeckType {
 
 export enum ActionCardType {
     MOVE = 'MOVE',
-    MOVE_BACK = 'MOVE_BACK',
     PAY_MONEY = 'PAY_MONEY',
     GET_MONEY = 'GET_MONEY',
     PAY_PLAYERS = 'PAY_PLAYERS',
@@ -20,8 +19,9 @@ export enum ActionCardType {
 }
 
 export enum ActionCardMoveDirection {
-    ABSOLUTE = 'ABSOLUTE',
-    NEAREST = 'NEAREST'
+    TARGET = 'TARGET',
+    NEAREST = 'NEAREST',
+    GET_BACK = 'GET_BACK'
 }
 
 export enum ActionCardPropertyType {
@@ -110,7 +110,7 @@ export class ActionCard extends Model {
         type: DataType.BOOLEAN,
         allowNull: true
     })
-    declare paymentForCircleValue: boolean
+    declare paymentForCircle: boolean
 
     @Column({
         type: DataType.BOOLEAN,

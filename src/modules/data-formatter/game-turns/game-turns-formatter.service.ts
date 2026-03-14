@@ -8,6 +8,8 @@ import { PlayersFormatterService } from "../players/players-formatter.service";
 import { ActionCardsFormatterService } from "../action-cards/action-cards-formatter.service";
 import { GamePaymentsFormatterService } from "../game-payments/game-payments-formatter.service";
 import { Injectable } from "@nestjs/common";
+import { ForcedMovesFormatterService } from "../forced-moves/forced-moves.service";
+import { ForcedMovesService } from "src/modules/forced-moves/forced-moves.service";
 
 @Injectable()
 export class GameTurnsFormatterService {
@@ -17,35 +19,40 @@ export class GameTurnsFormatterService {
         private readonly gamePaymentsService: GamePaymentsService,
         private readonly playersFormatterService: PlayersFormatterService,
         private readonly actionCardsFormatterService: ActionCardsFormatterService,
-        private readonly gamePaymentsFormatterService: GamePaymentsFormatterService
+        private readonly gamePaymentsFormatterService: GamePaymentsFormatterService,
+        private readonly forcedMovesService: ForcedMovesService,
+        private readonly forcedMovesFormattedService: ForcedMovesFormatterService
     ) {}
 
     private formatGameTurn(data: FormatGameTurn): IGameTurn {
-        const { gameTurn, player, actionCard, gamePayments} = data
+        const { gameTurn, player, actionCard, gamePayments, forcedMove } = data
 
         return {
             id: gameTurn.id,
             player: player,
             stage: gameTurn.stage,
             actionCard: actionCard ?? null,
-            gamePayments: gamePayments ?? null,
+            gamePayments: gamePayments ?? [],
+            forcedMove: forcedMove ?? null,
             expires: gameTurn.expires,
             updatedAt: gameTurn.updatedAt
         }
     }
 
     async formatGameTurnAsync(gameTurn: GameTurn): Promise<IGameTurn> {
-        const [player, actionCard, gamePayments] = await Promise.all([
+        const [player, actionCard, gamePayments, forcedMove] = await Promise.all([
             this.playersService.getOneByIdOrThrow(gameTurn.playerId),
-            gameTurn.actionCardId ? this.actionCardsService.findOne(gameTurn.actionCardId) : null,
-            this.gamePaymentsService.findAllByGameTurnId(gameTurn.id)
+            gameTurn.actionCardId ? this.actionCardsService.getOneOrThrow(gameTurn.actionCardId) : null,
+            this.gamePaymentsService.findAllByGameTurnId(gameTurn.id),
+            gameTurn.forcedMoveId ? this.forcedMovesService.getOneById(gameTurn.forcedMoveId) : null
         ])
 
         return this.formatGameTurn({
             gameTurn,
             player: await this.playersFormatterService.formatPlayerAsync(player),
             actionCard: actionCard ? this.actionCardsFormatterService.formatActionCard(actionCard) : undefined,
-            gamePayments: await this.gamePaymentsFormatterService.formatGamePaymentsAsync(gamePayments)
+            gamePayments: await this.gamePaymentsFormatterService.formatGamePaymentsAsync(gamePayments),
+            forcedMove: forcedMove ? await this.forcedMovesFormattedService.formatForcedMoveAsync(forcedMove) : undefined
         })
     }
 }

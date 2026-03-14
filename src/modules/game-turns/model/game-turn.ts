@@ -1,6 +1,7 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { GameDeal } from "src/models/game-deal";
 import { ActionCard } from "src/modules/action-cards/model/action-card";
+import { ForcedMove } from "src/modules/forced-moves/model/forced-move";
 import { GamePayment } from "src/modules/game-payments/model/game-payment";
 import { Game } from "src/modules/games/model/game";
 import { Player } from "src/modules/players/model/player";
@@ -81,6 +82,13 @@ export class GameTurn extends Model {
         allowNull: true
     })
     declare actionCardId: string | null
+
+    @ForeignKey(() => ForcedMove)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    declare forcedMoveId: string | null
 
     @HasOne(() => GameDeal)
     gameDeal: GameDeal

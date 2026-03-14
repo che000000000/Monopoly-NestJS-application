@@ -32,9 +32,13 @@ export class GameFieldsFormatterService {
 
     async formatGameFieldAsync(gameField: GameField): Promise<IGameField> {
         const [players, owner] = await Promise.all([
-            this.playersFormatterService.formatPlayersAsync(await this.playersService.findAllByGameFieldId(gameField.id)),
+            this.playersFormatterService.formatPlayersAsync(
+                await this.playersService.findAllByGameFieldId(gameField.id)
+            ),
             gameField.ownerPlayerId
-                ? this.playersFormatterService.formatPlayerAsync(await this.playersService.getOneByIdOrThrow(gameField.ownerPlayerId))
+                ? this.playersFormatterService.formatPlayerAsync(
+                    await this.playersService.getOneByIdOrThrow(gameField.ownerPlayerId)
+                )
                 : undefined
         ])
 

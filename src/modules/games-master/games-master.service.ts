@@ -18,9 +18,10 @@ import { ChatType } from '../chats/model/chat';
 import { GameField, GameFieldType } from '../game-fields/model/game-field';
 import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
-import { ActionCardPropertyType } from '../action-cards/model/action-card';
+import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from '../action-cards/model/action-card';
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
+import { ForcedMovesService } from '../forced-moves/forced-moves.service';
 
 @Injectable()
 export class GamesMasterService {
@@ -31,6 +32,7 @@ export class GamesMasterService {
         private readonly gameTurnsService: GameTurnsService,
         private readonly actionCardsService: ActionCardsService,
         private readonly gamePaymentsService: GamePaymentsService,
+        private readonly forcedMovesService: ForcedMovesService,
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
@@ -122,7 +124,7 @@ export class GamesMasterService {
                     chip: member.playerChip,
                     status: PlayerStatus.COMMON,
                     turnNumber: index + 1,
-                    balance: 1500
+                    balance: 1500,
                 })
             )),
             this.actionCardsService.createGameChanceItems(game.id)
@@ -264,15 +266,17 @@ export class GamesMasterService {
         }
 
         const thrownDices = this.throwDices()
-        const newPosition = ((currentGameField.position + thrownDices.summ - 1) % this.BOARD_SIZE) + 1
+        const newPosition = (currentGameField.position + thrownDices.summ - 1) % this.BOARD_SIZE + 1
 
         if (currentGameField.position + thrownDices.summ > this.BOARD_SIZE) {
-            await this.playersService.updateOne(player.id, { balance: player.balance + 200, paymentForCircle: true })
+            player.paymentForCircle
+                ? await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
+                : await this.playersService.updateOne(player.id, { paymentForCircle: true })
         }
 
         const [movePlayer, updatedGameTurn] = await Promise.all([
             this.movePlayer(player.id, newPosition),
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.THROWING_DICES, stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble, doublesCount: gameTurn.doublesCount + 1 })
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.THROWING_DICES, expires: 1, stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble, doublesCount: gameTurn.doublesCount + 1 })
         ])
         if (!updatedGameTurn) {
             throw new Error(`Failed to make move. Game turn was not updated.`)
@@ -340,11 +344,11 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.PAY_RENT,
                 payerPlayerId: gameTurn.playerId,
-                receiverPaymentPlayerId: gameField.ownerPlayerId,
+                receiverPlayerId: gameField.ownerPlayerId,
                 amount: gameField.rent[gameField.buildsCount || 0],
                 gameTurnId: gameTurn.id,
                 isOptional: false
@@ -362,11 +366,11 @@ export class GamesMasterService {
         const railroadOwner = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.RAILROAD)
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.PAY_RENT,
                 payerPlayerId: gameTurn.playerId,
-                receiverPaymentPlayerId: gameField.ownerPlayerId,
+                receiverPlayerId: gameField.ownerPlayerId,
                 amount: gameField.rent[railroadOwner.length - 1],
                 gameTurnId: gameTurn.id,
                 isOptional: false
@@ -384,11 +388,11 @@ export class GamesMasterService {
         const utilitesOwner = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameField.ownerPlayerId, GameFieldType.UTILITY)
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_RENT, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.PAY_RENT,
                 payerPlayerId: gameTurn.playerId,
-                receiverPaymentPlayerId: gameField.ownerPlayerId,
+                receiverPlayerId: gameField.ownerPlayerId,
                 amount: gameField.rent[utilitesOwner.length - 1] * gameTurn.stepsCount,
                 gameTurnId: gameTurn.id,
                 isOptional: false
@@ -404,7 +408,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_TAX }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_TAX, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.PAY_TAX,
                 payerPlayerId: gameTurn.playerId,
@@ -423,7 +427,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.BUY_GAME_FIELD }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.BUY_GAME_FIELD, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.BUY_GAME_FIELD,
                 payerPlayerId: gameTurn.playerId,
@@ -434,6 +438,91 @@ export class GamesMasterService {
         ])
 
         return updatedGameTurn
+    }
+
+    private async prepareMoveActionCardRequirement(player: Player, gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
+        switch (actionCard.moveDirection) {
+            case ActionCardMoveDirection.TARGET: {
+                if (!actionCard.targetPosition) {
+                    throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. targetPosition not defined.`)
+                }
+
+                const [currentGameField, toGameField] = await Promise.all([
+                    this.gameFieldsService.getOneOrThrow(player.gameFieldId),
+                    this.gameFieldsService.getOneByGameIdAndPosition(gameTurn.gameId, actionCard.targetPosition)
+                ])
+
+                const [newForcedMove] = await Promise.all([
+                    this.forcedMovesService.create({
+                        fromGameFieldId: player.gameFieldId,
+                        toGameFieldId: toGameField.id
+                    }),
+                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false }),
+                    this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+                ])
+
+                const stepsCount = (toGameField.position - currentGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+
+                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount, expires: this.GAME_TURN_EXPIRES })
+            }
+            case ActionCardMoveDirection.NEAREST: {
+                if (!actionCard.propertyType) {
+                    throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. propertyType not defined.`)
+                }
+
+                const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+                const toGameField = await this.findNearestGameFieldByPropertyType(gameTurn.gameId, currentGameField.position, actionCard.propertyType)
+
+                const [newForcedMove] = await Promise.all([
+                    this.forcedMovesService.create({
+                        fromGameFieldId: currentGameField.id,
+                        toGameFieldId: toGameField.id
+                    }),
+                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false }),
+                    this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+                ])
+
+                const stepsCount = (toGameField.position - currentGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+
+                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount, expires: this.GAME_TURN_EXPIRES })
+            }
+            case ActionCardMoveDirection.GET_BACK: {
+                if (!actionCard.moveSteps) {
+                    throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. moveSteps not defined.`)
+                }
+
+                const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+
+                const targetPosition = currentGameField.position < actionCard.moveSteps
+                    ? 1
+                    : currentGameField.position - actionCard.moveSteps
+                const toGameField = await this.gameFieldsService.getOneByGameIdAndPosition(gameTurn.gameId, targetPosition)
+
+                const [newForcedMove] = await Promise.all([
+                    this.forcedMovesService.create({
+                        fromGameFieldId: currentGameField.id,
+                        toGameFieldId: toGameField.id
+                    }),
+                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+                ])
+
+                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount: actionCard.moveSteps, expires: this.GAME_TURN_EXPIRES })
+            }
+            default: {
+                return gameTurn
+            }
+        }
+    }
+
+    private async handleTakeActionCard(player: Player, gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
+        const linkedToActionCardGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: actionCard.id })
+
+        switch (actionCard.type) {
+            case ActionCardType.MOVE: {
+                return await this.prepareMoveActionCardRequirement(player, linkedToActionCardGameTurn, actionCard)
+            }
+            default: return linkedToActionCardGameTurn
+        }
     }
 
     async handlePlayerHitGameFieled(player: Player, gameField: GameField, gameTurn: GameTurn): Promise<GameTurn> {
@@ -467,6 +556,20 @@ export class GamesMasterService {
             }
             case GameFieldType.TAX: {
                 return await this.prepareTaxRequirement(gameField, gameTurn)
+            }
+            case GameFieldType.CHANCE: {
+                return await this.handleTakeActionCard(
+                    player,
+                    gameTurn,
+                    await this.actionCardsService.getRandomActiveActionCard(gameTurn.gameId, ActionCardDeckType.CHANCE)
+                )
+            }
+            case GameFieldType.COMMUNITY_CHEST: {
+                return await this.handleTakeActionCard(
+                    player,
+                    gameTurn,
+                    await this.actionCardsService.getRandomActiveActionCard(gameTurn.gameId, ActionCardDeckType.COMMUNITY_CHEST)
+                )
             }
             default: return gameTurn.isDouble ? await this.grantExtraTurn(gameTurn) : await this.passGameTurnToNextPlayer(gameTurn)
         }
@@ -502,10 +605,10 @@ export class GamesMasterService {
     private async executeToPlayerPayment(payment: GamePayment): Promise<Player[]> {
         const [payerPlayer, receiverPaymentPlayer] = await Promise.all([
             this.playersService.findOneById(payment.payerPlayerId),
-            this.playersService.findOneById(payment.receiverPaymentPlayerId)
+            this.playersService.findOneById(payment.receiverPlayerId)
         ])
         if (!payerPlayer || payerPlayer.status != PlayerStatus.COMMON || !receiverPaymentPlayer || receiverPaymentPlayer.status !== PlayerStatus.COMMON) {
-            throw new Error(`Cannot process rent payment: one or both players are not active in the game. Payer player id: ${payment.payerPlayerId}; recipient player id: ${payment.receiverPaymentPlayerId}.`)
+            throw new Error(`Cannot process rent payment: one or both players are not active in the game. Payer player id: ${payment.payerPlayerId}; recipient player id: ${payment.receiverPlayerId}.`)
         }
 
         return [
@@ -622,5 +725,49 @@ export class GamesMasterService {
 
     async processRefusePayment(userId: string, paymentId: string): Promise<any> {
 
+    }
+
+    async executeForcedMove(userId: string): Promise<{ gameTurn: GameTurn, player: Player, leftGameField: GameField, newGameField: GameField }> {
+        const user = await this.usersService.findOne(userId)
+        if (!user) {
+            throw new Error(`Failed to execute forcedMove. User with id: ${userId} not found`)
+        }
+
+        const userAsPlayer = await this.playersService.findCurrentPlayerByUserId(user.id)
+        if (!userAsPlayer) {
+            throw new BadRequestException(`Failed to execute forcedMove. User isn't player of the game.`)
+        }
+
+        const gameTurn = await this.gameTurnsService.getOneByGameIdOrThrow(userAsPlayer.gameId)
+        if (gameTurn.playerId !== userAsPlayer.id) {
+            throw new BadRequestException(`Failed to execute forcedMove. Player has no forcedMove.`)
+        }
+        if (!gameTurn.forcedMoveId) {
+            throw new BadRequestException(`Failed to execute forcedMove. No forcedMove for execute.`)
+        }
+
+        const forcedMove = await this.forcedMovesService.getOneById(gameTurn.forcedMoveId)
+        const [currentGameField, toGameField] = await Promise.all([
+            this.gameFieldsService.getOneOrThrow(forcedMove.fromGameFieldId),
+            this.gameFieldsService.getOneOrThrow(forcedMove.toGameFieldId)
+        ])
+
+        const { player, newGameField, leftGameField } = await this.movePlayer(userAsPlayer.id, toGameField.position)
+
+        let updatedPlayer: Player | null = null
+        if (currentGameField.position + gameTurn.stepsCount > this.BOARD_SIZE) {
+            player.paymentForCircle
+                ? updatedPlayer = await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
+                : updatedPlayer = await this.playersService.updateOne(player.id, { paymentForCircle: true })
+        }
+
+        await this.forcedMovesService.destroyById(forcedMove.id)
+
+        return {
+            gameTurn,
+            player: updatedPlayer ? updatedPlayer : player,
+            leftGameField,
+            newGameField
+        }
     }
 }
