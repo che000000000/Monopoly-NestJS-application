@@ -75,7 +75,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         description: 'Штраф за превышение скорости M15',
         deckType: ActionCardDeckType.CHANCE,
         type: ActionCardType.PAY_MONEY,
-        amount: -15
+        amount: 15
     },
     {
         description: 'Идите на ближайшую Ж/Д станцию. Если она не находится в собственности, можете выкупить её. Если она находится в собственности, заплатите владельцу арендную плату, вдвое превышающую обычную',
@@ -194,13 +194,13 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         description: 'Оплатите расходы на госпитализацию в размере М100',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
         type: ActionCardType.PAY_MONEY,
-        amount: -100
+        amount: 100
     },
     {
         description: 'Оплатите обучение в размере М50',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
         type: ActionCardType.PAY_MONEY,
-        amount: -50
+        amount: 50
     },
     {
         description: 'Вы получаете в наследство М100',
@@ -220,7 +220,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         description: 'Визит к врачу. Заплатите М50',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
         type: ActionCardType.PAY_MONEY,
-        amount: -50
+        amount: 50
     },
     {
         description: 'На продаже акций вы зарабатываете М50',

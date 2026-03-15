@@ -106,25 +106,37 @@ export class GamesGateway implements OnGatewayConnection {
             case ActionCardType.MOVE: {
                 const actionCardExecute = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
 
-                this.server.to(gameTurn.gameId).emit('update-players', (
-                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecute.player)]
-                ))
-                this.server.to(gameTurn.gameId).emit('update-game-fields', (
-                    await this.gameFieldsFormatterService.formatGameFieldsAsync([
-                        actionCardExecute.fromGameField,
-                        actionCardExecute.toGameField
-                    ])
-                ))
+                await Promise.all([
+                    this.server.to(gameTurn.gameId).emit('update-players', (
+                        [await this.playersFormatterService.formatPlayerAsync(actionCardExecute.player)]
+                    )),
+                    this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                        await this.gameFieldsFormatterService.formatGameFieldsAsync([
+                            actionCardExecute.fromGameField,
+                            actionCardExecute.toGameField
+                        ])
+                    ))
+                ])
+
+                const nextGameTurn = await this.gamesMasterService.handlePlayerHitGameFieled(
+                    actionCardExecute.player,
+                    actionCardExecute.toGameField,
+                    actionCardExecute.gameTurn
+                )
 
                 this.server.to(actionCardExecute.gameTurn.id).emit('set-game-turn', (
-                    this.startTurnTimer(
-                        await this.gamesMasterService.handlePlayerHitGameFieled(
-                            actionCardExecute.player,
-                            actionCardExecute.toGameField,
-                            actionCardExecute.gameTurn
-                        )
-                    )
+                    nextGameTurn
                 ))
+                this.startTurnTimer(nextGameTurn)
+                break
+            }
+            case ActionCardType.PAY_MONEY: {
+                const gameTurnWithActionCardRequirements = await this.gamesMasterService.preparePayMoneyActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.id).emit('set-game-turn', (
+                    gameTurnWithActionCardRequirements
+                ))
+                this.startTurnTimer(gameTurnWithActionCardRequirements)
                 break
             }
             default: {

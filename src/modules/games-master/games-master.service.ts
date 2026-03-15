@@ -448,7 +448,7 @@ export class GamesMasterService {
     async executeMoveActionCardRequirement(gameTurn: GameTurn)
         : Promise<{ gameTurn: GameTurn, player: Player, fromGameField: GameField, toGameField: GameField }> {
         if (!gameTurn.actionCardId) {
-            throw new Error(`Failed to execute move actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+            throw new Error(`Failed to execute MOVE actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
 
         const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
@@ -549,9 +549,29 @@ export class GamesMasterService {
         }
     }
 
-    // async prepareActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+    async preparePayMoneyActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
 
-    // }
+        if (!actionCard.amount) {
+            throw new Error(`Failed to execute PAY_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+        }
+
+        await Promise.all([
+            this.gamePaymentsService.create({
+                type: GamePaymentType.TO_BANK,
+                payerPlayerId: gameTurn.playerId,
+                amount: actionCard.amount,
+                gameTurnId: gameTurn.id,
+                isOptional: false
+            }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES })
+    }
 
     private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
         return await this.gameTurnsService.updateOne(gameTurn.id, {
