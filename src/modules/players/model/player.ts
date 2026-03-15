@@ -17,11 +17,6 @@ export enum PlayerChip {
     THIMBLE = 'THIMBLE'
 }
 
-export enum PlayerStatus {
-    COMMON = 'COMMON',
-    IS_LEFT = 'IS_LEFT'
-}
-
 @Table({ tableName: 'Players' })
 export class Player extends Model {
     @PrimaryKey
@@ -45,10 +40,11 @@ export class Player extends Model {
     declare chip: PlayerChip
 
     @Column({
-        type: DataType.ENUM(...Object.values(PlayerStatus)),
-        allowNull: false
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => true
     })
-    declare status: PlayerStatus
+    declare isActive: boolean
 
     @Column({
         type: DataType.INTEGER,

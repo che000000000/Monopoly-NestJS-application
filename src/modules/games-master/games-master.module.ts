@@ -11,7 +11,6 @@ import { MessagesModule } from '../messages/messages.module';
 import { UsersModule } from '../users/users.module';
 import { ActionsCardsModule } from '../action-cards/action-cards.module';
 import { GamePaymentsModule } from '../game-payments/game-payments.module';
-import { ForcedMovesModule } from '../forced-moves/forced-moves.module';
 
 @Module({
 	imports: [
@@ -22,7 +21,6 @@ import { ForcedMovesModule } from '../forced-moves/forced-moves.module';
 		GameTurnsModule,
 		ActionsCardsModule,
 		GamePaymentsModule,
-		ForcedMovesModule,
 		MessagesModule,
 		ChatsModule,
 		PregameRoomsModule,

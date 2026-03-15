@@ -18,7 +18,7 @@ export class PlayersFormatterService {
             id: player.id,
             user: this.usersFormatterService.formatUser(user),
             chip: player.chip,
-            status: player.status,
+            isActive: player.isActive,
             turnNumber: player.turnNumber,
             balance: player.balance
         }
@@ -42,7 +42,7 @@ export class PlayersFormatterService {
             id: player.id,
             user: this.usersFormatterService.formatUser(user),
             chip: player.chip,
-            status: player.status
+            isActive: player.isActive
         }
     }
 
