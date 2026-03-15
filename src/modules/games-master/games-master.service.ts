@@ -549,14 +549,38 @@ export class GamesMasterService {
         }
     }
 
+    async executeGetMoneyActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const [actionCard, player] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+        ])
+
+        if (!actionCard.amount) {
+            throw new Error(`Failed to execute GET_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+        }
+
+        const [updatedGameTurn, updatedPlayer] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+            this.playersService.updateOne(gameTurn.playerId, { balance: player.balance + actionCard.amount })
+        ])
+
+        return {
+            gameTurn: updatedGameTurn,
+            player: updatedPlayer 
+        }
+    }
+
     async preparePayMoneyActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         if (!gameTurn.actionCardId) {
-            throw new Error(`Failed to execute PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
         const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
 
         if (!actionCard.amount) {
-            throw new Error(`Failed to execute PAY_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
 
         await Promise.all([

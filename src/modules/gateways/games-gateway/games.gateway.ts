@@ -104,37 +104,52 @@ export class GamesGateway implements OnGatewayConnection {
 
         switch (actionCard.type) {
             case ActionCardType.MOVE: {
-                const actionCardExecute = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
+                const actionCardExecuteResult = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
 
-                await Promise.all([
-                    this.server.to(gameTurn.gameId).emit('update-players', (
-                        [await this.playersFormatterService.formatPlayerAsync(actionCardExecute.player)]
-                    )),
-                    this.server.to(gameTurn.gameId).emit('update-game-fields', (
-                        await this.gameFieldsFormatterService.formatGameFieldsAsync([
-                            actionCardExecute.fromGameField,
-                            actionCardExecute.toGameField
-                        ])
-                    ))
-                ])
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecuteResult.player)]
+                ))
+                this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                    await this.gameFieldsFormatterService.formatGameFieldsAsync([
+                        actionCardExecuteResult.fromGameField,
+                        actionCardExecuteResult.toGameField
+                    ])
+                ))
 
                 const nextGameTurn = await this.gamesMasterService.handlePlayerHitGameFieled(
-                    actionCardExecute.player,
-                    actionCardExecute.toGameField,
-                    actionCardExecute.gameTurn
+                    actionCardExecuteResult.player,
+                    actionCardExecuteResult.toGameField,
+                    actionCardExecuteResult.gameTurn
                 )
 
-                this.server.to(actionCardExecute.gameTurn.id).emit('set-game-turn', (
-                    nextGameTurn
+                this.server.to(actionCardExecuteResult.gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(nextGameTurn)
                 ))
+                this.startTurnTimer(nextGameTurn)
+                break
+            }
+            case ActionCardType.GET_MONEY: {
+                const actionCardExecuteResult = await this.gamesMasterService.executeGetMoneyActionCardRequirement(gameTurn)
+
+                const nextGameTurn = gameTurn.isDouble
+                    ? await this.gamesMasterService.grantExtraTurn(gameTurn)
+                    : await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
+
+                this.server.to(nextGameTurn.gameId).emit('update-players', (
+                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecuteResult.player)]
+                ))
+                this.server.to(nextGameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(actionCardExecuteResult.gameTurn)
+                ))
+
                 this.startTurnTimer(nextGameTurn)
                 break
             }
             case ActionCardType.PAY_MONEY: {
                 const gameTurnWithActionCardRequirements = await this.gamesMasterService.preparePayMoneyActionCardRequirement(gameTurn)
 
-                this.server.to(gameTurn.id).emit('set-game-turn', (
-                    gameTurnWithActionCardRequirements
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurnWithActionCardRequirements)
                 ))
                 this.startTurnTimer(gameTurnWithActionCardRequirements)
                 break
