@@ -3,14 +3,12 @@ import { ConnectedSocket, MessageBody, OnGatewayConnection, SubscribeMessage, We
 import { WsExceptionsFilter } from "../filters/WsExcepton.filter";
 import { DefaultEventsMap, RemoteSocket, Server } from "socket.io";
 import { SocketWithSession } from "../interfaces/socket-with-session.interface";
-import { UsersService } from "../../users/users.service";
 import { GamesService } from "../../games/games.service";
 import { PlayersService } from "../../players/players.service";
-import { GameTurnsService } from "../../game-turns/game-turns.service";
 import { WsAuthGuard } from "../guards/wsAuth.guard";
 import { PregameRoomsGateway } from "../pregame-rooms-gateway/pregame-rooms.gateway";
 import { ErrorType } from "../constants/error-types";
-import { Player, PlayerStatus } from "src/modules/players/model/player";
+import { Player } from "src/modules/players/model/player";
 import { GamesFormatterService } from "src/modules/data-formatter/games/games-formatter.service";
 import { Game } from "src/modules/games/model/game";
 import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
@@ -19,8 +17,6 @@ import { GetGamesPageDto } from "./dto/get-games-page";
 import { GamesMasterService } from "src/modules/games-master/games-master.service";
 import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn";
 import { GameTurnsFormatterService } from "src/modules/data-formatter/game-turns/game-turns-formatter.service";
-import { GamePaymentsFormatterService } from "src/modules/data-formatter/game-payments/game-payments-formatter.service";
-import { ActionCardsFormatterService } from "src/modules/data-formatter/action-cards/action-cards-formatter.service";
 import { GameFieldsFormatterService } from "src/modules/data-formatter/game-fields/game-fields-formatter.service";
 import { GameChatFormatterService } from "src/modules/data-formatter/game-chat/game-chat-formatter.service";
 import { PayPaymentDto } from "./dto/pay-payment";
@@ -89,8 +85,7 @@ export class GamesGateway implements OnGatewayConnection {
         const userId = socket.request.session.userId
         if (!userId) return
 
-        const userPlayers = await this.playersService.findAllByUserId(userId)
-        const currentPlayer = userPlayers.find((player: Player) => player.status !== PlayerStatus.IS_LEFT)
+        const currentPlayer = await this.playersService.findActivePlayerByUserId(userId)
         if (!currentPlayer) return
 
         socket.join(currentPlayer.gameId)
@@ -147,6 +142,15 @@ export class GamesGateway implements OnGatewayConnection {
             }
             case ActionCardType.PAY_MONEY: {
                 const gameTurnWithActionCardRequirements = await this.gamesMasterService.preparePayMoneyActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurnWithActionCardRequirements)
+                ))
+                this.startTurnTimer(gameTurnWithActionCardRequirements)
+                break
+            }
+            case ActionCardType.PAY_PLAYERS: {
+                const gameTurnWithActionCardRequirements = await this.gamesMasterService.preparePayPlayersActionCardRequirement(gameTurn)
 
                 this.server.to(gameTurn.gameId).emit('set-game-turn', (
                     await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurnWithActionCardRequirements)
@@ -239,7 +243,7 @@ export class GamesGateway implements OnGatewayConnection {
     async getGameState(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
             throw new BadRequestException(`Failed to get game state. User not in the game as player.`)
         }

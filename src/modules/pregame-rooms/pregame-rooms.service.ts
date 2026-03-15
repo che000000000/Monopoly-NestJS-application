@@ -5,9 +5,8 @@ import { UsersService } from '../users/users.service';
 import { ChatsService } from '../chats/chats.service';
 import { MessagesService } from '../messages/messages.service';
 import { PregameRoomMembersService } from '../pregame-room-members/pregame-room-members.service';
-import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/player';
+import { Player, PlayerChip } from 'src/modules/players/model/player';
 import { Message } from 'src/modules/messages/model/message';
-import { User } from 'src/modules/users/model/user.model';
 import { PlayersService } from '../players/players.service';
 import { Chat, ChatType } from '../chats/model/chat';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
@@ -108,7 +107,7 @@ export class PregameRoomsService {
         if (!user) {
             throw new NotFoundException('Failed to init pregame room. User not found.')
         }
-        if (userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
+        if (userPlayers.some((player: Player) => player.isActive === true)) {
             throw new BadRequestException(`Failed to add user to pregame room. User in the game already.`)
         }
 
@@ -134,10 +133,10 @@ export class PregameRoomsService {
         if (!pregameRoom) {
             throw new NotFoundException(`Failed to add user to pregame room. Pregame room not found.`)
         }
-        if (userAsPregameRoomMember || userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
+        if (userAsPregameRoomMember || userPlayers.some((player: Player) => player.isActive === true)) {
             throw new BadRequestException(`Failed to add user to pregame room. User in pregame room member already.`)
         }
-        if (userPlayers.some((player: Player) => player.status !== PlayerStatus.IS_LEFT)) {
+        if (userPlayers.some((player: Player) => player.isActive === true)) {
             throw new BadRequestException(`Failed to add user to pregame room. User in game already.`)
         }
         if (pregameRoomMemberOtSlot) {

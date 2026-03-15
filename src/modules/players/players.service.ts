@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Player, PlayerChip, PlayerStatus } from 'src/modules/players/model/player';
+import { Player } from 'src/modules/players/model/player';
 import { UsersService } from '../users/users.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { GameTurnsService } from '../game-turns/game-turns.service';
@@ -48,13 +48,19 @@ export class PlayersService {
         })
     }
 
-    async findCurrentPlayerByUserId(userId: string): Promise<Player | undefined> {
+    async findActivePlayerByUserId(userId: string): Promise<Player | undefined> {
         const userPlayers = await this.findAllByUserId(userId)
-        return userPlayers.find((player: Player) => player.status !== PlayerStatus.IS_LEFT)
+        return userPlayers.find((player: Player) => player.isActive === true)
     }
 
     async findAllByGameId(gameId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({ where: { gameId } })
+    }
+
+    async findAllActiveByGameId(gameId: string): Promise<Player[]> {
+        return await this.playersRepository.findAll({
+            where: { gameId, isActive: true}
+        })
     }
 
     async findAllByGameFieldId(gameFieldId: string): Promise<Player[]> {

@@ -8,7 +8,7 @@ import { GameTurnsService } from '../game-turns/game-turns.service';
 import { GameFieldsService } from '../game-fields/game-fields.service';
 import { ChatsService } from '../chats/chats.service';
 import { MessagesService } from '../messages/messages.service';
-import { Player, PlayerStatus } from 'src/modules/players/model/player';
+import { Player } from 'src/modules/players/model/player';
 import { Game } from 'src/modules/games/model/game';
 import { PregameRoom } from 'src/modules/pregame-rooms/model/pregame-room';
 import { Message } from 'src/modules/messages/model/message';
@@ -21,6 +21,7 @@ import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-me
 import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType } from '../action-cards/model/action-card';
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
+import { IsOptional } from 'class-validator';
 
 @Injectable()
 export class GamesMasterService {
@@ -40,7 +41,7 @@ export class GamesMasterService {
 
     private readonly BOARD_SIZE = 40
     private readonly GAME_TURN_EXPIRES = 30
-    private readonly ACTION_CARD_DURATION = 7
+    private readonly ACTION_CARD_DURATION = 5
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
         switch (propertyType) {
@@ -121,7 +122,6 @@ export class GamesMasterService {
                     userId: member.userId,
                     gameFieldId: goField.id,
                     chip: member.playerChip,
-                    status: PlayerStatus.COMMON,
                     turnNumber: index + 1,
                     balance: 1500,
                 })
@@ -259,7 +259,7 @@ export class GamesMasterService {
             isDouble: boolean
         }
     }> {
-        const player = await this.playersService.findCurrentPlayerByUserId(userId)
+        const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
             throw new BadRequestException(`Failed to move. User not in the game.`)
         }
@@ -298,7 +298,7 @@ export class GamesMasterService {
     }
 
     async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
-        const currentPlayer = await this.playersService.findCurrentPlayerByUserId(userId)
+        const currentPlayer = await this.playersService.findActivePlayerByUserId(userId)
         if (!currentPlayer) {
             throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
         }
@@ -316,7 +316,7 @@ export class GamesMasterService {
     async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
         const [user, currentPlayer] = await Promise.all([
             this.usersService.getOneOrThrow(userId),
-            this.playersService.findCurrentPlayerByUserId(userId),
+            this.playersService.findActivePlayerByUserId(userId),
         ])
 
         if (!currentPlayer) {
@@ -471,12 +471,11 @@ export class GamesMasterService {
                 const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
                 const [movePlayerResult, updatedGameTurn] = await Promise.all([
                     this.movePlayer(player.id, toGameField.position),
-                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null }),
+                    await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
 
                 const updatedPlayer = await this.handleCircleCompletion(movePlayerResult.player, updatedGameTurn, fromGameField)
-
-                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
 
                 return {
                     gameTurn: updatedGameTurn,
@@ -500,12 +499,11 @@ export class GamesMasterService {
                 const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
                 const [movePlayerResult, updatedGameTurn] = await Promise.all([
                     this.movePlayer(player.id, toGameField.position),
-                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null }),
+                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
 
                 const updatedPlayer = await this.handleCircleCompletion(movePlayerResult.player, updatedGameTurn, fromGameField)
-
-                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
 
                 return {
                     gameTurn: updatedGameTurn,
@@ -531,10 +529,9 @@ export class GamesMasterService {
                 const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
                 const [movePlayerResult, updatedGameTurn] = await Promise.all([
                     this.movePlayer(player.id, toGameField.position),
-                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null }),
+                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
-
-                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
 
                 return {
                     gameTurn: updatedGameTurn,
@@ -564,7 +561,8 @@ export class GamesMasterService {
 
         const [updatedGameTurn, updatedPlayer] = await Promise.all([
             this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
-            this.playersService.updateOne(gameTurn.playerId, { balance: player.balance + actionCard.amount })
+            this.playersService.updateOne(gameTurn.playerId, { balance: player.balance + actionCard.amount }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
         ])
 
         return {
@@ -583,7 +581,8 @@ export class GamesMasterService {
             throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
 
-        await Promise.all([
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_BANK,
                 payerPlayerId: gameTurn.playerId,
@@ -594,7 +593,39 @@ export class GamesMasterService {
             this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
         ])
 
-        return await this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES })
+        return updatedGameTurn
+    }
+
+    async preparePayPlayersActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const [actionCard, activePlayers] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.findAllActiveByGameId(gameTurn.gameId)
+        ])
+
+        if (!actionCard.amount) {
+            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+        }
+
+        const receiversPlayers = activePlayers.filter(p => p.id !== gameTurn.playerId)
+        if (receiversPlayers.length === 0) {
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. receiversPlayers not found.`)
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gamePaymentsService.create({
+                type: GamePaymentType.TO_PLAYERS,
+                payerPlayerId: gameTurn.playerId,
+                amount: actionCard.amount * receiversPlayers.length,
+                gameTurnId: gameTurn.id,
+                isOptional: false
+            })
+        ])
+
+        return updatedGameTurn
     }
 
     private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
@@ -685,7 +716,7 @@ export class GamesMasterService {
             this.playersService.findOneById(payment.payerPlayerId),
             this.playersService.findOneById(payment.receiverPlayerId)
         ])
-        if (!payerPlayer || payerPlayer.status != PlayerStatus.COMMON || !receiverPaymentPlayer || receiverPaymentPlayer.status !== PlayerStatus.COMMON) {
+        if (!payerPlayer || payerPlayer.isActive !== true || !receiverPaymentPlayer || receiverPaymentPlayer.isActive !== true) {
             throw new Error(`Cannot process rent payment: one or both players are not active in the game. Payer player id: ${payment.payerPlayerId}; recipient player id: ${payment.receiverPlayerId}.`)
         }
 
@@ -703,7 +734,7 @@ export class GamesMasterService {
         const payerPlayer = await this.playersService.getOneByIdOrThrow(payment.payerPlayerId)
 
         const players = await this.playersService.findAllByGameId(payerPlayer.gameId)
-        const receiverPlayers = players.filter(p => p.id !== payerPlayer.id && p.status !== PlayerStatus.IS_LEFT)
+        const receiverPlayers = players.filter(p => p.id !== payerPlayer.id && p.isActive !== false)
 
         const [updatedPayerPlayer, updatedReceiverPlayers] = await Promise.all([
             this.playersService.updateOne(payerPlayer.id, { balance: payerPlayer.balance - payment.amount }),
@@ -722,7 +753,7 @@ export class GamesMasterService {
 
     async executePayment(userId: string, paymentId: string): Promise<{ gameId: string, gameTurn?: GameTurn, players: Player[], gameFields: GameField[] }> {
         const [player, payment] = await Promise.all([
-            this.playersService.findCurrentPlayerByUserId(userId),
+            this.playersService.findActivePlayerByUserId(userId),
             this.gamePaymentsService.findOneById(paymentId),
         ])
         if (!player) {
