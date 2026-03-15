@@ -17,7 +17,7 @@ import { SendGameChatMessageDto } from "./dto/send-game-chat-message";
 import { GetGameChatMessagesPageDto } from "./dto/get-game-chat-messages-page";
 import { GetGamesPageDto } from "./dto/get-games-page";
 import { GamesMasterService } from "src/modules/games-master/games-master.service";
-import { GameTurn } from "src/modules/game-turns/model/game-turn";
+import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn";
 import { GameTurnsFormatterService } from "src/modules/data-formatter/game-turns/game-turns-formatter.service";
 import { GamePaymentsFormatterService } from "src/modules/data-formatter/game-payments/game-payments-formatter.service";
 import { ActionCardsFormatterService } from "src/modules/data-formatter/action-cards/action-cards-formatter.service";
@@ -25,6 +25,8 @@ import { GameFieldsFormatterService } from "src/modules/data-formatter/game-fiel
 import { GameChatFormatterService } from "src/modules/data-formatter/game-chat/game-chat-formatter.service";
 import { PayPaymentDto } from "./dto/pay-payment";
 import { PlayersFormatterService } from "src/modules/data-formatter/players/players-formatter.service";
+import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
+import { ActionCardType } from "src/modules/action-cards/model/action-card";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -43,6 +45,7 @@ export class GamesGateway implements OnGatewayConnection {
         private readonly gamesFormatterService: GamesFormatterService,
         private readonly playersFormatterService: PlayersFormatterService,
         private readonly gameTurnsFormatterService: GameTurnsFormatterService,
+        private readonly actionCardsService: ActionCardsService,
         private readonly gameFieldsFormatterService: GameFieldsFormatterService,
         private readonly gameChatFormatterService: GameChatFormatterService
     ) { }
@@ -93,10 +96,50 @@ export class GamesGateway implements OnGatewayConnection {
         socket.join(currentPlayer.gameId)
     }
 
-    private async turnTimeout(gameTurn: GameTurn): Promise<void> {
-        const nextGameTurn = await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
+    private async handleActionCardTimeout(gameTurn: GameTurn): Promise<void> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to handle actionCard timeout. gameTurn: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
 
-        this.startTurnTimer(nextGameTurn)
+        switch (actionCard.type) {
+            case ActionCardType.MOVE: {
+                const actionCardExecute = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecute.player)]
+                ))
+                this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                    await this.gameFieldsFormatterService.formatGameFieldsAsync([
+                        actionCardExecute.fromGameField,
+                        actionCardExecute.toGameField
+                    ])
+                ))
+
+                this.server.to(actionCardExecute.gameTurn.id).emit('set-game-turn', (
+                    this.startTurnTimer(
+                        await this.gamesMasterService.handlePlayerHitGameFieled(
+                            actionCardExecute.player,
+                            actionCardExecute.toGameField,
+                            actionCardExecute.gameTurn
+                        )
+                    )
+                ))
+                break
+            }
+            default: {
+                throw new Error(`Failed to handle actionCard timeout. Unsupported action card type: ${actionCard.type}.`)
+            }
+        }
+    }
+
+    private async turnTimeout(gameTurn: GameTurn): Promise<void> {
+        if (gameTurn.stage === GameTurnStage.ACTION_CARD_SHOWTIME) {
+            await this.handleActionCardTimeout(gameTurn)
+            return
+        }
+
+        this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
     }
 
     private async startTurnTimer(gameTurn: GameTurn): Promise<void> {
@@ -260,22 +303,5 @@ export class GamesGateway implements OnGatewayConnection {
         if (gameTurn) {
             this.startTurnTimer(gameTurn)
         }
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('accept-forced-move')
-    async acceptForcedMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const { gameTurn, player, leftGameField, newGameField} = await this.gamesMasterService.executeForcedMove(userId)
-
-        this.server.to(gameTurn.gameId).emit('update-players', (
-            [await this.playersFormatterService.formatPlayerAsync(player)]
-        ))
-        this.server.to(gameTurn.gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync([leftGameField, newGameField])
-        ))
-
-        this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
     }
 }

@@ -125,7 +125,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         deckType: ActionCardDeckType.CHANCE,
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.GET_BACK,
-        moveSteps: 3
+        moveSteps: 3,
     },
     {
         description: 'Подошло время капитального ремонта всей вашей собственности: заплатите за каждый дом М25, заплатите за каждый отель по М100',

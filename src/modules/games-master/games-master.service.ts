@@ -18,10 +18,9 @@ import { ChatType } from '../chats/model/chat';
 import { GameField, GameFieldType } from '../game-fields/model/game-field';
 import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
-import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from '../action-cards/model/action-card';
+import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType } from '../action-cards/model/action-card';
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
-import { ForcedMovesService } from '../forced-moves/forced-moves.service';
 
 @Injectable()
 export class GamesMasterService {
@@ -32,7 +31,6 @@ export class GamesMasterService {
         private readonly gameTurnsService: GameTurnsService,
         private readonly actionCardsService: ActionCardsService,
         private readonly gamePaymentsService: GamePaymentsService,
-        private readonly forcedMovesService: ForcedMovesService,
         private readonly usersService: UsersService,
         private readonly pregamesRoomsService: PregameRoomsService,
         private readonly pregameRoomMembersService: PregameRoomMembersService,
@@ -42,6 +40,7 @@ export class GamesMasterService {
 
     private readonly BOARD_SIZE = 40
     private readonly GAME_TURN_EXPIRES = 30
+    private readonly ACTION_CARD_DURATION = 7
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
         switch (propertyType) {
@@ -240,6 +239,18 @@ export class GamesMasterService {
         }
     }
 
+    private async handleCircleCompletion(player: Player, gameTurn: GameTurn, previousGameField: GameField): Promise<Player> {
+        if (previousGameField.position + gameTurn.stepsCount <= this.BOARD_SIZE) {
+            return player
+        }
+
+        if (player.paymentForCircle) {
+            return await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
+        } else {
+            return await this.playersService.updateOne(player.id, { paymentForCircle: true })
+        }
+    }
+
     async makeMove(userId: string): Promise<{
         gameId: string, player: Player, newGameField: GameField, leftGameField: GameField, gameTurn: GameTurn
         thrownDices: {
@@ -253,40 +264,34 @@ export class GamesMasterService {
             throw new BadRequestException(`Failed to move. User not in the game.`)
         }
 
-        const [gameTurn, currentGameField] = await Promise.all([
+        const [gameTurn, fromGameField] = await Promise.all([
             this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
             this.gameFieldsService.getOneOrThrow(player.gameFieldId),
         ])
 
         if (gameTurn.playerId !== player.id) {
-            throw new BadRequestException(`Failed to move. Player. Player has no right to move`)
+            throw new BadRequestException(`Failed to move. Player has no right to move`)
         }
         if (gameTurn.stage !== GameTurnStage.MOVE) {
             throw new BadRequestException(`Failed to move. Player. Not move stage`)
         }
 
         const thrownDices = this.throwDices()
-        const newPosition = (currentGameField.position + thrownDices.summ - 1) % this.BOARD_SIZE + 1
+        const newPosition = (fromGameField.position + thrownDices.summ - 1) % this.BOARD_SIZE + 1
 
-        if (currentGameField.position + thrownDices.summ > this.BOARD_SIZE) {
-            player.paymentForCircle
-                ? await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
-                : await this.playersService.updateOne(player.id, { paymentForCircle: true })
-        }
-
-        const [movePlayer, updatedGameTurn] = await Promise.all([
+        
+        const [moveResult, updatedGameTurn] = await Promise.all([
             this.movePlayer(player.id, newPosition),
             this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.THROWING_DICES, expires: 1, stepsCount: thrownDices.summ, isDouble: thrownDices.isDouble, doublesCount: gameTurn.doublesCount + 1 })
         ])
-        if (!updatedGameTurn) {
-            throw new Error(`Failed to make move. Game turn was not updated.`)
-        }
+
+        const updatedPlayer = await this.handleCircleCompletion(moveResult.player, updatedGameTurn, fromGameField)
 
         return {
             gameId: updatedGameTurn.gameId,
-            player: movePlayer.player,
-            newGameField: movePlayer.newGameField,
-            leftGameField: movePlayer.leftGameField,
+            player: updatedPlayer,
+            newGameField: moveResult.newGameField,
+            leftGameField: moveResult.leftGameField,
             gameTurn: updatedGameTurn,
             thrownDices: thrownDices
         }
@@ -440,89 +445,120 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
-    private async prepareMoveActionCardRequirement(player: Player, gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
+    async executeMoveActionCardRequirement(gameTurn: GameTurn)
+        : Promise<{ gameTurn: GameTurn, player: Player, fromGameField: GameField, toGameField: GameField }> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute move actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
+
         switch (actionCard.moveDirection) {
             case ActionCardMoveDirection.TARGET: {
                 if (!actionCard.targetPosition) {
                     throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. targetPosition not defined.`)
                 }
 
-                const [currentGameField, toGameField] = await Promise.all([
+                const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+
+                const [fromGameField, toGameField] = await Promise.all([
                     this.gameFieldsService.getOneOrThrow(player.gameFieldId),
                     this.gameFieldsService.getOneByGameIdAndPosition(gameTurn.gameId, actionCard.targetPosition)
                 ])
 
-                const [newForcedMove] = await Promise.all([
-                    this.forcedMovesService.create({
-                        fromGameFieldId: player.gameFieldId,
-                        toGameFieldId: toGameField.id
-                    }),
-                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false }),
-                    this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+                await this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+
+                const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+                const [movePlayerResult, updatedGameTurn] = await Promise.all([
+                    this.movePlayer(player.id, toGameField.position),
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
                 ])
 
-                const stepsCount = (toGameField.position - currentGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+                const updatedPlayer = await this.handleCircleCompletion(movePlayerResult.player, updatedGameTurn, fromGameField)
 
-                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount, expires: this.GAME_TURN_EXPIRES })
+                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+
+                return {
+                    gameTurn: updatedGameTurn,
+                    player: updatedPlayer,
+                    fromGameField,
+                    toGameField
+                }
             }
             case ActionCardMoveDirection.NEAREST: {
                 if (!actionCard.propertyType) {
                     throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. propertyType not defined.`)
                 }
 
-                const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
-                const toGameField = await this.findNearestGameFieldByPropertyType(gameTurn.gameId, currentGameField.position, actionCard.propertyType)
+                const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
 
-                const [newForcedMove] = await Promise.all([
-                    this.forcedMovesService.create({
-                        fromGameFieldId: currentGameField.id,
-                        toGameFieldId: toGameField.id
-                    }),
-                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false }),
-                    this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+                const fromGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+                const toGameField = await this.findNearestGameFieldByPropertyType(gameTurn.gameId, fromGameField.position, actionCard.propertyType)
+
+                await this.playersService.updateOne(player.id, { paymentForCircle: actionCard.paymentForCircle })
+
+                const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+                const [movePlayerResult, updatedGameTurn] = await Promise.all([
+                    this.movePlayer(player.id, toGameField.position),
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
                 ])
 
-                const stepsCount = (toGameField.position - currentGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+                const updatedPlayer = await this.handleCircleCompletion(movePlayerResult.player, updatedGameTurn, fromGameField)
 
-                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount, expires: this.GAME_TURN_EXPIRES })
+                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+
+                return {
+                    gameTurn: updatedGameTurn,
+                    player: updatedPlayer,
+                    fromGameField,
+                    toGameField
+                }
             }
             case ActionCardMoveDirection.GET_BACK: {
                 if (!actionCard.moveSteps) {
                     throw new Error(`Failed to execute requirement of actionCard with id: ${actionCard.id}; direction: ${actionCard.moveDirection}. moveSteps not defined.`)
                 }
 
-                const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+                const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
 
-                const targetPosition = currentGameField.position < actionCard.moveSteps
+                const fromGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+
+                const targetPosition = fromGameField.position < actionCard.moveSteps
                     ? 1
-                    : currentGameField.position - actionCard.moveSteps
+                    : fromGameField.position - actionCard.moveSteps
                 const toGameField = await this.gameFieldsService.getOneByGameIdAndPosition(gameTurn.gameId, targetPosition)
 
-                const [newForcedMove] = await Promise.all([
-                    this.forcedMovesService.create({
-                        fromGameFieldId: currentGameField.id,
-                        toGameFieldId: toGameField.id
-                    }),
-                    this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+                const stepsCount = (toGameField.position - fromGameField.position + this.BOARD_SIZE) % this.BOARD_SIZE
+                const [movePlayerResult, updatedGameTurn] = await Promise.all([
+                    this.movePlayer(player.id, toGameField.position),
+                    this.gameTurnsService.updateOne(gameTurn.id, { stepsCount, actionCardId: null })
                 ])
 
-                return await this.gameTurnsService.updateOne(gameTurn.id, { forcedMoveId: newForcedMove.id, stepsCount: actionCard.moveSteps, expires: this.GAME_TURN_EXPIRES })
+                await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+
+                return {
+                    gameTurn: updatedGameTurn,
+                    player: movePlayerResult.player,
+                    fromGameField,
+                    toGameField
+                }
             }
             default: {
-                return gameTurn
+                throw new Error(`Failed to execute move actionCard requirement. Failed to process actionCard's moveDirection.`)
             }
         }
     }
 
-    private async handleTakeActionCard(player: Player, gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
-        const linkedToActionCardGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: actionCard.id })
+    // async prepareActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
 
-        switch (actionCard.type) {
-            case ActionCardType.MOVE: {
-                return await this.prepareMoveActionCardRequirement(player, linkedToActionCardGameTurn, actionCard)
-            }
-            default: return linkedToActionCardGameTurn
-        }
+    // }
+
+    private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
+        return await this.gameTurnsService.updateOne(gameTurn.id, {
+            stage: GameTurnStage.ACTION_CARD_SHOWTIME,
+            actionCardId: actionCard.id,
+            expires: this.ACTION_CARD_DURATION
+        })
     }
 
     async handlePlayerHitGameFieled(player: Player, gameField: GameField, gameTurn: GameTurn): Promise<GameTurn> {
@@ -558,15 +594,13 @@ export class GamesMasterService {
                 return await this.prepareTaxRequirement(gameField, gameTurn)
             }
             case GameFieldType.CHANCE: {
-                return await this.handleTakeActionCard(
-                    player,
+                return await this.executeActionCardShowtime(
                     gameTurn,
                     await this.actionCardsService.getRandomActiveActionCard(gameTurn.gameId, ActionCardDeckType.CHANCE)
                 )
             }
             case GameFieldType.COMMUNITY_CHEST: {
-                return await this.handleTakeActionCard(
-                    player,
+                return await this.executeActionCardShowtime(
                     gameTurn,
                     await this.actionCardsService.getRandomActiveActionCard(gameTurn.gameId, ActionCardDeckType.COMMUNITY_CHEST)
                 )
@@ -723,51 +757,7 @@ export class GamesMasterService {
         }
     }
 
-    async processRefusePayment(userId: string, paymentId: string): Promise<any> {
+    // async processRefusePayment(userId: string, paymentId: string): Promise<any> {
 
-    }
-
-    async executeForcedMove(userId: string): Promise<{ gameTurn: GameTurn, player: Player, leftGameField: GameField, newGameField: GameField }> {
-        const user = await this.usersService.findOne(userId)
-        if (!user) {
-            throw new Error(`Failed to execute forcedMove. User with id: ${userId} not found`)
-        }
-
-        const userAsPlayer = await this.playersService.findCurrentPlayerByUserId(user.id)
-        if (!userAsPlayer) {
-            throw new BadRequestException(`Failed to execute forcedMove. User isn't player of the game.`)
-        }
-
-        const gameTurn = await this.gameTurnsService.getOneByGameIdOrThrow(userAsPlayer.gameId)
-        if (gameTurn.playerId !== userAsPlayer.id) {
-            throw new BadRequestException(`Failed to execute forcedMove. Player has no forcedMove.`)
-        }
-        if (!gameTurn.forcedMoveId) {
-            throw new BadRequestException(`Failed to execute forcedMove. No forcedMove for execute.`)
-        }
-
-        const forcedMove = await this.forcedMovesService.getOneById(gameTurn.forcedMoveId)
-        const [currentGameField, toGameField] = await Promise.all([
-            this.gameFieldsService.getOneOrThrow(forcedMove.fromGameFieldId),
-            this.gameFieldsService.getOneOrThrow(forcedMove.toGameFieldId)
-        ])
-
-        const { player, newGameField, leftGameField } = await this.movePlayer(userAsPlayer.id, toGameField.position)
-
-        let updatedPlayer: Player | null = null
-        if (currentGameField.position + gameTurn.stepsCount > this.BOARD_SIZE) {
-            player.paymentForCircle
-                ? updatedPlayer = await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
-                : updatedPlayer = await this.playersService.updateOne(player.id, { paymentForCircle: true })
-        }
-
-        await this.forcedMovesService.destroyById(forcedMove.id)
-
-        return {
-            gameTurn,
-            player: updatedPlayer ? updatedPlayer : player,
-            leftGameField,
-            newGameField
-        }
-    }
+    // }
 }

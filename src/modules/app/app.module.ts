@@ -37,8 +37,6 @@ import { GamePayment } from '../game-payments/model/game-payment';
 import { GamePaymentsModule } from '../game-payments/game-payments.module';
 import { PlayerCard } from '../player-cards/model/player-card.model';
 import { PlayerCardsModule } from '../player-cards/player-cards.module';
-import { ForcedMovesModule } from '../forced-moves/forced-moves.module';
-import { ForcedMove } from '../forced-moves/model/forced-move';
 
 @Module({
     imports: [
@@ -73,7 +71,6 @@ import { ForcedMove } from '../forced-moves/model/forced-move';
                         Game, Player, GameTurn,
                         GameField, GameDeal, GameDealItem,
                         ActionCard, GamePayment, PlayerCard,
-                        ForcedMove
                     ]
                 }
             }
@@ -83,8 +80,7 @@ import { ForcedMove } from '../forced-moves/model/forced-move';
         GatewaysModule, ChatsModule, ChatMembersModule,
         MessagesModule, GamesModule, PlayersModule,
         DataFormatterModule, GlobalChatsModule, GamesMasterModule,
-        ActionsCardsModule, GamePaymentsModule, PlayerCardsModule,
-        ForcedMovesModule
+        ActionsCardsModule, GamePaymentsModule, PlayerCardsModule
     ],
 })
 export class AppModule { }
