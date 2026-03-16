@@ -622,7 +622,47 @@ export class GamesMasterService {
                 amount: actionCard.amount * receiversPlayers.length,
                 gameTurnId: gameTurn.id,
                 isOptional: false
-            })
+            }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return updatedGameTurn
+    }
+
+    async prepareGetPaymentFromPlayersRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to prepare GET_PAYMENT_FROM_PLAYERS actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+    
+        const [actionCard, activePlayers] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.findAllActiveByGameId(gameTurn.gameId)
+        ])
+
+        if (!actionCard.amount) {
+            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+        }
+
+        const payingPlayers = activePlayers.filter(p => p.id !== gameTurn.playerId)
+        if (payingPlayers.length === 0) {
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. receiversPlayers not found.`)
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            Promise.all(
+                payingPlayers.map(p => (
+                    this.gamePaymentsService.create({
+                        type: GamePaymentType.TO_PLAYER,
+                        payerPlayerId: p.id,
+                        receiverPlayerId: gameTurn.playerId,
+                        amount: actionCard.amount,
+                        gameTurnId: gameTurn.id,
+                        isOptional: false
+                    })
+                ))
+            ),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
         ])
 
         return updatedGameTurn
