@@ -5,29 +5,42 @@ import { User } from "src/modules/users/model/user.model";
 import { IPlayer } from "./interfaces/player";
 import { IPlayerPreview } from "./interfaces/player-preview";
 import { UsersFormatterService } from "../users/users-formatter.service";
+import { IPlayerCard } from "../player-cards/interfaces/player-card";
+import { PlayerCardsService } from "src/modules/player-cards/player-cards.service";
+import { PlayerCardsFormatterService } from "../player-cards/player-cards-formatter.service";
+import { PlayerCard } from "src/modules/player-cards/model/player-card.model";
 
 @Injectable()
 export class PlayersFormatterService {
     constructor(
         private readonly usersService: UsersService,
-        private readonly usersFormatterService: UsersFormatterService
+        private readonly usersFormatterService: UsersFormatterService,
+        private readonly playerCardsService: PlayerCardsService,
+        private readonly playerCardsFormatterService: PlayerCardsFormatterService
     ) { }
 
-    private formatPlayer(player: Player, user: User): IPlayer {
+    private formatPlayer(player: Player, user: User, cards: PlayerCard[]): IPlayer {
         return {
             id: player.id,
             user: this.usersFormatterService.formatUser(user),
             chip: player.chip,
             isActive: player.isActive,
             turnNumber: player.turnNumber,
-            balance: player.balance
+            balance: player.balance,
+            cards: this.playerCardsFormatterService.formatPlayerCards(cards)
         }
     }
 
     async formatPlayerAsync(player: Player): Promise<IPlayer> {
+        const [user, cards] = await Promise.all([
+            this.usersService.getOneOrThrow(player.userId),
+            this.playerCardsService.findAllByPlayerId(player.id)
+        ])
+
         return this.formatPlayer(
             player,
-            await this.usersService.getOneOrThrow(player.userId)
+            user,
+            cards
         )
     }
 
