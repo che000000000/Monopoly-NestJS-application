@@ -21,15 +21,12 @@ import { UsersFormatterService } from './users/users-formatter.service';
 import { PregameRoomChatFormatterService } from './pregame-room-chat/pregame-room-chat-formatter.service';
 import { PregameRoomsModule } from '../pregame-rooms/pregame-rooms.module';
 import { PregameRoomMembersModule } from '../pregame-room-members/pregame-room-members.module';
-import { PlayerCardsModule } from '../player-cards/player-cards.module';
-import { PlayerCardsFormatterService } from './player-cards/player-cards-formatter.service';
 
 @Module({
 	imports: [
 		UsersModule,
 		GamesModule,
 		PlayersModule,
-		PlayerCardsModule,
 		GameFieldsModule,
 		GameTurnsModule,
 		GamePaymentsModule,
@@ -42,7 +39,6 @@ import { PlayerCardsFormatterService } from './player-cards/player-cards-formatt
 	providers: [
 		UsersFormatterService,
 		PlayersFormatterService,
-		PlayerCardsFormatterService,
 		ActionCardsFormatterService,
 		GamePaymentsFormatterService,
 		GameTurnsFormatterService,
@@ -56,7 +52,6 @@ import { PlayerCardsFormatterService } from './player-cards/player-cards-formatt
 	exports: [
 		UsersFormatterService,
 		PlayersFormatterService,
-		PlayerCardsFormatterService,
 		GameFieldsFormatterService,
 		GameTurnsFormatterService,
 		GamePaymentsFormatterService,

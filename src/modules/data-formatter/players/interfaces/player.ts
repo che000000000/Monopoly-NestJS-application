@@ -1,6 +1,6 @@
 import { PlayerChip } from "src/modules/players/model/player"
 import { IUser } from "../../users/interfaces/user"
-import { IPlayerCard } from "../../player-cards/interfaces/player-card"
+import { IActionCard } from "../../action-cards/interfaces/action-card"
 
 export interface IPlayer {
     id: string,
@@ -9,5 +9,5 @@ export interface IPlayer {
     isActive: boolean
     turnNumber: number,
     balance: number,
-    cards: IPlayerCard[]
+    actionCards: IActionCard[]
 }

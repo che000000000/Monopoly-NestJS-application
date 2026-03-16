@@ -5,21 +5,20 @@ import { User } from "src/modules/users/model/user.model";
 import { IPlayer } from "./interfaces/player";
 import { IPlayerPreview } from "./interfaces/player-preview";
 import { UsersFormatterService } from "../users/users-formatter.service";
-import { IPlayerCard } from "../player-cards/interfaces/player-card";
-import { PlayerCardsService } from "src/modules/player-cards/player-cards.service";
-import { PlayerCardsFormatterService } from "../player-cards/player-cards-formatter.service";
-import { PlayerCard } from "src/modules/player-cards/model/player-card.model";
+import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
+import { ActionCardsFormatterService } from "../action-cards/action-cards-formatter.service";
+import { ActionCard } from "src/modules/action-cards/model/action-card";
 
 @Injectable()
 export class PlayersFormatterService {
     constructor(
         private readonly usersService: UsersService,
         private readonly usersFormatterService: UsersFormatterService,
-        private readonly playerCardsService: PlayerCardsService,
-        private readonly playerCardsFormatterService: PlayerCardsFormatterService
+        private readonly actionCardsService: ActionCardsService,
+        private readonly actionCardsFormatterService: ActionCardsFormatterService
     ) { }
 
-    private formatPlayer(player: Player, user: User, cards: PlayerCard[]): IPlayer {
+    private formatPlayer(player: Player, user: User, cards: ActionCard[]): IPlayer {
         return {
             id: player.id,
             user: this.usersFormatterService.formatUser(user),
@@ -27,20 +26,20 @@ export class PlayersFormatterService {
             isActive: player.isActive,
             turnNumber: player.turnNumber,
             balance: player.balance,
-            cards: this.playerCardsFormatterService.formatPlayerCards(cards)
+            actionCards: this.actionCardsFormatterService.formatActionCards(cards)
         }
     }
 
     async formatPlayerAsync(player: Player): Promise<IPlayer> {
-        const [user, cards] = await Promise.all([
+        const [user, actionCards] = await Promise.all([
             this.usersService.getOneOrThrow(player.userId),
-            this.playerCardsService.findAllByPlayerId(player.id)
+            this.actionCardsService.findAllByPlayerId(player.id)
         ])
 
         return this.formatPlayer(
             player,
             user,
-            cards
+            actionCards
         )
     }
 

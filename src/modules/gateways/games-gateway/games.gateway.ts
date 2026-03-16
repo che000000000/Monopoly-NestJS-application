@@ -126,16 +126,30 @@ export class GamesGateway implements OnGatewayConnection {
             case ActionCardType.GET_MONEY: {
                 const actionCardExecuteResult = await this.gamesMasterService.executeGetMoneyActionCardRequirement(gameTurn)
 
-                const nextGameTurn = gameTurn.isDouble
-                    ? await this.gamesMasterService.grantExtraTurn(gameTurn)
-                    : await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
-
-                this.server.to(nextGameTurn.gameId).emit('update-players', (
-                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecuteResult.player)]
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    await this.playersFormatterService.formatPlayersAsync([actionCardExecuteResult.player])
                 ))
-                this.server.to(nextGameTurn.gameId).emit('set-game-turn', (
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
                     await this.gameTurnsFormatterService.formatGameTurnAsync(actionCardExecuteResult.gameTurn)
                 ))
+
+                const nextGameTurn = gameTurn.isDouble
+                    ? await this.gamesMasterService.grantExtraTurn(actionCardExecuteResult.gameTurn)
+                    : await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
+
+                this.startTurnTimer(nextGameTurn)
+                break
+            }
+            case ActionCardType.GET_OUT_OF_JAIL: {
+                const actionCardExecuteResult = await this.gamesMasterService.executeGetOutOfJailActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    await this.playersFormatterService.formatPlayersAsync([actionCardExecuteResult.player])
+                ))
+
+                const nextGameTurn = gameTurn.isDouble
+                    ? await this.gamesMasterService.grantExtraTurn(actionCardExecuteResult.gameTurn)
+                    : await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
 
                 this.startTurnTimer(nextGameTurn)
                 break

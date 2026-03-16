@@ -18,7 +18,7 @@ import { ChatType } from '../chats/model/chat';
 import { GameField, GameFieldType } from '../game-fields/model/game-field';
 import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
-import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType } from '../action-cards/model/action-card';
+import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from '../action-cards/model/action-card';
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
 import { IsOptional } from 'class-validator';
@@ -568,6 +568,30 @@ export class GamesMasterService {
         return {
             gameTurn: updatedGameTurn,
             player: updatedPlayer 
+        }
+    }
+
+    async executeGetOutOfJailActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const [actionCard, player] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+        ]) 
+
+        if (actionCard.type !== ActionCardType.GET_OUT_OF_JAIL) {
+            throw new Error(`Failed to execute GET_OUT_OF_JAIL actionCard requirement. This actionCard ${actionCard.id} isn't the appropriate type.`)
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+            this.actionCardsService.updateOneById(actionCard.id, { playerId: player.id, isActive: false })
+        ])
+
+        return {
+            gameTurn: updatedGameTurn,
+            player
         }
     }
 
