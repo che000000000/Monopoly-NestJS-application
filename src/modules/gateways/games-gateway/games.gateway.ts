@@ -23,6 +23,7 @@ import { PayPaymentDto } from "./dto/pay-payment";
 import { PlayersFormatterService } from "src/modules/data-formatter/players/players-formatter.service";
 import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
 import { ActionCardType } from "src/modules/action-cards/model/action-card";
+import { GameField } from "src/modules/game-fields/model/game-field";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -196,9 +197,29 @@ export class GamesGateway implements OnGatewayConnection {
         }
     }
 
+    private async handleGoToJailTimeout(gameTurn: GameTurn): Promise<void> {
+        const { player, gameFields } = await this.gamesMasterService.executeGoToJail(gameTurn)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
+        )
+        return
+    }
+
     private async turnTimeout(gameTurn: GameTurn): Promise<void> {
         if (gameTurn.stage === GameTurnStage.ACTION_CARD_SHOWTIME) {
             await this.handleActionCardTimeout(gameTurn)
+            return
+        }
+        if (gameTurn.stage === GameTurnStage.GO_TO_JAIL) {
+            await this.handleGoToJailTimeout(gameTurn)
             return
         }
 

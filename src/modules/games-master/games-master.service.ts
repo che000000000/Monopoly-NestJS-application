@@ -41,6 +41,7 @@ export class GamesMasterService {
 
     private readonly BOARD_SIZE = 40
     private readonly GAME_TURN_EXPIRES = 30
+    private readonly GO_TO_JAIL_DURATION = 3
     private readonly ACTION_CARD_DURATION = 5
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
@@ -744,6 +745,17 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
+    private async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
+        const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+        
+        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
+            throw new Error(`Failed to prepare GO_TO_JAIL gameFiled requirements. The gameField isn't of the appropriate type.`)
+        }
+
+        return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
+    }
+
     private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
         return await this.gameTurnsService.updateOne(gameTurn.id, {
             stage: GameTurnStage.ACTION_CARD_SHOWTIME,
@@ -796,7 +808,26 @@ export class GamesMasterService {
                     await this.actionCardsService.getRandomActiveActionCard(gameTurn.gameId, ActionCardDeckType.COMMUNITY_CHEST)
                 )
             }
+            case GameFieldType.GO_TO_JAIL: {
+                return this.prepareGoToJailRequirements(gameTurn)
+            }
             default: return gameTurn.isDouble ? await this.grantExtraTurn(gameTurn) : await this.passGameTurnToNextPlayer(gameTurn)
+        }
+    }
+
+    async executeGoToJail(gameTurn: GameTurn): Promise<{ player: Player, gameFields: GameField[] }> {
+        const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+
+        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
+            throw new Error(`Failed to execute GO_TO_JAIL requirements. The gameField isn't of the appropriate type.`)
+        }
+
+        const makeMoveResult = await this.movePlayer(player.id, 11)
+
+        return {
+            player: makeMoveResult.player,
+            gameFields: [makeMoveResult.leftGameField, makeMoveResult.newGameField]
         }
     }
 
