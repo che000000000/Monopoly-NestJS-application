@@ -167,6 +167,15 @@ export class GamesGateway implements OnGatewayConnection {
                 this.startTurnTimer(gameTurnWithActionCardRequirements)
                 break
             }
+            case ActionCardType.PROPERTY_REPAIR: {
+                const gameTurnWithActionCardRequirements = await this.gamesMasterService.preparePropertyRepairActionCardRequirements(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurnWithActionCardRequirements)
+                ))
+                this.startTurnTimer(gameTurnWithActionCardRequirements)
+                break
+            }
             default: {
                 throw new Error(`Failed to handle actionCard timeout. Unsupported action card type: ${actionCard.type}.`)
             }

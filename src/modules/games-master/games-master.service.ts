@@ -668,6 +668,58 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
+    async preparePropertyRepairActionCardRequirements(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to prepare PROPERTY_REPAIR actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
+
+        if (!actionCard.houseCost || !actionCard.hotelCost) {
+            throw new Error(`Failed to prepare PROPERTY_REPAIR actionCard requirement. The actionCard ${actionCard.id} doesn't contain the houseCost and hotelCost fields.`)
+        }
+
+        const playerProperties = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameTurn.playerId, GameFieldType.PROPERTY)
+        let finalAmount: number = 0
+        playerProperties.map(pp => {
+            const buildsCount = pp.buildsCount
+            if (!buildsCount) return
+
+            if (buildsCount !== 5) {
+                finalAmount += actionCard.houseCost * buildsCount
+            } else {
+                finalAmount += actionCard.hotelCost
+            }
+        })
+
+        if (!finalAmount) {
+            await Promise.all([
+                this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+                this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+            ])
+
+            if (gameTurn.isDouble) {
+                return await this.grantExtraTurn(gameTurn)
+            } else {
+                return await this.passGameTurnToNextPlayer(gameTurn)
+            }
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gamePaymentsService.create({
+                type: GamePaymentType.TO_BANK,
+                payerPlayerId: gameTurn.playerId,
+                amount: finalAmount,
+                gameTurnId: gameTurn.id,
+                isOptional: false
+            }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return updatedGameTurn
+    }
+
     private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
         return await this.gameTurnsService.updateOne(gameTurn.id, {
             stage: GameTurnStage.ACTION_CARD_SHOWTIME,
