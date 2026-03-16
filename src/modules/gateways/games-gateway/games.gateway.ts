@@ -124,6 +124,24 @@ export class GamesGateway implements OnGatewayConnection {
                 this.startTurnTimer(nextGameTurn)
                 break
             }
+            case ActionCardType.GO_TO_JAIL: {
+                const actionCardExecuteResult = await this.gamesMasterService.executeGoToJailActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    await this.playersFormatterService.formatPlayersAsync([actionCardExecuteResult.player])
+                ))
+                this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                    await this.gameFieldsFormatterService.formatGameFieldsAsync(actionCardExecuteResult.gameFields)
+                ))
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(actionCardExecuteResult.gameTurn)
+                ))
+
+                this.startTurnTimer(
+                    await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
+                )
+                break
+            }
             case ActionCardType.GET_MONEY: {
                 const actionCardExecuteResult = await this.gamesMasterService.executeGetMoneyActionCardRequirement(gameTurn)
 
@@ -137,7 +155,6 @@ export class GamesGateway implements OnGatewayConnection {
                 const nextGameTurn = gameTurn.isDouble
                     ? await this.gamesMasterService.grantExtraTurn(actionCardExecuteResult.gameTurn)
                     : await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
-
                 this.startTurnTimer(nextGameTurn)
                 break
             }

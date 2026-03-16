@@ -43,6 +43,7 @@ export class GamesMasterService {
     private readonly GAME_TURN_EXPIRES = 30
     private readonly GO_TO_JAIL_DURATION = 3
     private readonly ACTION_CARD_DURATION = 5
+    private readonly JAIL_POSITION = 11
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
         switch (propertyType) {
@@ -446,6 +447,17 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
+    private async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
+        const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+
+        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
+            throw new Error(`Failed to prepare GO_TO_JAIL gameFiled requirements. The gameField isn't of the appropriate type.`)
+        }
+
+        return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
+    }
+
     async executeMoveActionCardRequirement(gameTurn: GameTurn)
         : Promise<{ gameTurn: GameTurn, player: Player, fromGameField: GameField, toGameField: GameField }> {
         if (!gameTurn.actionCardId) {
@@ -547,6 +559,29 @@ export class GamesMasterService {
         }
     }
 
+    async executeGoToJailActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player, gameFields: GameField[] }> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute GO_TO_JAIL actionCard requirement. gameTurn: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
+        if (actionCard.type !== ActionCardType.GO_TO_JAIL) {
+            throw new Error(`Failed to execute GO_TO_JAIL actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
+
+        const { player, gameFields } = await this.executeGoToJail(gameTurn)
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return {
+            gameTurn: updatedGameTurn,
+            player,
+            gameFields
+        }
+    }
+
     async executeGetMoneyActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
         if (!gameTurn.actionCardId) {
             throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
@@ -555,7 +590,9 @@ export class GamesMasterService {
             this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
             this.playersService.getOneByIdOrThrow(gameTurn.playerId)
         ])
-
+        if (actionCard.type !== ActionCardType.GET_MONEY) {
+            throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
         if (!actionCard.amount) {
             throw new Error(`Failed to execute GET_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
@@ -574,15 +611,14 @@ export class GamesMasterService {
 
     async executeGetOutOfJailActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
         if (!gameTurn.actionCardId) {
-            throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+            throw new Error(`Failed to execute GET_OUT_OF_JAIL actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
         const [actionCard, player] = await Promise.all([
             this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
             this.playersService.getOneByIdOrThrow(gameTurn.playerId)
         ]) 
-
         if (actionCard.type !== ActionCardType.GET_OUT_OF_JAIL) {
-            throw new Error(`Failed to execute GET_OUT_OF_JAIL actionCard requirement. This actionCard ${actionCard.id} isn't the appropriate type.`)
+            throw new Error(`Failed to execute GO_TO_JAIL actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
         }
 
         const [updatedGameTurn] = await Promise.all([
@@ -601,7 +637,9 @@ export class GamesMasterService {
             throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
         const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
-
+        if (actionCard.type !== ActionCardType.PAY_MONEY) {
+            throw new Error(`Failed to execute PAY_MONEY actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
         if (!actionCard.amount) {
             throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
@@ -623,20 +661,22 @@ export class GamesMasterService {
 
     async preparePayPlayersActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         if (!gameTurn.actionCardId) {
-            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
         const [actionCard, activePlayers] = await Promise.all([
             this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
             this.playersService.findAllActiveByGameId(gameTurn.gameId)
         ])
-
+        if (actionCard.type !== ActionCardType.PAY_PLAYERS) {
+            throw new Error(`Failed to execute PAY_PLAYERS actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
         if (!actionCard.amount) {
             throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
 
         const receiversPlayers = activePlayers.filter(p => p.id !== gameTurn.playerId)
         if (receiversPlayers.length === 0) {
-            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. receiversPlayers not found.`)
+            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. receiversPlayers not found.`)
         }
 
         const [updatedGameTurn] = await Promise.all([
@@ -663,14 +703,16 @@ export class GamesMasterService {
             this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
             this.playersService.findAllActiveByGameId(gameTurn.gameId)
         ])
-
+        if (actionCard.type !== ActionCardType.GET_PAYMENT_FROM_PLAYERS) {
+            throw new Error(`Failed to execute GET_PAYMENT_FROM_PLAYERS actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
         if (!actionCard.amount) {
-            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+            throw new Error(`Failed to prepare GET_PAYMENT_FROM_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
         }
 
         const payingPlayers = activePlayers.filter(p => p.id !== gameTurn.playerId)
         if (payingPlayers.length === 0) {
-            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. receiversPlayers not found.`)
+            throw new Error(`Failed to prepare GET_PAYMENT_FROM_PLAYERS actionCard requirement. Paing players not found.`)
         }
 
         const [updatedGameTurn] = await Promise.all([
@@ -699,7 +741,9 @@ export class GamesMasterService {
         }
 
         const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
-
+        if (actionCard.type !== ActionCardType.PROPERTY_REPAIR) {
+            throw new Error(`Failed to execute PROPERTY_REPAIR actionCard requirement. gameTurn: ${gameTurn.id} contain actionCard: ${actionCard.id} with wrong type: ${actionCard.type}.`)
+        }
         if (!actionCard.houseCost || !actionCard.hotelCost) {
             throw new Error(`Failed to prepare PROPERTY_REPAIR actionCard requirement. The actionCard ${actionCard.id} doesn't contain the houseCost and hotelCost fields.`)
         }
@@ -743,17 +787,6 @@ export class GamesMasterService {
         ])
 
         return updatedGameTurn
-    }
-
-    private async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
-        const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
-        
-        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
-        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
-            throw new Error(`Failed to prepare GO_TO_JAIL gameFiled requirements. The gameField isn't of the appropriate type.`)
-        }
-
-        return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
     }
 
     private async executeActionCardShowtime(gameTurn: GameTurn, actionCard: ActionCard): Promise<GameTurn> {
@@ -818,15 +851,12 @@ export class GamesMasterService {
     async executeGoToJail(gameTurn: GameTurn): Promise<{ player: Player, gameFields: GameField[] }> {
         const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
 
-        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
-        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
-            throw new Error(`Failed to execute GO_TO_JAIL requirements. The gameField isn't of the appropriate type.`)
-        }
+        const makeMoveResult = await this.movePlayer(player.id, this.JAIL_POSITION)
 
-        const makeMoveResult = await this.movePlayer(player.id, 11)
+        const updatedPlayer = await this.playersService.updateOne(player.id, { atJail: true, attemptsToGetOutOfJailCount: 0 })
 
         return {
-            player: makeMoveResult.player,
+            player: updatedPlayer,
             gameFields: [makeMoveResult.leftGameField, makeMoveResult.newGameField]
         }
     }

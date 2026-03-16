@@ -51,9 +51,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
     {
         description: 'Отправляйтесь прямо в тюрьму, не проходите поле Вперёд и не получайте М200',
         deckType: ActionCardDeckType.CHANCE,
-        type: ActionCardType.MOVE,
-        moveDirection: ActionCardMoveDirection.TARGET,
-        targetPosition: 11,
+        type: ActionCardType.GO_TO_JAIL,
         paymentForCircle: false
     },
     {
@@ -163,9 +161,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
     {
         description: 'Отправляйтесь прямо в тюрьму, не проходите поле Вперед и не получайте М200',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
-        type: ActionCardType.MOVE,
-        moveDirection: ActionCardMoveDirection.TARGET,
-        targetPosition: 11,
+        type: ActionCardType.GO_TO_JAIL,
         paymentForCircle: false
     },
     {
