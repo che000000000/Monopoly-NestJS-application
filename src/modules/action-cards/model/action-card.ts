@@ -1,6 +1,7 @@
 import { Table, Column, Model, DataType, ForeignKey, PrimaryKey, HasOne } from 'sequelize-typescript';
 import { GameTurn } from 'src/modules/game-turns/model/game-turn';
 import { Game } from 'src/modules/games/model/game';
+import { Player } from 'src/modules/players/model/player';
 import { v4 } from 'uuid';
 
 export enum ActionCardDeckType {
@@ -125,6 +126,13 @@ export class ActionCard extends Model {
         allowNull: false
     })
     declare gameId: string
+
+    @ForeignKey(() => Player)
+    @Column({
+        type: DataType.UUID,
+        allowNull: true
+    })
+    declare playerId: string
 
     @HasOne(() => GameTurn)
     gameTurn: GameTurn

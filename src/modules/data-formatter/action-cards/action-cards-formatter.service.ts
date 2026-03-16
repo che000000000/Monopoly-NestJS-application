@@ -12,4 +12,8 @@ export class ActionCardsFormatterService {
             type: actionCard.type
         }
     }
+
+    formatActionCards(actionCards: ActionCard[]): IActionCard[] {
+        return actionCards.map(ac => this.formatActionCard(ac))
+    }
 }

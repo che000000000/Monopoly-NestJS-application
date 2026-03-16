@@ -18,7 +18,7 @@ import { ChatType } from '../chats/model/chat';
 import { GameField, GameFieldType } from '../game-fields/model/game-field';
 import { GameTurn, GameTurnStage } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
-import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType } from '../action-cards/model/action-card';
+import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardPropertyType, ActionCardType } from '../action-cards/model/action-card';
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
 import { IsOptional } from 'class-validator';
@@ -571,6 +571,30 @@ export class GamesMasterService {
         }
     }
 
+    async executeGetOutOfJailActionCardRequirement(gameTurn: GameTurn): Promise<{ gameTurn: GameTurn, player: Player }> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to execute GET_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+        const [actionCard, player] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+        ]) 
+
+        if (actionCard.type !== ActionCardType.GET_OUT_OF_JAIL) {
+            throw new Error(`Failed to execute GET_OUT_OF_JAIL actionCard requirement. This actionCard ${actionCard.id} isn't the appropriate type.`)
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+            this.actionCardsService.updateOneById(actionCard.id, { playerId: player.id, isActive: false })
+        ])
+
+        return {
+            gameTurn: updatedGameTurn,
+            player
+        }
+    }
+
     async preparePayMoneyActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         if (!gameTurn.actionCardId) {
             throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
@@ -622,7 +646,99 @@ export class GamesMasterService {
                 amount: actionCard.amount * receiversPlayers.length,
                 gameTurnId: gameTurn.id,
                 isOptional: false
-            })
+            }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return updatedGameTurn
+    }
+
+    async prepareGetPaymentFromPlayersRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to prepare GET_PAYMENT_FROM_PLAYERS actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+    
+        const [actionCard, activePlayers] = await Promise.all([
+            this.actionCardsService.getOneOrThrow(gameTurn.actionCardId),
+            this.playersService.findAllActiveByGameId(gameTurn.gameId)
+        ])
+
+        if (!actionCard.amount) {
+            throw new Error(`Failed to prepare PAY_PLAYERS actionCard requirement. The actionCard ${actionCard.id} doesn't contain amount field.`)
+        }
+
+        const payingPlayers = activePlayers.filter(p => p.id !== gameTurn.playerId)
+        if (payingPlayers.length === 0) {
+            throw new Error(`Failed to prepare PAY_MONEY actionCard requirement. receiversPlayers not found.`)
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            Promise.all(
+                payingPlayers.map(p => (
+                    this.gamePaymentsService.create({
+                        type: GamePaymentType.TO_PLAYER,
+                        payerPlayerId: p.id,
+                        receiverPlayerId: gameTurn.playerId,
+                        amount: actionCard.amount,
+                        gameTurnId: gameTurn.id,
+                        isOptional: false
+                    })
+                ))
+            ),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+        ])
+
+        return updatedGameTurn
+    }
+
+    async preparePropertyRepairActionCardRequirements(gameTurn: GameTurn): Promise<GameTurn> {
+        if (!gameTurn.actionCardId) {
+            throw new Error(`Failed to prepare PROPERTY_REPAIR actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
+        }
+
+        const actionCard = await this.actionCardsService.getOneOrThrow(gameTurn.actionCardId)
+
+        if (!actionCard.houseCost || !actionCard.hotelCost) {
+            throw new Error(`Failed to prepare PROPERTY_REPAIR actionCard requirement. The actionCard ${actionCard.id} doesn't contain the houseCost and hotelCost fields.`)
+        }
+
+        const playerProperties = await this.gameFieldsService.findAllByOwnerPlayerIdAndType(gameTurn.playerId, GameFieldType.PROPERTY)
+        let finalAmount: number = 0
+        playerProperties.map(pp => {
+            const buildsCount = pp.buildsCount
+            if (!buildsCount) return
+
+            if (buildsCount !== 5) {
+                finalAmount += actionCard.houseCost * buildsCount
+            } else {
+                finalAmount += actionCard.hotelCost
+            }
+        })
+
+        if (!finalAmount) {
+            await Promise.all([
+                this.gameTurnsService.updateOne(gameTurn.id, { actionCardId: null }),
+                this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
+            ])
+
+            if (gameTurn.isDouble) {
+                return await this.grantExtraTurn(gameTurn)
+            } else {
+                return await this.passGameTurnToNextPlayer(gameTurn)
+            }
+        }
+
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gamePaymentsService.create({
+                type: GamePaymentType.TO_BANK,
+                payerPlayerId: gameTurn.playerId,
+                amount: finalAmount,
+                gameTurnId: gameTurn.id,
+                isOptional: false
+            }),
+            this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
         ])
 
         return updatedGameTurn

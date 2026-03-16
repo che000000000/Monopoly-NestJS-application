@@ -13,7 +13,8 @@ interface ActionCardSeedData {
     hotelCost?: number,
     rentFactor?: number,
     paymentForCircle?: boolean,
-    isActive?: boolean
+    isActive?: boolean,
+    playerId?: string
 }
 
 export const ACTION_CARDS: ActionCardSeedData[] = [
@@ -52,7 +53,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         deckType: ActionCardDeckType.CHANCE,
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.TARGET,
-        targetPosition: 31,
+        targetPosition: 11,
         paymentForCircle: false
     },
     {
@@ -164,7 +165,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
         type: ActionCardType.MOVE,
         moveDirection: ActionCardMoveDirection.TARGET,
-        targetPosition: 31,
+        targetPosition: 11,
         paymentForCircle: false
     },
     {
@@ -180,7 +181,7 @@ export const ACTION_CARDS: ActionCardSeedData[] = [
         amount: 20
     },
     {
-        description: 'Бесплатное освобождение из тюрьмы',
+        description: 'Бесплатное освобождение из тюрьмы. Карточка сохраняется до того момента, пока не будет использована',
         deckType: ActionCardDeckType.COMMUNITY_CHEST,
         type: ActionCardType.GET_OUT_OF_JAIL
     },

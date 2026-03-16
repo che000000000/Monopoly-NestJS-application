@@ -22,6 +22,12 @@ export class ActionCardsService {
         return actionCard
     }
 
+    async findAllByPlayerId(playerId: string): Promise<ActionCard[]> {
+        return await this.actionCardsRepository.findAll({
+            where: { playerId }
+        })
+    }
+
     async create(dto: CreateActionCardDto): Promise<ActionCard> {
         return await this.actionCardsRepository.create({
             ...dto
@@ -39,6 +45,12 @@ export class ActionCardsService {
         )
 
         return newFields
+    }
+
+    async findAllByGameIdAndDeckType(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {
+        return await this.actionCardsRepository.findAll({
+            where: { gameId, deckType }
+        })
     }
 
     async getRandomActiveActionCard(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard> {
@@ -66,37 +78,35 @@ export class ActionCardsService {
         return activeActionCards
     }
 
-    async findAllByGameIdAndDeckType(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {
-        return await this.actionCardsRepository.findAll({
-            where: { gameId, deckType }
-        })
-    }
-
     async updateOneById(id: string, updates: Partial<ActionCard>): Promise<ActionCard> {
-        const gameTurn = await this.findOne(id)
-        if (!gameTurn) {
+        const actionCard = await this.findOne(id)
+        if (!actionCard) {
             throw new Error(`Failed to update actionCard with id: ${id}. actionCard not found.`)
         }
 
-        const [affectedCount, [updatedGameTurn]] = await this.actionCardsRepository.update(
+        const [affectedCount, [updatedActionCard]] = await this.actionCardsRepository.update(
             updates,
-            { where: { id }, returning: true }
+            { 
+                where: { id }, 
+                returning: true 
+            }
         )
         if (affectedCount === 0) {
             throw new Error(`actionCard with id: ${id} wasn't updated. No fields were changed.`)
         }
 
-        return updatedGameTurn
+        return updatedActionCard
     }
 
     private async activateActionCardsByGameIdAndDeckType(gameId: string, deckType: ActionCardDeckType): Promise<ActionCard[]> {
-        await this.actionCardsRepository.update(
+        const [_, updatedActionCards] = await this.actionCardsRepository.update(
             { isActive: true },
-            { where: { gameId, deckType } }
+            { 
+                where: { gameId, deckType, playerId: null },
+                returning: true
+            }
         )
 
-        return await this.actionCardsRepository.findAll({
-            where: { gameId, deckType }
-        })
+        return updatedActionCards
     }
 }

@@ -6,8 +6,8 @@ import { GameDealItem } from "../../../models/game-deal-item";
 import { GameDeal } from "../../../models/game-deal";
 import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
-import { PlayerCard } from "src/modules/player-cards/model/player-card.model";
 import { GamePayment } from "src/modules/game-payments/model/game-payment";
+import { ActionCard } from "src/modules/action-cards/model/action-card";
 
 export enum PlayerChip {
     CART = 'CART',
@@ -80,13 +80,6 @@ export class Player extends Model {
     })
     declare paymentForCircle: boolean
 
-    @Column({
-        type: DataType.INTEGER,
-        allowNull: false,
-        defaultValue: () => 0
-    })
-    declare getOutOfJailCardsCount: number
-
     @HasOne(() => GameTurn)
     gameTurn: GameTurn
 
@@ -99,9 +92,6 @@ export class Player extends Model {
     @HasMany(() => GameDealItem)
     gameDealItem: GameDealItem[]
 
-    @HasMany(() => PlayerCard)
-    playerCards: PlayerCard[]
-
     @HasMany(() => GamePayment, {
         foreignKey: 'payerPlayerId',
         as: 'sentPayments'
@@ -113,4 +103,7 @@ export class Player extends Model {
         as: 'receivedPayments'
     })
     receivedPayments: GamePayment[]
+
+    @HasMany(() => ActionCard)
+    actionCards: ActionCard[]
 }
