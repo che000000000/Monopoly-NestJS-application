@@ -23,7 +23,6 @@ import { PayPaymentDto } from "./dto/pay-payment";
 import { PlayersFormatterService } from "src/modules/data-formatter/players/players-formatter.service";
 import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
 import { ActionCardType } from "src/modules/action-cards/model/action-card";
-import { GameField } from "src/modules/game-fields/model/game-field";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -214,6 +213,31 @@ export class GamesGateway implements OnGatewayConnection {
         }
     }
 
+    private async handleThrowOfDiceForGetOutOfJailTimeout(gameTurn: GameTurn): Promise<void> {
+        if (!gameTurn.isDouble) {
+            const gameTurnPlayer = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+            if (gameTurnPlayer.attemptsToGetOutOfJailCount < 3) {
+                this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
+            } else {
+                this.startTurnTimer(await this.gamesMasterService.grantExtraTurn(gameTurn))
+            }
+            return
+        }
+
+        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeGettingOutOfJailForDiceRoll(gameTurn)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+        )
+    }
+
     private async handleGoToJailTimeout(gameTurn: GameTurn): Promise<void> {
         const { player, gameFields } = await this.gamesMasterService.executeGoToJail(gameTurn)
 
@@ -230,35 +254,10 @@ export class GamesGateway implements OnGatewayConnection {
         return
     }
 
-    private async handleThrowOfDiceForGetOutOfJailTimeout(gameTurn: GameTurn): Promise<void> {
-        if (!gameTurn.isDouble) {
-            const gameTurnPlayer = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
-            if (gameTurnPlayer.attemptsToGetOutOfJailCount < 3) {
-                this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
-            } else {
-                this.startTurnTimer(await this.gamesMasterService.grantExtraTurn(gameTurn))
-            }
-            return
-        }
-
-        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeGettingOutOfJailForDice(gameTurn)
-
-        this.server.to(gameTurn.gameId).emit('update-players', (
-            await this.playersFormatterService.formatPlayersAsync([player])
-        ))
-        this.server.to(gameTurn.gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
-        ))
-
-        this.startTurnTimer(
-            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
-        )
-    }
-
     private async handleThrowOfDiceForMoveTimeout(gameTurn: GameTurn): Promise<void> {
         if (gameTurn.doublesCount >= 3) {
             this.startTurnTimer(
-                await this.gamesMasterService.prepareGoToJailRequirements(gameTurn)
+                await this.gamesMasterService.prepareGoToJailRequirement(gameTurn)
             )
             return
         }
@@ -278,20 +277,20 @@ export class GamesGateway implements OnGatewayConnection {
 
     private async turnTimeout(gameTurn: GameTurn): Promise<void> {
         switch (gameTurn.stage) {
-            case GameTurnStage.THROW_OF_DICE_FOR_MOVE: {
-                this.handleThrowOfDiceForMoveTimeout(gameTurn)
-                break
-            }
-            case GameTurnStage.ACTION_CARD_SHOWTIME: {
-                await this.handleActionCardTimeout(gameTurn)
+            case GameTurnStage.ROLL_OF_DICE_FOR_MOVE: {
+                await this.handleThrowOfDiceForMoveTimeout(gameTurn)
                 break
             }
             case GameTurnStage.GO_TO_JAIL: {
                 await this.handleGoToJailTimeout(gameTurn)
                 break
             }
-            case GameTurnStage.THROW_OF_DICE_FOR_GET_OUT_OF_JAIL: {
+            case GameTurnStage.ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL: {
                 await this.handleThrowOfDiceForGetOutOfJailTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.ACTION_CARD_SHOWTIME: {
+                await this.handleActionCardTimeout(gameTurn)
                 break
             }
             default: {
@@ -397,6 +396,20 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
+    @SubscribeMessage('roll-dice-to-get-out-of-jail')
+    async throwDiceToAttemptGetOutOfJail(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, thrownDice } = await this.gamesMasterService.rollDiceToGetOutOfJail(userId)
+
+        this.server.to(gameTurn.gameId).emit('throw-dices', (
+            thrownDice
+        ))
+
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
     @SubscribeMessage('accept-payment')
     async acceptPayment(
         @ConnectedSocket() socket: SocketWithSession,
@@ -416,20 +429,6 @@ export class GamesGateway implements OnGatewayConnection {
         if (gameTurn) {
             this.startTurnTimer(gameTurn)
         }
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('throw-dice-to-attempt-get-out-of-jail')
-    async throwDiceToAttemptGetOutOfJail(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const { gameTurn, thrownDice } = await this.gamesMasterService.throwDiceToAttemptGetOutOfJail(userId)
-
-        this.server.to(gameTurn.gameId).emit('throw-dices', (
-            thrownDice
-        ))
-
-        this.startTurnTimer(gameTurn)
     }
 
     @UseGuards(WsAuthGuard)

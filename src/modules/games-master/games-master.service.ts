@@ -243,19 +243,19 @@ export class GamesMasterService {
     async movePlayer(playerId: string, position: number): Promise<{ player: Player, newGameField: GameField, leftGameField: GameField }> {
         const player = await this.playersService.findOneById(playerId)
         if (!player) {
-            throw new InternalServerErrorException(`Failed to move player. Player not found`)
+            throw new Error(`Failed to move player. Player isn't found`)
         }
 
         const startingGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
 
         const gameField = await this.gameFieldsService.findOneByGameIdAndPosition(player.gameId, position)
         if (!gameField) {
-            throw new InternalServerErrorException(`Failed to move. New game field not found`)
+            throw new Error(`Failed to move player. The next gameField isn't found`)
         }
 
         const updatedPlayer = await this.playersService.updateOne(player.id, { gameFieldId: gameField.id })
         if (!updatedPlayer) {
-            throw new Error(`Failed to move player. Player was not updated.`)
+            throw new Error(`Failed to move player. Player wasn't updated.`)
         }
 
         return {
@@ -367,7 +367,7 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
-    async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
+    async prepareGoToJailRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
     }
 
@@ -755,7 +755,7 @@ export class GamesMasterService {
                 )
             }
             case GameFieldType.GO_TO_JAIL: {
-                return this.prepareGoToJailRequirements(gameTurn)
+                return this.prepareGoToJailRequirement(gameTurn)
             }
             default: return gameTurn.isDouble ? await this.grantExtraTurn(gameTurn) : await this.passGameTurnToNextPlayer(gameTurn)
         }
@@ -775,7 +775,7 @@ export class GamesMasterService {
     }
 
     async executeMovePlayerForDiceRoll(gameTurn: GameTurn): Promise<{ player: Player, fromGameField: GameField, toGameField: GameField }> {
-        if (gameTurn.stage !== GameTurnStage.THROW_OF_DICE_FOR_MOVE) {
+        if (gameTurn.stage !== GameTurnStage.ROLL_OF_DICE_FOR_MOVE) {
             throw new Error(`Failed to executeMovePlayerForDiceRoll. gameTurn: ${gameTurn.id} have wrong stage: ${gameTurn.stage}.`)
         }
         if (!gameTurn.stepsCount) {
@@ -798,8 +798,8 @@ export class GamesMasterService {
         }
     }
 
-    async executeGettingOutOfJailForDice(gameTurn: GameTurn): Promise<{ player: Player, fromGameField: GameField, toGameField: GameField }> {
-        if (gameTurn.stage !== GameTurnStage.THROW_OF_DICE_FOR_GET_OUT_OF_JAIL) {
+    async executeGettingOutOfJailForDiceRoll(gameTurn: GameTurn): Promise<{ player: Player, fromGameField: GameField, toGameField: GameField }> {
+        if (gameTurn.stage !== GameTurnStage.ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL) {
             throw new Error(`Failed to executeGettingOutOfJailForDice. gameTurn: ${gameTurn.id} have wrong stage: ${gameTurn.stage}.`)
         }
         if (!gameTurn.isDouble || !gameTurn.stepsCount) {
@@ -993,7 +993,7 @@ export class GamesMasterService {
         const thrownDice = this.throwDice()
 
         const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, {
-            stage: GameTurnStage.THROW_OF_DICE_FOR_MOVE,
+            stage: GameTurnStage.ROLL_OF_DICE_FOR_MOVE,
             expires: this.THROW_OF_DICE_DURATION,
             stepsCount: thrownDice.summ,
             isDouble: thrownDice.isDouble,
@@ -1006,7 +1006,7 @@ export class GamesMasterService {
         }
     }
 
-    async throwDiceToAttemptGetOutOfJail(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
+    async rollDiceToGetOutOfJail(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
         const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
             throw new BadRequestException(`Failed to attempt get out of jail. User isn't an active player.`)
@@ -1024,7 +1024,7 @@ export class GamesMasterService {
 
         const [updatedGameTurn] = await Promise.all([
             this.gameTurnsService.updateOne(gameTurn.id, {
-                stage: GameTurnStage.THROW_OF_DICE_FOR_GET_OUT_OF_JAIL,
+                stage: GameTurnStage.ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL,
                 expires: this.THROW_OF_DICE_DURATION,
                 stepsCount: thrownDice.summ,
                 isDouble: thrownDice.isDouble,
