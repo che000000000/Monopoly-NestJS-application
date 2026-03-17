@@ -255,8 +255,33 @@ export class GamesGateway implements OnGatewayConnection {
         )
     }
 
+    private async handleThrowOfDiceForMoveTimeout(gameTurn: GameTurn): Promise<void> {
+        if (gameTurn.doublesCount >= 3) {
+            this.startTurnTimer(
+                await this.gamesMasterService.prepareGoToJailRequirements(gameTurn)
+            )
+            return
+        }
+
+        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeMovePlayerForDiceRoll(gameTurn)
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+        )
+    }
+
     private async turnTimeout(gameTurn: GameTurn): Promise<void> {
         switch (gameTurn.stage) {
+            case GameTurnStage.THROW_OF_DICE_FOR_MOVE: {
+                this.handleThrowOfDiceForMoveTimeout(gameTurn)
+                break
+            }
             case GameTurnStage.ACTION_CARD_SHOWTIME: {
                 await this.handleActionCardTimeout(gameTurn)
                 break
@@ -358,62 +383,17 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
-    @SubscribeMessage('game-chat-messages-page')
-    async getGameChatMessagesPage(
-        @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: GetGameChatMessagesPageDto
-    ): Promise<void> {
+    @SubscribeMessage('roll-the-dice-for-move')
+    async rollTheDiceForMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const options = {
-            pageNumber: dto.pageNumber ? dto.pageNumber : 1,
-            pageSize: dto.pageSize ? dto.pageSize : 12
-        }
+        const { gameTurn, thrownDice } = await this.gamesMasterService.rollTheDiceForMove(userId)
 
-        const gameChatMessagesPage = await this.gamesMasterService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
-
-        socket.emit('game-chat-messages-page', {
-            messagesList: await this.gameChatFormatterService.formatGameChatMessagesAsync(gameChatMessagesPage.messagesList),
-            totalCount: gameChatMessagesPage.totalCount
-        })
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('send-game-chat-message')
-    async sendGameChatMessage(
-        @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: SendGameChatMessageDto
-    ): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const sendGameChatMessage = await this.gamesMasterService.sendGameChatMessage(userId, dto.messageText)
-
-        this.server.to(sendGameChatMessage.gameId).emit('game-chat-message',
-            await this.gameChatFormatterService.formatGameChatMessageAsync(sendGameChatMessage.message)
-        )
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('make-move')
-    async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const { gameId, gameTurn, player, leftGameField, newGameField, thrownDices } = await this.gamesMasterService.makeMove(userId)
-
-        this.server.to(gameId).emit('throw-dices', (
-            thrownDices
-        ))
-        this.server.to(gameId).emit('set-game-turn', (
-            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        this.server.to(gameTurn.gameId).emit('throw-dices', (
+            thrownDice
         ))
 
-        setTimeout(async () => {
-            this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
-            this.server.to(gameId).emit('make-move', {
-                player: await this.playersFormatterService.formatPlayerAsync(player),
-                gameFields: await this.gameFieldsFormatterService.formatGameFieldsAsync([leftGameField, newGameField])
-            })
-        }, gameTurn.expires * 1000)
+        this.startTurnTimer(gameTurn)
     }
 
     @UseGuards(WsAuthGuard)
@@ -450,5 +430,41 @@ export class GamesGateway implements OnGatewayConnection {
         ))
 
         this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('game-chat-messages-page')
+    async getGameChatMessagesPage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: GetGameChatMessagesPageDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const options = {
+            pageNumber: dto.pageNumber ? dto.pageNumber : 1,
+            pageSize: dto.pageSize ? dto.pageSize : 12
+        }
+
+        const gameChatMessagesPage = await this.gamesMasterService.getGameChatMessagesPage(userId, options.pageNumber, options.pageSize)
+
+        socket.emit('game-chat-messages-page', {
+            messagesList: await this.gameChatFormatterService.formatGameChatMessagesAsync(gameChatMessagesPage.messagesList),
+            totalCount: gameChatMessagesPage.totalCount
+        })
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('send-game-chat-message')
+    async sendGameChatMessage(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: SendGameChatMessageDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const sendGameChatMessage = await this.gamesMasterService.sendGameChatMessage(userId, dto.messageText)
+
+        this.server.to(sendGameChatMessage.gameId).emit('game-chat-message',
+            await this.gameChatFormatterService.formatGameChatMessageAsync(sendGameChatMessage.message)
+        )
     }
 }

@@ -199,6 +199,7 @@ export class GamesMasterService {
                 gameId: gameTurn.gameId,
                 playerId: player.id,
                 stage,
+                doublesCount: gameTurn.doublesCount,
                 expires: this.GAME_TURN_EXPIRES
             }),
             this.gameTurnsService.destroy(gameTurn.id)
@@ -227,6 +228,18 @@ export class GamesMasterService {
         }
     }
 
+    private async handleCircleCompletion(player: Player, gameTurn: GameTurn, previousGameField: GameField): Promise<Player> {
+        if (previousGameField.position + gameTurn.stepsCount <= this.BOARD_SIZE) {
+            return player
+        }
+
+        if (player.paymentForCircle) {
+            return await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
+        } else {
+            return await this.playersService.updateOne(player.id, { paymentForCircle: true })
+        }
+    }
+
     async movePlayer(playerId: string, position: number): Promise<{ player: Player, newGameField: GameField, leftGameField: GameField }> {
         const player = await this.playersService.findOneById(playerId)
         if (!player) {
@@ -249,111 +262,6 @@ export class GamesMasterService {
             player: updatedPlayer,
             newGameField: gameField,
             leftGameField: startingGameField,
-        }
-    }
-
-    private async handleCircleCompletion(player: Player, gameTurn: GameTurn, previousGameField: GameField): Promise<Player> {
-        if (previousGameField.position + gameTurn.stepsCount <= this.BOARD_SIZE) {
-            return player
-        }
-
-        if (player.paymentForCircle) {
-            return await this.playersService.updateOne(player.id, { balance: player.balance + 200 })
-        } else {
-            return await this.playersService.updateOne(player.id, { paymentForCircle: true })
-        }
-    }
-
-    async makeMove(userId: string): Promise<{
-        gameId: string, player: Player, newGameField: GameField, leftGameField: GameField, gameTurn: GameTurn, thrownDices: ThrownDice
-    }> {
-        const player = await this.playersService.findActivePlayerByUserId(userId)
-        if (!player) {
-            throw new BadRequestException(`Failed to move. User not in the game.`)
-        }
-
-        const [gameTurn, fromGameField] = await Promise.all([
-            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
-            this.gameFieldsService.getOneOrThrow(player.gameFieldId),
-        ])
-
-        if (gameTurn.playerId !== player.id) {
-            throw new BadRequestException(`Failed to move. Player has no right to move`)
-        }
-        if (gameTurn.stage !== GameTurnStage.MOVE) {
-            throw new BadRequestException(`Failed to move. Player. Not move stage`)
-        }
-
-        const thrownDices = this.throwDice()
-        const newPosition = (fromGameField.position + thrownDices.summ - 1) % this.BOARD_SIZE + 1
-
-
-        const [moveResult, updatedGameTurn] = await Promise.all([
-            this.movePlayer(player.id, newPosition),
-            this.gameTurnsService.updateOne(gameTurn.id, {
-                stage: GameTurnStage.THROW_OF_DICE_FOR_MOVE,
-                expires: this.THROW_OF_DICE_DURATION,
-                stepsCount: thrownDices.summ,
-                isDouble: thrownDices.isDouble,
-                doublesCount: gameTurn.doublesCount + 1
-            })
-        ])
-
-        const updatedPlayer = await this.handleCircleCompletion(moveResult.player, updatedGameTurn, fromGameField)
-
-        return {
-            gameId: updatedGameTurn.gameId,
-            player: updatedPlayer,
-            newGameField: moveResult.newGameField,
-            leftGameField: moveResult.leftGameField,
-            gameTurn: updatedGameTurn,
-            thrownDices: thrownDices
-        }
-    }
-
-    async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
-        const currentPlayer = await this.playersService.findActivePlayerByUserId(userId)
-        if (!currentPlayer) {
-            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
-        }
-
-        const game = await this.gamesService.getOneOrThrow(currentPlayer.gameId)
-
-        const gameChat = await this.chatsService.findOne(game.chatId)
-        if (!gameChat) {
-            throw new InternalServerErrorException('Failed to get pregame room messages page. Game chat not found.')
-        }
-
-        return await this.messagesService.getMessagesPage(gameChat.id, pageNumber, pageSize)
-    }
-
-    async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
-        const [user, currentPlayer] = await Promise.all([
-            this.usersService.getOneOrThrow(userId),
-            this.playersService.findActivePlayerByUserId(userId),
-        ])
-
-        if (!currentPlayer) {
-            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
-        }
-        if (messageText.length === 0) {
-            throw new BadRequestException(`Failed to send game chat message. Message text must not be empty.`)
-        }
-
-        const game = await this.gamesService.getOneOrThrow(currentPlayer.gameId)
-
-        const gameChat = await this.chatsService.findOne(game.chatId)
-        if (!gameChat) {
-            throw new InternalServerErrorException(`Failed to send game chat message. Game chat not found.`)
-        }
-
-        const newMessage = await this.messagesService.create(user.id, gameChat.id, messageText)
-
-        return {
-            message: newMessage,
-            user,
-            player: currentPlayer,
-            gameId: currentPlayer.gameId
         }
     }
 
@@ -459,14 +367,7 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
-    private async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
-        const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
-
-        const currentGameField = await this.gameFieldsService.getOneOrThrow(player.gameFieldId)
-        if (currentGameField.type !== GameFieldType.GO_TO_JAIL) {
-            throw new Error(`Failed to prepare GO_TO_JAIL gameFiled requirements. The gameField isn't of the appropriate type.`)
-        }
-
+    async prepareGoToJailRequirements(gameTurn: GameTurn): Promise<GameTurn> {
         return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
     }
 
@@ -873,12 +774,36 @@ export class GamesMasterService {
         }
     }
 
+    async executeMovePlayerForDiceRoll(gameTurn: GameTurn): Promise<{ player: Player, fromGameField: GameField, toGameField: GameField }> {
+        if (gameTurn.stage !== GameTurnStage.THROW_OF_DICE_FOR_MOVE) {
+            throw new Error(`Failed to executeMovePlayerForDiceRoll. gameTurn: ${gameTurn.id} have wrong stage: ${gameTurn.stage}.`)
+        }
+        if (!gameTurn.stepsCount) {
+            throw new Error(`Failed to executeMovePlayerForDiceRoll. gameTurn: ${gameTurn.id} has inappropriate properties: stepsCount-${gameTurn.isDouble}.`)
+        }
+
+        const gameTurnPlayer = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+        const fromGameField = await this.gameFieldsService.getOneOrThrow(gameTurnPlayer.gameFieldId)
+
+        const nextPosition = (fromGameField.position - 1 + gameTurn.stepsCount) % this.BOARD_SIZE + 1
+
+        const { player, leftGameField, newGameField } = await this.movePlayer(gameTurnPlayer.id, nextPosition)
+
+        const updatedPlayer = await this.handleCircleCompletion(player, gameTurn, fromGameField)
+
+        return {
+            player: updatedPlayer,
+            fromGameField: leftGameField,
+            toGameField: newGameField
+        }
+    }
+
     async executeGettingOutOfJailForDice(gameTurn: GameTurn): Promise<{ player: Player, fromGameField: GameField, toGameField: GameField }> {
         if (gameTurn.stage !== GameTurnStage.THROW_OF_DICE_FOR_GET_OUT_OF_JAIL) {
             throw new Error(`Failed to executeGettingOutOfJailForDice. gameTurn: ${gameTurn.id} have wrong stage: ${gameTurn.stage}.`)
         }
-        if (!gameTurn.isDouble || !gameTurn.stepsCount ) {
-            throw new Error(`Failed to execute executeGettingOutOfJailForDice. gameTurn: ${gameTurn.id} has inappropriate properties: isDouble-${gameTurn.isDouble}; stepsCount: ${gameTurn.stepsCount}.`)
+        if (!gameTurn.isDouble || !gameTurn.stepsCount) {
+            throw new Error(`Failed to executeGettingOutOfJailForDice. gameTurn: ${gameTurn.id} has inappropriate properties: isDouble - ${gameTurn.isDouble}; stepsCount - ${gameTurn.stepsCount}.`)
         }
 
         const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
@@ -1051,6 +976,36 @@ export class GamesMasterService {
 
     // }
 
+    async rollTheDiceForMove(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
+        const player = await this.playersService.findActivePlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to throw dice for make move. User not in the game. The user isn't an active player.`)
+        }
+
+        const gameTurn = await this.gameTurnsService.getOneByGameIdOrThrow(player.gameId)
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to throw dice for make move. It isn't this player's turn now.`)
+        }
+        if (gameTurn.stage !== GameTurnStage.MOVE) {
+            throw new BadRequestException(`Failed to throw dice for make move. Not move stage`)
+        }
+
+        const thrownDice = this.throwDice()
+
+        const updatedGameTurn = await this.gameTurnsService.updateOne(gameTurn.id, {
+            stage: GameTurnStage.THROW_OF_DICE_FOR_MOVE,
+            expires: this.THROW_OF_DICE_DURATION,
+            stepsCount: thrownDice.summ,
+            isDouble: thrownDice.isDouble,
+            doublesCount: thrownDice.isDouble ? gameTurn.doublesCount + 1 : gameTurn.doublesCount
+        })  
+
+        return {
+            gameTurn: updatedGameTurn,
+            thrownDice
+        }
+    }
+
     async throwDiceToAttemptGetOutOfJail(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
         const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
@@ -1081,6 +1036,52 @@ export class GamesMasterService {
         return {
             gameTurn: updatedGameTurn,
             thrownDice
+        }
+    }
+
+    async getGameChatMessagesPage(userId: string, pageNumber: number, pageSize: number): Promise<{ messagesList: Message[], totalCount: number }> {
+        const currentPlayer = await this.playersService.findActivePlayerByUserId(userId)
+        if (!currentPlayer) {
+            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
+        }
+
+        const game = await this.gamesService.getOneOrThrow(currentPlayer.gameId)
+
+        const gameChat = await this.chatsService.findOne(game.chatId)
+        if (!gameChat) {
+            throw new InternalServerErrorException('Failed to get pregame room messages page. Game chat not found.')
+        }
+
+        return await this.messagesService.getMessagesPage(gameChat.id, pageNumber, pageSize)
+    }
+
+    async sendGameChatMessage(userId: string, messageText: string): Promise<{ message: Message, user: User, player: Player, gameId: string }> {
+        const [user, currentPlayer] = await Promise.all([
+            this.usersService.getOneOrThrow(userId),
+            this.playersService.findActivePlayerByUserId(userId),
+        ])
+
+        if (!currentPlayer) {
+            throw new NotFoundException(`Failed to send game chat message. User not in the game.`)
+        }
+        if (messageText.length === 0) {
+            throw new BadRequestException(`Failed to send game chat message. Message text must not be empty.`)
+        }
+
+        const game = await this.gamesService.getOneOrThrow(currentPlayer.gameId)
+
+        const gameChat = await this.chatsService.findOne(game.chatId)
+        if (!gameChat) {
+            throw new InternalServerErrorException(`Failed to send game chat message. Game chat not found.`)
+        }
+
+        const newMessage = await this.messagesService.create(user.id, gameChat.id, messageText)
+
+        return {
+            message: newMessage,
+            user,
+            player: currentPlayer,
+            gameId: currentPlayer.gameId
         }
     }
 }
