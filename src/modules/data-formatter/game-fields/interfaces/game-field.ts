@@ -7,7 +7,7 @@ export interface IGameField {
     type: GameFieldType,
     color: GameFieldColor | null,
     position: number,
-    players: IPlayer[] | null,
+    players: IPlayer[],
     owner: IPlayer | null
     rent: number[] | null,
     basePrice: number | null,

@@ -190,7 +190,7 @@ export class GamesGateway implements OnGatewayConnection {
                 break
             }
             case ActionCardType.GET_PAYMENT_FROM_PLAYERS: {
-                const gameTurnWithActionCardRequirements = await this.gamesMasterService.prepareGetPaymentFromPlayersRequirement(gameTurn)
+                const gameTurnWithActionCardRequirements = await this.gamesMasterService.prepareGetPaymentFromPlayersActionCardRequirement(gameTurn)
 
                 this.server.to(gameTurn.gameId).emit('set-game-turn', (
                     await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurnWithActionCardRequirements)
@@ -219,7 +219,8 @@ export class GamesGateway implements OnGatewayConnection {
             if (gameTurnPlayer.attemptsToGetOutOfJailCount < 3) {
                 this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
             } else {
-                this.startTurnTimer(await this.gamesMasterService.grantExtraTurn(gameTurn))
+                const buyoutFromJailGameTurn = await this.gamesMasterService.prepareBuyoutFromJailRequirement(gameTurn)
+                this.startTurnTimer(buyoutFromJailGameTurn)
             }
             return
         }
@@ -410,25 +411,62 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
-    @SubscribeMessage('accept-payment')
-    async acceptPayment(
-        @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: PayPaymentDto
-    ): Promise<void> {
+    @SubscribeMessage('buy-game-field')
+    async buyGameField(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const { gameId, gameTurn, players, gameFields } = await this.gamesMasterService.executePayment(userId, dto.paymentId)
+        const { gameTurn, player, gameField } = await this.gamesMasterService.buyGameField(userId)
 
-        this.server.to(gameId).emit('update-players', (
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([gameField])
+        ))
+
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('pay-rent')
+    async payRent(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, players } = await this.gamesMasterService.payRent(userId)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync(players)
         ))
-        this.server.to(gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('pay-tax')
+    async payTax(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, player } = await this.gamesMasterService.payTax(userId)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
         ))
 
-        if (gameTurn) {
-            this.startTurnTimer(gameTurn)
-        }
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('buyout-form-jail')
+    async buyoutFromJail(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, player } = await this.gamesMasterService.buyoutFromJail(userId)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+
+        this.startTurnTimer(gameTurn)
     }
 
     @UseGuards(WsAuthGuard)
