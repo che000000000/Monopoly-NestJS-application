@@ -123,6 +123,24 @@ export class GamesGateway implements OnGatewayConnection {
                 this.startTurnTimer(nextGameTurn)
                 break
             }
+            case ActionCardType.GO_TO_JAIL: {
+                const actionCardExecuteResult = await this.gamesMasterService.executeGoToJailActionCardRequirement(gameTurn)
+
+                this.server.to(gameTurn.gameId).emit('update-players', (
+                    await this.playersFormatterService.formatPlayersAsync([actionCardExecuteResult.player])
+                ))
+                this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                    await this.gameFieldsFormatterService.formatGameFieldsAsync(actionCardExecuteResult.gameFields)
+                ))
+                this.server.to(gameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(actionCardExecuteResult.gameTurn)
+                ))
+
+                this.startTurnTimer(
+                    await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
+                )
+                break
+            }
             case ActionCardType.GET_MONEY: {
                 const actionCardExecuteResult = await this.gamesMasterService.executeGetMoneyActionCardRequirement(gameTurn)
 
@@ -136,7 +154,6 @@ export class GamesGateway implements OnGatewayConnection {
                 const nextGameTurn = gameTurn.isDouble
                     ? await this.gamesMasterService.grantExtraTurn(actionCardExecuteResult.gameTurn)
                     : await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
-
                 this.startTurnTimer(nextGameTurn)
                 break
             }
@@ -196,13 +213,90 @@ export class GamesGateway implements OnGatewayConnection {
         }
     }
 
-    private async turnTimeout(gameTurn: GameTurn): Promise<void> {
-        if (gameTurn.stage === GameTurnStage.ACTION_CARD_SHOWTIME) {
-            await this.handleActionCardTimeout(gameTurn)
+    private async handleThrowOfDiceForGetOutOfJailTimeout(gameTurn: GameTurn): Promise<void> {
+        if (!gameTurn.isDouble) {
+            const gameTurnPlayer = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
+            if (gameTurnPlayer.attemptsToGetOutOfJailCount < 3) {
+                this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
+            } else {
+                this.startTurnTimer(await this.gamesMasterService.grantExtraTurn(gameTurn))
+            }
             return
         }
 
-        this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
+        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeGettingOutOfJailForDiceRoll(gameTurn)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+        )
+    }
+
+    private async handleGoToJailTimeout(gameTurn: GameTurn): Promise<void> {
+        const { player, gameFields } = await this.gamesMasterService.executeGoToJail(gameTurn)
+
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
+        )
+        return
+    }
+
+    private async handleThrowOfDiceForMoveTimeout(gameTurn: GameTurn): Promise<void> {
+        if (gameTurn.doublesCount >= 3) {
+            this.startTurnTimer(
+                await this.gamesMasterService.prepareGoToJailRequirement(gameTurn)
+            )
+            return
+        }
+
+        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeMovePlayerForDiceRoll(gameTurn)
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
+        ))
+
+        this.startTurnTimer(
+            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+        )
+    }
+
+    private async turnTimeout(gameTurn: GameTurn): Promise<void> {
+        switch (gameTurn.stage) {
+            case GameTurnStage.ROLL_OF_DICE_FOR_MOVE: {
+                await this.handleThrowOfDiceForMoveTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.GO_TO_JAIL: {
+                await this.handleGoToJailTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL: {
+                await this.handleThrowOfDiceForGetOutOfJailTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.ACTION_CARD_SHOWTIME: {
+                await this.handleActionCardTimeout(gameTurn)
+                break
+            }
+            default: {
+                this.startTurnTimer(await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn))
+            }
+        }
     }
 
     private async startTurnTimer(gameTurn: GameTurn): Promise<void> {
@@ -288,6 +382,56 @@ export class GamesGateway implements OnGatewayConnection {
     }
 
     @UseGuards(WsAuthGuard)
+    @SubscribeMessage('roll-the-dice-for-move')
+    async rollTheDiceForMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, thrownDice } = await this.gamesMasterService.rollTheDiceForMove(userId)
+
+        this.server.to(gameTurn.gameId).emit('throw-dices', (
+            thrownDice
+        ))
+
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('roll-dice-to-get-out-of-jail')
+    async throwDiceToAttemptGetOutOfJail(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, thrownDice } = await this.gamesMasterService.rollDiceToGetOutOfJail(userId)
+
+        this.server.to(gameTurn.gameId).emit('throw-dices', (
+            thrownDice
+        ))
+
+        this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('accept-payment')
+    async acceptPayment(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: PayPaymentDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameId, gameTurn, players, gameFields } = await this.gamesMasterService.executePayment(userId, dto.paymentId)
+
+        this.server.to(gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync(players)
+        ))
+        this.server.to(gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        ))
+
+        if (gameTurn) {
+            this.startTurnTimer(gameTurn)
+        }
+    }
+
+    @UseGuards(WsAuthGuard)
     @SubscribeMessage('game-chat-messages-page')
     async getGameChatMessagesPage(
         @ConnectedSocket() socket: SocketWithSession,
@@ -318,53 +462,8 @@ export class GamesGateway implements OnGatewayConnection {
 
         const sendGameChatMessage = await this.gamesMasterService.sendGameChatMessage(userId, dto.messageText)
 
-        this.server.to(sendGameChatMessage.gameId).emit('game-chat-message', 
+        this.server.to(sendGameChatMessage.gameId).emit('game-chat-message',
             await this.gameChatFormatterService.formatGameChatMessageAsync(sendGameChatMessage.message)
         )
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('make-move')
-    async makeMove(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const { gameId, gameTurn, player, leftGameField, newGameField, thrownDices } = await this.gamesMasterService.makeMove(userId)
-
-        this.server.to(gameId).emit('set-game-turn', (
-            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
-        ))
-        this.server.to(gameId).emit('throw-dices', (
-            thrownDices
-        ))
-
-        setTimeout(async () => {
-            this.startTurnTimer(await this.gamesMasterService.handlePlayerHitGameFieled(player, newGameField, gameTurn))
-            this.server.to(gameId).emit('make-move', {
-                player: await this.playersFormatterService.formatPlayerAsync(player),
-                gameFields: await this.gameFieldsFormatterService.formatGameFieldsAsync([leftGameField, newGameField])
-            })
-        }, 1000)
-    }
-
-    @UseGuards(WsAuthGuard)
-    @SubscribeMessage('accept-payment')
-    async acceptPayment(
-        @ConnectedSocket() socket: SocketWithSession,
-        @MessageBody() dto: PayPaymentDto
-    ): Promise<void> {
-        const userId = this.extractUserId(socket)
-
-        const { gameId, gameTurn, players, gameFields } = await this.gamesMasterService.executePayment(userId, dto.paymentId)
-
-        this.server.to(gameId).emit('update-players', (
-            await this.playersFormatterService.formatPlayersAsync(players)
-        ))
-        this.server.to(gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
-        ))
-
-        if (gameTurn) {
-            this.startTurnTimer(gameTurn)
-        }
     }
 }

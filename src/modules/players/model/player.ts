@@ -80,6 +80,20 @@ export class Player extends Model {
     })
     declare paymentForCircle: boolean
 
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => false
+    })
+    declare atJail: boolean
+
+    @Column({
+        type: DataType.INTEGER,
+        allowNull: false,
+        defaultValue: () => 0
+    })
+    declare attemptsToGetOutOfJailCount: number
+
     @HasOne(() => GameTurn)
     gameTurn: GameTurn
 

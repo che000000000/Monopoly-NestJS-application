@@ -11,6 +11,7 @@ export enum ActionCardDeckType {
 
 export enum ActionCardType {
     MOVE = 'MOVE',
+    GO_TO_JAIL = 'GO_TO_JAIL',
     GET_MONEY = 'GET_MONEY',
     PAY_MONEY = 'PAY_MONEY',
     PAY_PLAYERS = 'PAY_PLAYERS',
