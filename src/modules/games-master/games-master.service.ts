@@ -45,6 +45,7 @@ export class GamesMasterService {
     private readonly GO_TO_JAIL_DURATION = 3
     private readonly ACTION_CARD_DURATION = 5
     private readonly JAIL_POSITION = 11
+    private readonly BUYOUT_FROM_JAIL_AMOUNT = 50
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
         switch (propertyType) {
@@ -183,22 +184,27 @@ export class GamesMasterService {
             this.gameTurnsService.destroy(gameTurn.id)
         ])
 
+        if (nextGameTurn.stage === GameTurnStage.AT_JAIL) {
+            await this.gamePaymentsService.create({
+                type: GamePaymentType.BUYOUT_FROM_JAIL,
+                amount: this.BUYOUT_FROM_JAIL_AMOUNT,
+                isOptional: true,
+                payerPlayerId: nextGameTurn.playerId,
+                gameTurnId: nextGameTurn.id
+            })
+        }
+
         return nextGameTurn
     }
 
     async grantExtraTurn(gameTurn: GameTurn): Promise<GameTurn> {
         const player = await this.playersService.getOneByIdOrThrow(gameTurn.playerId)
 
-        let stage: GameTurnStage = GameTurnStage.MOVE
-        if (player.atJail && player.attemptsToGetOutOfJailCount >= 3) {
-            stage = GameTurnStage.AT_JAIL
-        }
-
         const [newGameTurn] = await Promise.all([
             this.gameTurnsService.create({
                 gameId: gameTurn.gameId,
                 playerId: player.id,
-                stage,
+                stage: GameTurnStage.MOVE,
                 doublesCount: gameTurn.doublesCount,
                 expires: this.GAME_TURN_EXPIRES
             }),
@@ -369,6 +375,21 @@ export class GamesMasterService {
 
     async prepareGoToJailRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         return this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GO_TO_JAIL, expires: this.GO_TO_JAIL_DURATION })
+    }
+
+    async prepareBuyoutFromJailRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+        const [updatedGameTurn] = await Promise.all([
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.BUYOUT_FROM_JAIL, expires: this.GAME_TURN_EXPIRES }),
+            this.gamePaymentsService.create({
+                type: GamePaymentType.BUYOUT_FROM_JAIL,
+                amount: 50,
+                isOptional: false,
+                payerPlayerId: gameTurn.playerId,
+                gameTurnId: gameTurn.id
+            })
+        ])
+
+        return updatedGameTurn
     }
 
     async executeMoveActionCardRequirement(gameTurn: GameTurn)
@@ -607,7 +628,7 @@ export class GamesMasterService {
         return updatedGameTurn
     }
 
-    async prepareGetPaymentFromPlayersRequirement(gameTurn: GameTurn): Promise<GameTurn> {
+    async prepareGetPaymentFromPlayersActionCardRequirement(gameTurn: GameTurn): Promise<GameTurn> {
         if (!gameTurn.actionCardId) {
             throw new Error(`Failed to prepare GET_PAYMENT_FROM_PLAYERS actionCard requirement. gameTurn with id: ${gameTurn.id} doesn't contain actionCardId.`)
         }
@@ -824,29 +845,6 @@ export class GamesMasterService {
         }
     }
 
-    private async executeGameFieldPurchase(player: Player, payment: GamePayment): Promise<{ player: Player, gameField: GameField }> {
-        const gameField = await this.gameFieldsService.findOne(player.gameFieldId)
-        if (!gameField) {
-            throw new Error(`Failed to execute gameField purchase. gameField not found. Player id: ${player.id}; gameField id: ${player.gameFieldId}`)
-        }
-        if (!gameField.basePrice) {
-            throw new Error(`Failed to buy game field. Game field isn't for purchcase.`)
-        }
-        if (gameField.ownerPlayerId) {
-            throw new Error(`Failed to buy game field. Game field already has owner. Player id: ${player.id}; gameField id: ${player.gameFieldId}`)
-        }
-
-        const [updatedPlayer, updatedGameField] = await Promise.all([
-            this.playersService.updateOne(player.id, { balance: player.balance - payment.amount }),
-            this.gameFieldsService.updateOne(gameField.id, { ownerPlayerId: player.id })
-        ])
-
-        return {
-            player: updatedPlayer,
-            gameField: updatedGameField
-        }
-    }
-
     private async executeToBankPayment(player: Player, payment: GamePayment): Promise<Player> {
         return await this.playersService.updateOne(player.id, { balance: player.balance - payment.amount })
     }
@@ -912,15 +910,6 @@ export class GamesMasterService {
 
         let updates: { players: Player[], gameFields: GameField[] }
         switch (payment.type) {
-            case GamePaymentType.BUY_GAME_FIELD: {
-                const { player: updatedPlayer, gameField } = await this.executeGameFieldPurchase(player, payment)
-                updates = {
-                    players: [updatedPlayer],
-                    gameFields: [gameField]
-                }
-                break
-            }
-            case GamePaymentType.PAY_TAX:
             case GamePaymentType.TO_BANK: {
                 updates = {
                     players: [await this.executeToBankPayment(player, payment)],
@@ -928,7 +917,6 @@ export class GamesMasterService {
                 }
                 break
             }
-            case GamePaymentType.PAY_RENT:
             case GamePaymentType.TO_PLAYER: {
                 const [payer, receiver] = await this.executeToPlayerPayment(payment)
                 updates = {
@@ -998,7 +986,7 @@ export class GamesMasterService {
             stepsCount: thrownDice.summ,
             isDouble: thrownDice.isDouble,
             doublesCount: thrownDice.isDouble ? gameTurn.doublesCount + 1 : gameTurn.doublesCount
-        })  
+        })
 
         return {
             gameTurn: updatedGameTurn,
@@ -1036,6 +1024,152 @@ export class GamesMasterService {
         return {
             gameTurn: updatedGameTurn,
             thrownDice
+        }
+    }
+
+    async buyoutFromJail(userId: string): Promise<{ gameTurn: GameTurn, player: Player }> {
+        const player = await this.playersService.findActivePlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to buyout from jail. User isn't an active player.`)
+        }
+
+        const [gameTurn, gamePayment] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gamePaymentsService.findOneByPayerPlayerIdAndType(player.id, GamePaymentType.BUYOUT_FROM_JAIL),
+        ])
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to buyout from jail. It's not this player's turn now.`)
+        }
+        if (gameTurn.stage !== GameTurnStage.AT_JAIL && gameTurn.stage !== GameTurnStage.BUYOUT_FROM_JAIL) {
+            throw new BadRequestException(`Failed to buyout from jail. The gameTurn: ${gameTurn.id} have wrong stage: ${gameTurn.stage}.`)
+        }
+        if (!gamePayment) {
+            throw new Error(`Failed to buyoutFromJail. The gamePayment for the buyout from jail wasn't found.`)
+        }
+        if (gamePayment.amount > player.balance) {
+            throw new BadRequestException(`Failed to buyout from jail. The player doesn't have enough money.`)
+        }
+
+        const [providedGameTurn, updatedPlayer] = await Promise.all([
+            this.grantExtraTurn(gameTurn),
+            this.playersService.updateOne(gameTurn.playerId, { balance: player.balance - gamePayment.amount, atJail: false, attemptsToGetOutOfJailCount: 0 })
+        ])
+
+        return {
+            gameTurn: providedGameTurn,
+            player: updatedPlayer
+        }
+    }
+
+    async buyGameField(userId: string): Promise<{ gameTurn: GameTurn, player: Player, gameField: GameField }> {
+        const player = await this.playersService.findActivePlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to buy game field. User isn't as active player.`)
+        }
+
+        const [gameTurn, gamePayment, gameField] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gamePaymentsService.findOneByPayerPlayerIdAndType(player.id, GamePaymentType.BUY_GAME_FIELD),
+            this.gameFieldsService.getOneOrThrow(player.gameFieldId)
+        ])
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to buy game field. The player doesn't have the right to game turn.`)
+        }
+        if (gameTurn.stage !== GameTurnStage.BUY_GAME_FIELD) {
+            throw new BadRequestException(`Failed to buy game field. Now isn't the right game turn stage to buy game field.`)
+        }
+        if (!gamePayment) {
+            throw new Error(`Failed to buyGameField. The gamePayment for the gameField purchase wasn't found.`)
+        }
+        if (gamePayment.amount > player.balance) {
+            throw new BadRequestException(`Failed to buy game field. The player doesn't have enough money.`)
+        }
+
+        const [updatedPlayer, updatedGameField] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
+            this.gameFieldsService.updateOne(gameField.id, { ownerPlayerId: player.id })
+        ])
+
+        return {
+            gameTurn: gameTurn.isDouble
+                ? await this.grantExtraTurn(gameTurn)
+                : await this.passGameTurnToNextPlayer(gameTurn),
+            player: updatedPlayer,
+            gameField: updatedGameField
+        }
+    }
+
+    async payRent(userId: string): Promise<{ gameTurn: GameTurn, players: Player[] }> {
+        const player = await this.playersService.findActivePlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to pay rent. User isn't as active player.`)
+        }
+
+        const [gameTurn, gamePayment] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gamePaymentsService.findOneByPayerPlayerIdAndType(player.id, GamePaymentType.PAY_RENT)
+        ])
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to pay rent. The player doesn't have the right to game turn.`)
+        }
+        if (gameTurn.stage !== GameTurnStage.PAY_RENT) {
+            throw new BadRequestException(`Failed to pay rent. Now isn't the right game turn stage to pay rent.`)
+        }
+        if (!gamePayment) {
+            throw new Error(`Failed to payRent. The gamePayment for to paying rent wasn't found.`)
+        }
+        if (!gamePayment.receiverPlayerId) {
+            throw new Error(`Failed to payRent. The gamePayment has no a receiverPlayerId`)
+        }
+        if (gamePayment.amount > player.balance) {
+            throw new BadRequestException(`Failed to pay rent. The player doesn't have enough money.`)
+        }
+
+        const receiverPlayer = await this.playersService.getOneByIdOrThrow(gamePayment.receiverPlayerId)
+
+        const [updatedPayerPlayer, updatedReceiverPlayer] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount }),
+            this.playersService.updateOne(receiverPlayer.id, { balance: receiverPlayer.balance + gamePayment.amount }),
+        ])
+
+        return {
+            gameTurn: gameTurn.isDouble
+                ? await this.grantExtraTurn(gameTurn)
+                : await this.passGameTurnToNextPlayer(gameTurn),
+            players: [updatedPayerPlayer, updatedReceiverPlayer]
+        }
+    }
+
+    async payTax(userId: string): Promise<{ gameTurn: GameTurn, player: Player }> {
+        const player = await this.playersService.findActivePlayerByUserId(userId)
+        if (!player) {
+            throw new BadRequestException(`Failed to pay tax. User isn't as active player.`)
+        }
+
+        const [gameTurn, gamePayment] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.gamePaymentsService.findOneByPayerPlayerIdAndType(player.id, GamePaymentType.PAY_TAX),
+        ])
+        if (gameTurn.playerId !== player.id) {
+            throw new BadRequestException(`Failed to pay tax. The player doesn't have the right to game turn.`)
+        }
+        if (gameTurn.stage !== GameTurnStage.PAY_TAX) {
+            throw new BadRequestException(`Failed to pay tax. Now isn't the right game turn stage to buy game field.`)
+        }
+        if (!gamePayment) {
+            throw new Error(`Failed to payTax. The gamePayment for the pay tax wasn't found.`)
+        }
+        if (gamePayment.amount > player.balance) {
+            throw new BadRequestException(`Failed to pay tax. The player doesn't have enough money.`)
+        }
+
+        const updatedPlayer = await this.playersService.updateOne(player.id, { balance: player.balance - gamePayment.amount })
+
+        return {
+            gameTurn: gameTurn.isDouble
+                ? await this.grantExtraTurn(gameTurn)
+                : await this.passGameTurnToNextPlayer(gameTurn),
+            player: updatedPlayer
         }
     }
 

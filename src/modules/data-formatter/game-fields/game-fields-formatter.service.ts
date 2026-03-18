@@ -21,7 +21,7 @@ export class GameFieldsFormatterService {
             type: gameField.type,
             color: gameField.color,
             position: gameField.position,
-            players: players ?? null,
+            players: players ?? [],
             owner: owner ?? null,
             rent: gameField.rent,
             basePrice: gameField.basePrice,
