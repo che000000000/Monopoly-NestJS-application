@@ -19,10 +19,10 @@ import { GameTurn, GameTurnStage } from "src/modules/game-turns/model/game-turn"
 import { GameTurnsFormatterService } from "src/modules/data-formatter/game-turns/game-turns-formatter.service";
 import { GameFieldsFormatterService } from "src/modules/data-formatter/game-fields/game-fields-formatter.service";
 import { GameChatFormatterService } from "src/modules/data-formatter/game-chat/game-chat-formatter.service";
-import { PayPaymentDto } from "./dto/pay-payment";
 import { PlayersFormatterService } from "src/modules/data-formatter/players/players-formatter.service";
 import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
 import { ActionCardType } from "src/modules/action-cards/model/action-card";
+import { PayThePaymentDto } from "./dto/pay-the-payment";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -467,6 +467,25 @@ export class GamesGateway implements OnGatewayConnection {
         ))
 
         this.startTurnTimer(gameTurn)
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('pay-the-payment')
+    async payThePayment(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: PayThePaymentDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, gameId, players } = await this.gamesMasterService.payThePayment(userId, dto.paymentId)
+
+        this.server.to(gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync(players)
+        ))
+
+        if (gameTurn) {
+            this.startTurnTimer(gameTurn)
+        }
     }
 
     @UseGuards(WsAuthGuard)

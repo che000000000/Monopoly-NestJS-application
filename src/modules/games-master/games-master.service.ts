@@ -579,7 +579,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_MONEY, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_BANK,
                 payerPlayerId: gameTurn.playerId,
@@ -614,7 +614,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_PLAYERS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_PLAYERS,
                 payerPlayerId: gameTurn.playerId,
@@ -650,7 +650,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.GET_PAYMENT_FROM_PLAYERS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             Promise.all(
                 payingPlayers.map(p => (
                     this.gamePaymentsService.create({
@@ -709,7 +709,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.ACTION_CARD_REQUIREMENTS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_MONEY, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_BANK,
                 payerPlayerId: gameTurn.playerId,
@@ -889,13 +889,13 @@ export class GamesMasterService {
         ]
     }
 
-    async executePayment(userId: string, paymentId: string): Promise<{ gameId: string, gameTurn?: GameTurn, players: Player[], gameFields: GameField[] }> {
+    async payThePayment(userId: string, paymentId: string): Promise<{ gameTurn?: GameTurn, gameId: string, players: Player[] }> {
         const [player, payment] = await Promise.all([
             this.playersService.findActivePlayerByUserId(userId),
             this.gamePaymentsService.findOneById(paymentId),
         ])
         if (!player) {
-            throw new BadRequestException(`Failed to accept payment. User is not active player.`)
+            throw new BadRequestException(`Failed to accept payment. User isn't an active player.`)
         }
         if (!payment) {
             throw new BadRequestException(`Failed to accept payment. Payment not found.`)
@@ -908,32 +908,22 @@ export class GamesMasterService {
             throw new BadRequestException(`Failed to accept payment. Player doesn't have enough money to pay.`)
         }
 
-        let updates: { players: Player[], gameFields: GameField[] }
+        let players: Player[] = []
         switch (payment.type) {
             case GamePaymentType.TO_BANK: {
-                updates = {
-                    players: [await this.executeToBankPayment(player, payment)],
-                    gameFields: []
-                }
+                players = [await this.executeToBankPayment(player, payment)]
                 break
             }
             case GamePaymentType.TO_PLAYER: {
-                const [payer, receiver] = await this.executeToPlayerPayment(payment)
-                updates = {
-                    players: [payer, receiver],
-                    gameFields: []
-                }
+                players = await this.executeToPlayerPayment(payment)
                 break
             }
             case GamePaymentType.TO_PLAYERS: {
-                updates = {
-                    players: await this.executeToPlayersPayment(payment),
-                    gameFields: []
-                }
+                players = await this.executeToPlayersPayment(payment)
                 break
             }
             default: {
-                throw new Error(`Cannot process payment: unsupported payment type ${payment.type}`)
+                throw new BadRequestException(`Payment of this type: ${payment.type} cant't be processed.`)
             }
         }
 
@@ -946,16 +936,16 @@ export class GamesMasterService {
 
         if (allGameTurnPayments.length !== 0) {
             return {
-                ...updates,
-                gameId: gameTurn.gameId
+                gameId: gameTurn.gameId,
+                players
             }
         } else {
             return {
-                ...updates,
-                gameId: gameTurn.gameId,
                 gameTurn: gameTurn.isDouble
                     ? await this.grantExtraTurn(gameTurn)
-                    : await this.passGameTurnToNextPlayer(gameTurn)
+                    : await this.passGameTurnToNextPlayer(gameTurn),
+                gameId: gameTurn.gameId,
+                players
             }
         }
     }
