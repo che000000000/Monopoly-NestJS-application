@@ -45,7 +45,7 @@ export class GamesFormatterService {
             id: game.id,
             players,
             fields,
-            turn: turn,
+            turn: turn, 
             houses: game.houses,
             hotels: game.hotels,
             createdAt: game.createdAt
