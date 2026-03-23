@@ -22,6 +22,7 @@ import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardProp
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
 import { ThrownDice } from './types/thrown-dice';
+import { IGameField } from '../data-formatter/game-fields/interfaces/game-field';
 
 @Injectable()
 export class GamesMasterService {
@@ -128,6 +129,7 @@ export class GamesMasterService {
                     chip: member.playerChip,
                     turnNumber: index + 1,
                     balance: 1500,
+                    canBuilding: true
                 })
             )),
             this.actionCardsService.createGameChanceItems(game.id)
@@ -181,7 +183,8 @@ export class GamesMasterService {
                 stage,
                 expires: this.GAME_TURN_EXPIRES
             }),
-            this.gameTurnsService.destroy(gameTurn.id)
+            this.gameTurnsService.destroy(gameTurn.id),
+            this.playersService.updatePlayersBuildingStatusByGameId(gameTurn.gameId, true)
         ])
 
         if (nextGameTurn.stage === GameTurnStage.AT_JAIL) {
@@ -208,7 +211,8 @@ export class GamesMasterService {
                 doublesCount: gameTurn.doublesCount,
                 expires: this.GAME_TURN_EXPIRES
             }),
-            this.gameTurnsService.destroy(gameTurn.id)
+            this.gameTurnsService.destroy(gameTurn.id),
+            this.playersService.updatePlayersBuildingStatusByGameId(gameTurn.gameId, true)
         ])
 
         return newGameTurn
@@ -950,10 +954,6 @@ export class GamesMasterService {
         }
     }
 
-    // async processRefusePayment(userId: string, paymentId: string): Promise<any> {
-
-    // }
-
     async rollTheDiceForMove(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
         const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
@@ -1051,7 +1051,7 @@ export class GamesMasterService {
         }
     }
 
-    async buyGameField(userId: string): Promise<{ gameTurn: GameTurn, player: Player, gameField: GameField }> {
+    async buyGameField(userId: string): Promise<{ gameTurn: GameTurn, player: Player, gameFields: GameField[] }> {
         const player = await this.playersService.findActivePlayerByUserId(userId)
         if (!player) {
             throw new BadRequestException(`Failed to buy game field. User isn't as active player.`)
@@ -1080,12 +1080,32 @@ export class GamesMasterService {
             this.gameFieldsService.updateOne(gameField.id, { ownerPlayerId: player.id })
         ])
 
+        let updatedGameFields: GameField[] = []
+        if (gameField.color && gameField.type === GameFieldType.PROPERTY) {
+            const allFieldsWithSameColor = await this.gameFieldsService.findAllByGameIdAndColor(
+                gameTurn.gameId,
+                gameField.color
+            )
+
+            const allOwnedByPlayer = allFieldsWithSameColor.every(
+                field => field.ownerPlayerId === player.id
+            )
+
+            if (allOwnedByPlayer) {
+                updatedGameFields = await Promise.all(
+                    allFieldsWithSameColor.map(gf =>
+                        this.gameFieldsService.updateOne(gf.id, { canBuilding: true })
+                    )
+                )
+            }
+        }
+
         return {
             gameTurn: gameTurn.isDouble
                 ? await this.grantExtraTurn(gameTurn)
                 : await this.passGameTurnToNextPlayer(gameTurn),
             player: updatedPlayer,
-            gameField: updatedGameField
+            gameFields: updatedGameFields.length ? updatedGameFields : [updatedGameField]
         }
     }
 
@@ -1160,6 +1180,88 @@ export class GamesMasterService {
                 ? await this.grantExtraTurn(gameTurn)
                 : await this.passGameTurnToNextPlayer(gameTurn),
             player: updatedPlayer
+        }
+    }
+
+    async buildOnTheGameField(userId: string, gameFiledId: string): Promise<{ player: Player, gameFields: GameField[] }> {
+        const [player, gameField] = await Promise.all([
+            this.playersService.findActivePlayerByUserId(userId),
+            this.gameFieldsService.findOne(gameFiledId),
+        ])
+        if (!player) {
+            throw new BadRequestException(`Failed to build on the field. User isn't as active player.`)
+        }
+        if (!gameField || gameField.gameId !== player.gameId) {
+            throw new BadRequestException(`Failed to build on the field. Field not found.`)
+        }
+        if (gameField.ownerPlayerId !== player.id) {
+            throw new BadRequestException(`Failed to build on the field. The player does not own this field.`)
+        }
+        if (gameField.type !== GameFieldType.PROPERTY
+            || !gameField.color
+            || !gameField.housePrice
+            || gameField.buildsCount === null
+        ) {
+            throw new BadRequestException(`Failed to build on the field. Can only build on fields of propery type.`)
+        }
+
+        const gameTurn = await this.gameTurnsService.getOneByGameIdOrThrow(player.gameId)
+        if (gameTurn.stage !== GameTurnStage.MOVE && gameTurn.stage !== GameTurnStage.AT_JAIL) {
+            throw new BadRequestException(`Failed to build on the field. inappropriate stage of the game turn.`)
+        }
+        if (!player.canBuilding) {
+            throw new BadRequestException(`Failed to build on the field. You have already built in this turn.`)
+        }
+        if (!gameField.canBuilding) {
+            throw new BadRequestException(`Failed to build on the field. First build other fields of the same color.`)
+        }
+        if (gameField.buildsCount === 5) {
+            throw new BadRequestException(`Failed to build on the field. Can building maximum five times.`)
+        }
+        if (gameField.buildsCount > 5 || gameField.buildsCount < 0) {
+            throw new Error(`Failed to buildOnTheGameField. Incorrent buildsCount: ${gameField.buildsCount}`)
+        }
+
+        const [ownedGameFieldsWithColor, allGameFieldsWithColor] = await Promise.all([
+            this.gameFieldsService.findAllByOwnerPlayerIdAndColor(player.id, gameField.color),
+            this.gameFieldsService.findAllByGameIdAndColor(gameTurn.gameId, gameField.color)
+        ])
+        if (ownedGameFieldsWithColor.length === 0) {
+            throw new Error(`Failed to find owned game fields by player and color.`)
+        }
+        if (allGameFieldsWithColor.length === 0) {
+            throw new Error(`Failed to find game fields by gameId and color.`)
+        }
+        if (ownedGameFieldsWithColor.length !== allGameFieldsWithColor.length) {
+            throw new BadRequestException(`Failed to build on the field. To build on this field, you must own other fields of the same color.`)
+        }
+
+        const [updatedPlayer, updatedGameField] = await Promise.all([
+            this.playersService.updateOne(player.id, { balance: player.balance - gameField.housePrice, canBuilding: false }),
+            this.gameFieldsService.updateOne(gameField.id, { buildsCount: gameField.buildsCount + 1, canBuilding: false })
+        ])
+
+        const allFieldsWithSameColor = await this.gameFieldsService.findAllByGameIdAndColor(
+            gameTurn.gameId,
+            gameField.color
+        )
+
+        const allFieldsHaveCanBuildingFalse = allFieldsWithSameColor.every(
+            f => f.canBuilding === false
+        )
+
+        let updatedGameFields: GameField[] = []
+        if (allFieldsHaveCanBuildingFalse) {
+            updatedGameFields = await Promise.all(
+                allFieldsWithSameColor.map(gf =>
+                    this.gameFieldsService.updateOne(gf.id, { canBuilding: true })
+                )
+            )
+        }
+
+        return {
+            player: updatedPlayer,
+            gameFields: allFieldsHaveCanBuildingFalse ? updatedGameFields : [updatedGameField]
         }
     }
 

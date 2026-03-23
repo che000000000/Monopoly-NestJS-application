@@ -23,6 +23,7 @@ import { PlayersFormatterService } from "src/modules/data-formatter/players/play
 import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
 import { ActionCardType } from "src/modules/action-cards/model/action-card";
 import { PayThePaymentDto } from "./dto/pay-the-payment";
+import { BuildOnTheFieldDto } from "./dto/build-on-the-field";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -415,13 +416,13 @@ export class GamesGateway implements OnGatewayConnection {
     async buyGameField(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const { gameTurn, player, gameField } = await this.gamesMasterService.buyGameField(userId)
+        const { gameTurn, player, gameFields } = await this.gamesMasterService.buyGameField(userId)
 
         this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
         this.server.to(gameTurn.gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync([gameField])
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
         ))
 
         this.startTurnTimer(gameTurn)
@@ -486,6 +487,24 @@ export class GamesGateway implements OnGatewayConnection {
         if (gameTurn) {
             this.startTurnTimer(gameTurn)
         }
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('build-on-the-field')
+    async buildOnTheGameField(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: BuildOnTheFieldDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { player, gameFields } = await this.gamesMasterService.buildOnTheGameField(userId, dto.fieldId)
+
+        this.server.to(player.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(player.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        ))
     }
 
     @UseGuards(WsAuthGuard)

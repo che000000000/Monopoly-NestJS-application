@@ -94,6 +94,13 @@ export class Player extends Model {
     })
     declare attemptsToGetOutOfJailCount: number
 
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => false
+    })
+    declare canBuilding: boolean
+
     @HasOne(() => GameTurn)
     gameTurn: GameTurn
 

@@ -17,14 +17,14 @@ export enum GameFieldType {
 }
 
 export enum GameFieldColor {
-    BROWN = '#831717ff',
-    WHITE_MOON = '#c8e0ffff',
+    BROWN = '#5a382a',
+    WHITE_MOON = '#9cc3e4',
     PURPLE = '#cf2a5bff',
     ORANGE = '#f38823ff',
     RED = '#c02525ff',
-    YELLOW = '#f0ec14ff',
+    YELLOW = '#ffeb38',
     GREEN = '#1b7928ff',
-    BLUE = '#4b85dbff'
+    BLUE = '#1c42aa'
 }
 
 @Table({ tableName: 'GameFields' })
@@ -98,6 +98,13 @@ export class GameField extends Model {
         allowNull: true,
     })
     declare ownerPlayerId: string | null
+
+    @Column({
+        type: DataType.BOOLEAN,
+        allowNull: false,
+        defaultValue: () => false
+    })
+    declare canBuilding: boolean
 
     @HasMany(() => Player)
     standingPlayers: Player[]

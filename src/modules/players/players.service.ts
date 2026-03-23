@@ -59,7 +59,7 @@ export class PlayersService {
 
     async findAllActiveByGameId(gameId: string): Promise<Player[]> {
         return await this.playersRepository.findAll({
-            where: { gameId, isActive: true}
+            where: { gameId, isActive: true }
         })
     }
 
@@ -98,12 +98,27 @@ export class PlayersService {
 
         const [affectedCount, [updatedPlayer]] = await this.playersRepository.update(
             updates,
-            { where: { id }, returning: true }
+            {
+                where: { id },
+                returning: true
+            }
         )
         if (affectedCount === 0) {
             throw new Error(`player with id: ${id} wasn't updated. No fields were changed.`)
         }
 
         return updatedPlayer
+    }
+
+    async updatePlayersBuildingStatusByGameId(gameId: string, canBuilding: boolean): Promise<Player[]> {
+        const [_, updatedPlayers] = await this.playersRepository.update(
+            { canBuilding },
+            {
+                where: { gameId },
+                returning: true
+            }
+        )
+        
+        return updatedPlayers
     }
 }

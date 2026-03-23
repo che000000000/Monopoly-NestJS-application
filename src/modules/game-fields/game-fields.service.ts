@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CreateFieldDto } from './dto/create-field.dto';
 import { GAME_FIELDS_DATA } from './data/game-fields';
-import { GameField, GameFieldType } from './model/game-field';
+import { GameField, GameFieldColor, GameFieldType } from './model/game-field';
 
 @Injectable()
 export class GameFieldsService {
@@ -55,6 +55,18 @@ export class GameFieldsService {
                 gameId,
                 type
             }
+        })
+    }
+
+    async findAllByGameIdAndColor(gameId: string, color: GameFieldColor): Promise<GameField[]> {
+        return await this.gameFieldsRepository.findAll({
+            where: { gameId, color }
+        })
+    }
+
+    async findAllByOwnerPlayerIdAndColor(ownerPlayerId: string, color: GameFieldColor): Promise<GameField[]> {
+        return await this.gameFieldsRepository.findAll({
+            where: { ownerPlayerId, color }
         })
     }
 
