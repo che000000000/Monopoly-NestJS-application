@@ -1,5 +1,6 @@
 import { IsArray, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID } from "class-validator";
-import { GameFieldColor, GameFieldType } from "../model/game-field";
+import { GameFieldType } from "../model/game-field";
+import { MonopolyColor } from "src/modules/monopolies/model/monopoly";
 
 export class CreateFieldDto {
     @IsUUID()
@@ -14,9 +15,9 @@ export class CreateFieldDto {
     @IsNotEmpty()
     type: GameFieldType
 
-    @IsEnum(GameFieldColor)
+    @IsEnum(MonopolyColor)
     @IsOptional()
-    color?: GameFieldColor
+    color?: MonopolyColor
 
     @IsNumber()
     @IsNotEmpty()

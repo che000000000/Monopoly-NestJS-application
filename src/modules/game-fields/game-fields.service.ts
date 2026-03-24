@@ -2,7 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { CreateFieldDto } from './dto/create-field.dto';
 import { GAME_FIELDS_DATA } from './data/game-fields';
-import { GameField, GameFieldColor, GameFieldType } from './model/game-field';
+import { GameField, GameFieldType } from './model/game-field';
+import { Monopoly } from '../monopolies/model/monopoly';
 
 @Injectable()
 export class GameFieldsService {
@@ -45,7 +46,10 @@ export class GameFieldsService {
 
     async findAllByOwnerPlayerIdAndType(ownerPlayerId: string, type: GameFieldType): Promise<GameField[]> {
         return await this.gameFieldsRepository.findAll({
-            where: { ownerPlayerId, type }
+            where: { 
+                ownerPlayerId, 
+                type 
+            }
         })
     }
 
@@ -58,15 +62,9 @@ export class GameFieldsService {
         })
     }
 
-    async findAllByGameIdAndColor(gameId: string, color: GameFieldColor): Promise<GameField[]> {
+    async findAllByMonopolyId(monopolyId: string): Promise<GameField[]> {
         return await this.gameFieldsRepository.findAll({
-            where: { gameId, color }
-        })
-    }
-
-    async findAllByOwnerPlayerIdAndColor(ownerPlayerId: string, color: GameFieldColor): Promise<GameField[]> {
-        return await this.gameFieldsRepository.findAll({
-            where: { ownerPlayerId, color }
+            where: { monopolyId }
         })
     }
 
@@ -76,17 +74,42 @@ export class GameFieldsService {
         })
     }
 
-    async createGameFields(gameId: string): Promise<GameField[]> {
-        const newFields = await Promise.all(
-            GAME_FIELDS_DATA.map(async (field) => {
-                return await this.create({
-                    ...field,
-                    gameId
-                })
-            })
+    async createGameFields(gameId: string, monopolies: Monopoly[]): Promise<GameField[]> {
+        const monopolyMap = new Map(
+            monopolies.map(m => [m.color, m.id])
         )
 
-        return newFields
+        try {
+            const result = await this.gameFieldsRepository.sequelize?.transaction(async (t) => {
+                const newFields = await Promise.all(
+                    GAME_FIELDS_DATA.map(async (field) => {
+                        let monopolyId: string | null = null
+
+                        if (field.color) {
+                            const foundMonopolyId = monopolyMap.get(field.color)
+
+                            if (!foundMonopolyId) {
+                                throw new Error(`Monopoly not found for color ${field.color}`)
+                            }
+
+                            monopolyId = foundMonopolyId
+                        }
+
+                        return await this.gameFieldsRepository.create({
+                            ...field,
+                            gameId,
+                            monopolyId
+                        }, { transaction: t })
+                    })
+                )
+
+                return newFields
+            })
+
+            return result || []
+        } catch (error) {
+            throw new Error(`Failed to create game fields: ${error.message}`)
+        }
     }
 
     async updateOne(id: string, updates: Partial<GameField>): Promise<GameField> {
@@ -97,7 +120,10 @@ export class GameFieldsService {
 
         const [affectedCount, [updatedGameField]] = await this.gameFieldsRepository.update(
             updates,
-            { where: { id }, returning: true }
+            { 
+                where: { id }, 
+                returning: true 
+            }
         )
         if (affectedCount === 0) {
             throw new Error(`gameField with id: ${id} wasn't updated. No fields were changed.`)

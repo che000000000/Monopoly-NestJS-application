@@ -35,6 +35,8 @@ import { GameTurn } from '../game-turns/model/game-turn';
 import { PregameRoomMember } from '../pregame-room-members/model/pregame-room-member';
 import { GamePayment } from '../game-payments/model/game-payment';
 import { GamePaymentsModule } from '../game-payments/game-payments.module';
+import { Monopoly } from '../monopolies/model/monopoly';
+import { MonopoliesModule } from '../monopolies/monopolies.module';
 
 @Module({
     imports: [
@@ -68,7 +70,7 @@ import { GamePaymentsModule } from '../game-payments/game-payments.module';
                         Chat, Message, ChatMember,
                         Game, Player, GameTurn,
                         GameField, GameDeal, GameDealItem,
-                        ActionCard, GamePayment
+                        ActionCard, GamePayment, Monopoly
                     ]
                 }
             }
@@ -78,7 +80,7 @@ import { GamePaymentsModule } from '../game-payments/game-payments.module';
         GatewaysModule, ChatsModule, ChatMembersModule,
         MessagesModule, GamesModule, PlayersModule,
         DataFormatterModule, GlobalChatsModule, GamesMasterModule,
-        ActionsCardsModule, GamePaymentsModule
+        ActionsCardsModule, GamePaymentsModule, MonopoliesModule
     ],
 })
 export class AppModule { }

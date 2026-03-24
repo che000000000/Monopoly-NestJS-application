@@ -1,4 +1,5 @@
-import { GameFieldColor, GameFieldType } from "../model/game-field";
+import { MonopolyColor } from "src/modules/monopolies/model/monopoly";
+import {GameFieldType } from "../model/game-field";
 
 export const GAME_FIELDS_DATA = [
 	{
@@ -9,7 +10,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Житная ул.",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.BROWN,
+		color: MonopolyColor.BROWN,
 		position: 2,
 		basePrice: 60,
 		housePrice: 50,
@@ -24,7 +25,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Нагаинская ул.",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.BROWN,
+		color: MonopolyColor.BROWN,
 		position: 4,
 		basePrice: 60,
 		housePrice: 50,
@@ -48,7 +49,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Варшавское шоссе",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.WHITE_MOON,
+		color: MonopolyColor.WHITE_MOON,
 		position: 7,
 		basePrice: 100,
 		housePrice: 50,
@@ -63,7 +64,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Огеева",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.WHITE_MOON,
+		color: MonopolyColor.WHITE_MOON,
 		position: 9,
 		basePrice: 100,
 		housePrice: 50,
@@ -73,7 +74,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Первая парковая ул.",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.WHITE_MOON,
+		color: MonopolyColor.WHITE_MOON,
 		position: 10,
 		basePrice: 120,
 		housePrice: 50,
@@ -88,7 +89,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Полянка",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.PURPLE,
+		color: MonopolyColor.PURPLE,
 		position: 12,
 		basePrice: 140,
 		housePrice: 100,
@@ -105,7 +106,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Сретенка",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.PURPLE,
+		color: MonopolyColor.PURPLE,
 		position: 14,
 		basePrice: 140,
 		housePrice: 100,
@@ -115,7 +116,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ростовская набережная",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.PURPLE,
+		color: MonopolyColor.PURPLE,
 		position: 15,
 		basePrice: 160,
 		housePrice: 100,
@@ -132,7 +133,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Рязанский проспект",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.ORANGE,
+		color: MonopolyColor.ORANGE,
 		position: 17,
 		basePrice: 180,
 		housePrice: 100,
@@ -147,7 +148,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Вавилова",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.ORANGE,
+		color: MonopolyColor.ORANGE,
 		position: 19,
 		basePrice: 180,
 		housePrice: 100,
@@ -157,7 +158,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Рублевское шоссе",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.ORANGE,
+		color: MonopolyColor.ORANGE,
 		position: 20,
 		basePrice: 200,
 		housePrice: 100,
@@ -172,7 +173,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Тверская",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.RED,
+		color: MonopolyColor.RED,
 		position: 22,
 		basePrice: 220,
 		housePrice: 150,
@@ -187,7 +188,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Пушкинская ул.",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.RED,
+		color: MonopolyColor.RED,
 		position: 24,
 		basePrice: 220,
 		housePrice: 150,
@@ -197,7 +198,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Площадь Мояковского",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.RED,
+		color: MonopolyColor.RED,
 		position: 25,
 		basePrice: 240,
 		housePrice: 150,
@@ -214,7 +215,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Грузинский вал",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.YELLOW,
+		color: MonopolyColor.YELLOW,
 		position: 27,
 		basePrice: 260,
 		housePrice: 150,
@@ -224,7 +225,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Чайковского",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.YELLOW,
+		color: MonopolyColor.YELLOW,
 		position: 28,
 		basePrice: 260,
 		housePrice: 150,
@@ -241,7 +242,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Смоленская площадь",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.YELLOW,
+		color: MonopolyColor.YELLOW,
 		position: 30,
 		basePrice: 280,
 		housePrice: 150,
@@ -256,7 +257,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Щусева",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.GREEN,
+		color: MonopolyColor.GREEN,
 		position: 32,
 		basePrice: 300,
 		housePrice: 200,
@@ -266,7 +267,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Гоголевский бульвар",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.GREEN,
+		color: MonopolyColor.GREEN,
 		position: 33,
 		basePrice: 300,
 		housePrice: 200,
@@ -281,7 +282,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Кутузовский проспект",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.GREEN,
+		color: MonopolyColor.GREEN,
 		position: 35,
 		basePrice: 320,
 		housePrice: 200,
@@ -303,7 +304,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Малая бронная",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.BLUE,
+		color: MonopolyColor.BLUE,
 		position: 38,
 		basePrice: 350,
 		housePrice: 200,
@@ -319,7 +320,7 @@ export const GAME_FIELDS_DATA = [
 	{
 		name: "Ул. Арбат",
 		type: GameFieldType.PROPERTY,
-		color: GameFieldColor.BLUE,
+		color: MonopolyColor.BLUE,
 		position: 40,
 		basePrice: 400,
 		housePrice: 200,

@@ -236,7 +236,7 @@ export class GamesGateway implements OnGatewayConnection {
         ))
 
         this.startTurnTimer(
-            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+            await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
         )
     }
 
@@ -390,6 +390,11 @@ export class GamesGateway implements OnGatewayConnection {
 
         const { gameTurn, thrownDice } = await this.gamesMasterService.rollTheDiceForMove(userId)
 
+        await this.gamesMasterService.removeAllPropertyBuildingPayments(gameTurn)
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+
         this.server.to(gameTurn.gameId).emit('throw-dices', (
             thrownDice
         ))
@@ -404,6 +409,11 @@ export class GamesGateway implements OnGatewayConnection {
 
         const { gameTurn, thrownDice } = await this.gamesMasterService.rollDiceToGetOutOfJail(userId)
 
+        await this.gamesMasterService.removeAllPropertyBuildingPayments(gameTurn)
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+
         this.server.to(gameTurn.gameId).emit('throw-dices', (
             thrownDice
         ))
@@ -416,13 +426,13 @@ export class GamesGateway implements OnGatewayConnection {
     async buyGameField(@ConnectedSocket() socket: SocketWithSession): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const { gameTurn, player, gameFields } = await this.gamesMasterService.buyGameField(userId)
+        const { gameTurn, player, gameField } = await this.gamesMasterService.buyGameField(userId)
 
         this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
         this.server.to(gameTurn.gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([gameField])
         ))
 
         this.startTurnTimer(gameTurn)
@@ -497,13 +507,16 @@ export class GamesGateway implements OnGatewayConnection {
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const { player, gameFields } = await this.gamesMasterService.buildOnTheGameField(userId, dto.fieldId)
+        const { gameTurn, player, gameField } = await this.gamesMasterService.buildOnTheGameField(userId, dto.fieldId)
 
-        this.server.to(player.gameId).emit('update-players', (
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+        this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
-        this.server.to(player.gameId).emit('update-game-fields', (
-            await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([gameField])
         ))
     }
 

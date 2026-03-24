@@ -1,5 +1,6 @@
 import { Column, DataType, ForeignKey, HasMany, HasOne, Model, PrimaryKey, Table } from "sequelize-typescript";
 import { Game } from "src/modules/games/model/game";
+import { Monopoly, MonopolyColor } from "src/modules/monopolies/model/monopoly";
 import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
 
@@ -14,17 +15,6 @@ export enum GameFieldType {
     GO_TO_JAIL = 'GO_TO_JAIL',
     FREE_PARKING = 'FREE_PARKING',
     GO = 'GO'
-}
-
-export enum GameFieldColor {
-    BROWN = '#5a382a',
-    WHITE_MOON = '#9cc3e4',
-    PURPLE = '#cf2a5bff',
-    ORANGE = '#f38823ff',
-    RED = '#c02525ff',
-    YELLOW = '#ffeb38',
-    GREEN = '#1b7928ff',
-    BLUE = '#1c42aa'
 }
 
 @Table({ tableName: 'GameFields' })
@@ -44,10 +34,10 @@ export class GameField extends Model {
     declare type: GameFieldType
 
     @Column({
-        type: DataType.ENUM(...Object.values(GameFieldColor)),
+        type: DataType.ENUM(...Object.values(MonopolyColor)),
         allowNull: true
     })
-    declare color: GameFieldColor | null
+    declare color: MonopolyColor | null
 
     @Column({
         type: DataType.INTEGER,
@@ -99,12 +89,12 @@ export class GameField extends Model {
     })
     declare ownerPlayerId: string | null
 
+    @ForeignKey(() => Monopoly)
     @Column({
-        type: DataType.BOOLEAN,
-        allowNull: false,
-        defaultValue: () => false
+        type: DataType.UUID,
+        allowNull: true
     })
-    declare canBuilding: boolean
+    declare monopolyId: string | null
 
     @HasMany(() => Player)
     standingPlayers: Player[]

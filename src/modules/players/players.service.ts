@@ -109,16 +109,4 @@ export class PlayersService {
 
         return updatedPlayer
     }
-
-    async updatePlayersBuildingStatusByGameId(gameId: string, canBuilding: boolean): Promise<Player[]> {
-        const [_, updatedPlayers] = await this.playersRepository.update(
-            { canBuilding },
-            {
-                where: { gameId },
-                returning: true
-            }
-        )
-        
-        return updatedPlayers
-    }
 }
