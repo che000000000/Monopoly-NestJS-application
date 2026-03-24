@@ -64,4 +64,16 @@ export class GamePaymentsService {
             where: { id }
         })
     }
+
+    async removeAllByPayerPlayerIdAndType(payerPlayerId: string, type: GamePaymentType): Promise<number> {
+        return await this.gamePaymentsRepository.destroy({
+            where: { payerPlayerId, type }
+        })
+    }
+
+    async removeAllByType(type: GamePaymentType): Promise<number> {
+        return await this.gamePaymentsRepository.destroy({
+            where: { type }
+        })
+    }
 }

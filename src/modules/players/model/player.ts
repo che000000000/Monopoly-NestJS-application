@@ -8,6 +8,7 @@ import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
 import { GamePayment } from "src/modules/game-payments/model/game-payment";
 import { ActionCard } from "src/modules/action-cards/model/action-card";
+import { Monopoly } from "src/modules/monopolies/model/monopoly";
 
 export enum PlayerChip {
     CART = 'CART',
@@ -120,4 +121,7 @@ export class Player extends Model {
 
     @HasMany(() => ActionCard)
     actionCards: ActionCard[]
+
+    @HasMany(() => Monopoly)
+    monopolies: Monopoly[] 
 }

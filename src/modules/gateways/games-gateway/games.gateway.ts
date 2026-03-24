@@ -23,6 +23,7 @@ import { PlayersFormatterService } from "src/modules/data-formatter/players/play
 import { ActionCardsService } from "src/modules/action-cards/action-cards.service";
 import { ActionCardType } from "src/modules/action-cards/model/action-card";
 import { PayThePaymentDto } from "./dto/pay-the-payment";
+import { BuildOnTheFieldDto } from "./dto/build-on-the-field";
 
 @UseFilters(WsExceptionsFilter)
 @WebSocketGateway({
@@ -235,7 +236,7 @@ export class GamesGateway implements OnGatewayConnection {
         ))
 
         this.startTurnTimer(
-            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+            await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
         )
     }
 
@@ -389,6 +390,11 @@ export class GamesGateway implements OnGatewayConnection {
 
         const { gameTurn, thrownDice } = await this.gamesMasterService.rollTheDiceForMove(userId)
 
+        await this.gamesMasterService.removeAllPropertyBuildingPayments(gameTurn)
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+
         this.server.to(gameTurn.gameId).emit('throw-dices', (
             thrownDice
         ))
@@ -402,6 +408,11 @@ export class GamesGateway implements OnGatewayConnection {
         const userId = this.extractUserId(socket)
 
         const { gameTurn, thrownDice } = await this.gamesMasterService.rollDiceToGetOutOfJail(userId)
+
+        await this.gamesMasterService.removeAllPropertyBuildingPayments(gameTurn)
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
 
         this.server.to(gameTurn.gameId).emit('throw-dices', (
             thrownDice
@@ -486,6 +497,27 @@ export class GamesGateway implements OnGatewayConnection {
         if (gameTurn) {
             this.startTurnTimer(gameTurn)
         }
+    }
+
+    @UseGuards(WsAuthGuard)
+    @SubscribeMessage('build-on-the-field')
+    async buildOnTheGameField(
+        @ConnectedSocket() socket: SocketWithSession,
+        @MessageBody() dto: BuildOnTheFieldDto
+    ): Promise<void> {
+        const userId = this.extractUserId(socket)
+
+        const { gameTurn, player, gameField } = await this.gamesMasterService.buildOnTheGameField(userId, dto.fieldId)
+
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
+        ))
+        this.server.to(gameTurn.gameId).emit('update-players', (
+            await this.playersFormatterService.formatPlayersAsync([player])
+        ))
+        this.server.to(gameTurn.gameId).emit('update-game-fields', (
+            await this.gameFieldsFormatterService.formatGameFieldsAsync([gameField])
+        ))
     }
 
     @UseGuards(WsAuthGuard)

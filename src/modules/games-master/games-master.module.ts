@@ -11,12 +11,14 @@ import { MessagesModule } from '../messages/messages.module';
 import { UsersModule } from '../users/users.module';
 import { ActionsCardsModule } from '../action-cards/action-cards.module';
 import { GamePaymentsModule } from '../game-payments/game-payments.module';
+import { MonopoliesModule } from '../monopolies/monopolies.module';
 
 @Module({
 	imports: [
 		UsersModule,
 		GamesModule,
 		PlayersModule,
+		MonopoliesModule,
 		GameFieldsModule,
 		GameTurnsModule,
 		ActionsCardsModule,

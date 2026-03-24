@@ -6,6 +6,7 @@ import { Chat } from "src/modules/chats/model/chat";
 import { GameField } from "src/modules/game-fields/model/game-field";
 import { GameTurn } from "src/modules/game-turns/model/game-turn";
 import { GamePayment } from "src/modules/game-payments/model/game-payment";
+import { Monopoly } from "src/modules/monopolies/model/monopoly";
 
 @Table({ tableName: 'Games' })
 export class Game extends Model {
@@ -47,4 +48,7 @@ export class Game extends Model {
 
     @HasMany(() => ActionCard)
     actionCards: ActionCard[]
+
+    @HasMany(() => Monopoly)
+    monopolies: Monopoly[]
 }

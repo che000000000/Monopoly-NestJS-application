@@ -22,12 +22,14 @@ import { ActionCard, ActionCardDeckType, ActionCardMoveDirection, ActionCardProp
 import { GamePaymentsService } from '../game-payments/game-payments.service';
 import { GamePayment, GamePaymentType } from '../game-payments/model/game-payment';
 import { ThrownDice } from './types/thrown-dice';
+import { MonopoliesService } from '../monopolies/monopolies.service';
 
 @Injectable()
 export class GamesMasterService {
     constructor(
         private readonly gamesService: GamesService,
         private readonly playersService: PlayersService,
+        private readonly monopoliesService: MonopoliesService,
         private readonly gameFieldsService: GameFieldsService,
         private readonly gameTurnsService: GameTurnsService,
         private readonly actionCardsService: ActionCardsService,
@@ -86,6 +88,11 @@ export class GamesMasterService {
         return nearestGameField
     }
 
+    async removeAllPropertyBuildingPayments(gameTurn: GameTurn): Promise<GameTurn> {
+        await this.gamePaymentsService.removeAllByType(GamePaymentType.PROPERTY_BUILDING)
+        return gameTurn
+    }
+
     async initGame(userId: string): Promise<{ game: Game, gameFields: GameField[], players: Player[], gameTurn: GameTurn, pregameRoom: PregameRoom }> {
         const userAsPregameRoomMember = await this.pregameRoomMembersService.findOneByUserId(userId)
         if (!userAsPregameRoomMember) {
@@ -108,12 +115,15 @@ export class GamesMasterService {
             throw new InternalServerErrorException(`Failed to start game. Pregame room chat not found.`)
         }
 
-        const [game] = await Promise.all([
+        const [newGame] = await Promise.all([
             this.gamesService.create(pregameRoomChat.id),
             this.chatsService.updateType(pregameRoomChat.id, ChatType.GAME)
         ])
 
-        const gameFields = await this.gameFieldsService.createGameFields(game.id)
+        const newMonopolies = await this.monopoliesService.createMonopoliesForGame(newGame.id)
+
+        const gameFields = await this.gameFieldsService.createGameFields(newGame.id, newMonopolies)
+
         const goField = gameFields.find((field: GameField) => field.type === GameFieldType.GO)
         if (!goField) {
             throw new InternalServerErrorException('Failed to start game. Go field not found.')
@@ -122,7 +132,7 @@ export class GamesMasterService {
         const [players] = await Promise.all([
             await Promise.all(pregameRoomMembers.map(async (member: PregameRoomMember, index) =>
                 await this.playersService.create({
-                    gameId: game.id,
+                    gameId: newGame.id,
                     userId: member.userId,
                     gameFieldId: goField.id,
                     chip: member.playerChip,
@@ -130,7 +140,7 @@ export class GamesMasterService {
                     balance: 1500,
                 })
             )),
-            this.actionCardsService.createGameChanceItems(game.id)
+            this.actionCardsService.createGameChanceItems(newGame.id)
         ])
         if (players.length === 0) {
             throw new InternalServerErrorException(`Failed to start game. Players not defined.`)
@@ -142,7 +152,7 @@ export class GamesMasterService {
         }
 
         const gameTurn = await this.gameTurnsService.create({
-            gameId: game.id,
+            gameId: newGame.id,
             stage: GameTurnStage.MOVE,
             playerId: turnOwnerPlayer.id,
             expires: 30
@@ -151,12 +161,64 @@ export class GamesMasterService {
         await this.pregamesRoomsService.destroy(userAsPregameRoomMember.pregameRoomId)
 
         return {
-            game,
+            game: newGame,
             gameFields,
             players,
             gameTurn,
             pregameRoom
         }
+    }
+
+    async createBuildingPaymentsForMonopolies(gameTurn: GameTurn): Promise<GamePayment[]> {
+        const monopolies = await this.monopoliesService.findAllByGameId(gameTurn.gameId)
+        const monopoliesWithPlayer = monopolies.filter(m => m.playerId)
+
+        const allPayments: GamePayment[] = []
+        await Promise.all(
+            monopoliesWithPlayer.map(async (m) => {
+                const gameFieldsFromThisMonopoly = await this.gameFieldsService.findAllByMonopolyId(m.id)
+                if (!gameFieldsFromThisMonopoly.length) {
+                    throw new Error(`Failed to find gameFields of this monopoly: ${m.id}`)
+                }
+
+                const buildsCounts = gameFieldsFromThisMonopoly.map(gf => {
+                    if (gf.buildsCount === null || gf.buildsCount < 0 || gf.buildsCount > 5) {
+                        throw new Error(`Failed to define minimum of monopoly gameFields builds count. Incorrect buildsCount: ${gf.buildsCount} of gameField: ${gf.id}`)
+                    }
+                    return gf.buildsCount
+                })
+
+                const minGameFieldBuildsCount = Math.min(...buildsCounts)
+
+                const monopolyPayments = await Promise.all(
+                    gameFieldsFromThisMonopoly.map(async (gf) => {
+                        if (gf.buildsCount === minGameFieldBuildsCount) {
+                            if (!m.playerId) {
+                                throw new Error(`Failed to create property building payment. Monopoly: ${m.id} playerId isn't defined.`)
+                            }
+                            if (!gf.housePrice) {
+                                throw new Error(`Failed to create property building payment. The gameField: ${gf.id} doesn't contain housePrice.`)
+                            }
+
+                            return await this.gamePaymentsService.create({
+                                type: GamePaymentType.PROPERTY_BUILDING,
+                                payerPlayerId: m.playerId,
+                                amount: gf.housePrice,
+                                isOptional: true,
+                                gameTurnId: gameTurn.id,
+                                buildingPropertyGameFieldId: gf.id
+                            })
+                        } else {
+                            return null
+                        }
+                    })
+                )
+
+                allPayments.push(...monopolyPayments.filter(payment => payment !== null))
+            })
+        )
+
+        return allPayments
     }
 
     async passGameTurnToNextPlayer(gameTurn: GameTurn): Promise<GameTurn> {
@@ -194,6 +256,8 @@ export class GamesMasterService {
             })
         }
 
+        await this.createBuildingPaymentsForMonopolies(nextGameTurn)
+
         return nextGameTurn
     }
 
@@ -210,6 +274,8 @@ export class GamesMasterService {
             }),
             this.gameTurnsService.destroy(gameTurn.id)
         ])
+
+        await this.createBuildingPaymentsForMonopolies(newGameTurn)
 
         return newGameTurn
     }
@@ -654,7 +720,7 @@ export class GamesMasterService {
             Promise.all(
                 payingPlayers.map(p => (
                     this.gamePaymentsService.create({
-                        type: GamePaymentType.TO_PLAYER,
+                        type: GamePaymentType.ONE_OF_TO_PLAYER,
                         payerPlayerId: p.id,
                         receiverPlayerId: gameTurn.playerId,
                         amount: actionCard.amount,
@@ -850,6 +916,10 @@ export class GamesMasterService {
     }
 
     private async executeToPlayerPayment(payment: GamePayment): Promise<Player[]> {
+        if (!payment.receiverPlayerId) {
+            throw new Error(`Failed to executeToPlayerPayment. The payment doesn't contain receiverPlayerId.`)
+        }
+
         const [payerPlayer, receiverPaymentPlayer] = await Promise.all([
             this.playersService.findOneById(payment.payerPlayerId),
             this.playersService.findOneById(payment.receiverPlayerId)
@@ -914,7 +984,7 @@ export class GamesMasterService {
                 players = [await this.executeToBankPayment(player, payment)]
                 break
             }
-            case GamePaymentType.TO_PLAYER: {
+            case GamePaymentType.ONE_OF_TO_PLAYER: {
                 players = await this.executeToPlayerPayment(payment)
                 break
             }
@@ -934,25 +1004,25 @@ export class GamesMasterService {
             this.gamePaymentsService.findAllByGameTurnId(payment.gameTurnId)
         ])
 
-        if (allGameTurnPayments.length !== 0) {
-            return {
-                gameId: gameTurn.gameId,
-                players
-            }
-        } else {
-            return {
-                gameTurn: gameTurn.isDouble
-                    ? await this.grantExtraTurn(gameTurn)
-                    : await this.passGameTurnToNextPlayer(gameTurn),
-                gameId: gameTurn.gameId,
-                players
+        if (gameTurn.stage === GameTurnStage.GET_PAYMENT_FROM_PLAYERS) {
+            const remainingPayments = allGameTurnPayments.filter(p => p.type === GamePaymentType.ONE_OF_TO_PLAYER)
+
+            if (remainingPayments.length !== 0) {
+                return {
+                    gameId: gameTurn.gameId,
+                    players
+                }
             }
         }
+
+        return {
+            gameTurn: gameTurn.isDouble
+                ? await this.grantExtraTurn(gameTurn)
+                : await this.passGameTurnToNextPlayer(gameTurn),
+            gameId: gameTurn.gameId,
+            players
+        }
     }
-
-    // async processRefusePayment(userId: string, paymentId: string): Promise<any> {
-
-    // }
 
     async rollTheDiceForMove(userId: string): Promise<{ gameTurn: GameTurn, thrownDice: ThrownDice }> {
         const player = await this.playersService.findActivePlayerByUserId(userId)
@@ -1080,6 +1150,14 @@ export class GamesMasterService {
             this.gameFieldsService.updateOne(gameField.id, { ownerPlayerId: player.id })
         ])
 
+        if (gameField.monopolyId) {
+            const gameFieldsFromMonopoly = await this.gameFieldsService.findAllByMonopolyId(gameField.monopolyId)
+            const gameFieldsFromMonopolyByOwnPlayer = gameFieldsFromMonopoly.filter(gf => gf.ownerPlayerId === player.id)
+            if (gameFieldsFromMonopoly.length === gameFieldsFromMonopolyByOwnPlayer.length) {
+                await this.monopoliesService.updateOneById(gameField.monopolyId, { playerId: player.id })
+            }
+        }
+
         return {
             gameTurn: gameTurn.isDouble
                 ? await this.grantExtraTurn(gameTurn)
@@ -1160,6 +1238,47 @@ export class GamesMasterService {
                 ? await this.grantExtraTurn(gameTurn)
                 : await this.passGameTurnToNextPlayer(gameTurn),
             player: updatedPlayer
+        }
+    }
+
+    async buildOnTheGameField(userId: string, gameFiledId: string): Promise<{ gameTurn: GameTurn, player: Player, gameField: GameField }> {
+        const [player, gameField] = await Promise.all([
+            this.playersService.findActivePlayerByUserId(userId),
+            this.gameFieldsService.findOne(gameFiledId),
+        ])
+        if (!player) {
+            throw new BadRequestException(`Failed to build on the field. User isn't as active player.`)
+        }
+        if (!gameField) {
+            throw new BadRequestException(`Failed to build on the field. This field wasn't found.`)
+        }
+
+        const buildingPayment = await this.gamePaymentsService.findOneByPayerPlayerIdAndType(player.id, GamePaymentType.PROPERTY_BUILDING)
+        if (!buildingPayment) {
+            throw new BadRequestException(`Failed to build on the field. The game didn't give you the right to building on this field.`)
+        }
+
+        if (gameField.housePrice === null) {
+            throw new Error(`Failed to buildOnTheGameField. The gameField: ${gameField.id} doesn't contain housePrice.`)
+        }
+        if (gameField.buildsCount === null) {
+            throw new Error(`Failed to buildOnTheGameField. The gameField: ${gameField.id} doesn't contain buildsCount.`)
+        }
+        if (player.balance < gameField.housePrice) {
+            throw new BadRequestException(`Failed to build on the field. The player doesn't have enough money.`)
+        }
+
+        const [gameTurn, updatedPlayer, updatedGameField] = await Promise.all([
+            this.gameTurnsService.getOneByGameIdOrThrow(player.gameId),
+            this.playersService.updateOne(player.id, { balance: player.balance - gameField.housePrice }),
+            this.gameFieldsService.updateOne(gameField.id, { buildsCount: gameField.buildsCount + 1 }),
+            this.gamePaymentsService.removeAllByPayerPlayerIdAndType(player.id, GamePaymentType.PROPERTY_BUILDING)
+        ])
+
+        return {
+            gameTurn,
+            player: updatedPlayer,
+            gameField: updatedGameField
         }
     }
 
