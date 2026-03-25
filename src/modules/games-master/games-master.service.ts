@@ -192,7 +192,7 @@ export class GamesMasterService {
 
                 const monopolyPayments = await Promise.all(
                     gameFieldsFromThisMonopoly.map(async (gf) => {
-                        if (gf.buildsCount === minGameFieldBuildsCount) {
+                        if (gf.buildsCount === minGameFieldBuildsCount && gf.buildsCount < 5) {
                             if (!m.playerId) {
                                 throw new Error(`Failed to create property building payment. Monopoly: ${m.id} playerId isn't defined.`)
                             }
@@ -959,7 +959,7 @@ export class GamesMasterService {
         ]
     }
 
-    async payThePayment(userId: string, paymentId: string): Promise<{ gameTurn?: GameTurn, gameId: string, players: Player[] }> {
+    async payThePayment(userId: string, paymentId: string): Promise<{ gameTurn: GameTurn, players: Player[] }> {
         const [player, payment] = await Promise.all([
             this.playersService.findActivePlayerByUserId(userId),
             this.gamePaymentsService.findOneById(paymentId),
@@ -1009,7 +1009,7 @@ export class GamesMasterService {
 
             if (remainingPayments.length !== 0) {
                 return {
-                    gameId: gameTurn.gameId,
+                    gameTurn,
                     players
                 }
             }
@@ -1019,7 +1019,6 @@ export class GamesMasterService {
             gameTurn: gameTurn.isDouble
                 ? await this.grantExtraTurn(gameTurn)
                 : await this.passGameTurnToNextPlayer(gameTurn),
-            gameId: gameTurn.gameId,
             players
         }
     }

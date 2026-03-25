@@ -488,11 +488,12 @@ export class GamesGateway implements OnGatewayConnection {
     ): Promise<void> {
         const userId = this.extractUserId(socket)
 
-        const { gameTurn, gameId, players } = await this.gamesMasterService.payThePayment(userId, dto.paymentId)
+        const { gameTurn, players } = await this.gamesMasterService.payThePayment(userId, dto.paymentId)
 
-        this.server.to(gameId).emit('update-players', (
+        this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync(players)
         ))
+        this.server.to(gameTurn.gameId)
 
         if (gameTurn) {
             this.startTurnTimer(gameTurn)

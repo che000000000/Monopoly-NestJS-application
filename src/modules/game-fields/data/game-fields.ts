@@ -290,7 +290,7 @@ export const GAME_FIELDS_DATA = [
 		rent: [28, 150, 450, 1000, 1200, 1400]
 	},
 	{
-		name: "Ярославский вокзал",
+		name: "Южная железная дорога",
 		type: GameFieldType.RAILROAD,
 		position: 36,
 		basePrice: 200,
