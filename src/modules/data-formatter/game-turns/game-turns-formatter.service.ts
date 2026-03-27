@@ -27,6 +27,7 @@ export class GameTurnsFormatterService {
             id: gameTurn.id,
             player: player,
             stage: gameTurn.stage,
+            movementType: gameTurn.movementType,
             actionCard: actionCard ?? null,
             gamePayments: gamePayments ?? [],
             expires: gameTurn.expires,
