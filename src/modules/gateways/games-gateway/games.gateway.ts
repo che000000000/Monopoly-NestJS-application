@@ -100,46 +100,38 @@ export class GamesGateway implements OnGatewayConnection {
 
         switch (actionCard.type) {
             case ActionCardType.MOVE: {
-                const actionCardExecuteResult = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
+                const { movingGameTurn, player, fromGameField, toGameField } = await this.gamesMasterService.executeMoveActionCardRequirement(gameTurn)
 
-                this.server.to(gameTurn.gameId).emit('update-players', (
-                    [await this.playersFormatterService.formatPlayerAsync(actionCardExecuteResult.player)]
+                this.server.to(movingGameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(movingGameTurn)
                 ))
-                this.server.to(gameTurn.gameId).emit('update-game-fields', (
+                this.server.to(movingGameTurn.gameId).emit('update-players', (
+                    [await this.playersFormatterService.formatPlayerAsync(player)]
+                ))
+                this.server.to(movingGameTurn.gameId).emit('update-game-fields', (
                     await this.gameFieldsFormatterService.formatGameFieldsAsync([
-                        actionCardExecuteResult.fromGameField,
-                        actionCardExecuteResult.toGameField
+                        fromGameField,
+                        toGameField
                     ])
                 ))
 
-                const nextGameTurn = await this.gamesMasterService.handlePlayerHitGameFieled(
-                    actionCardExecuteResult.player,
-                    actionCardExecuteResult.toGameField,
-                    actionCardExecuteResult.gameTurn
-                )
-
-                this.server.to(actionCardExecuteResult.gameTurn.gameId).emit('set-game-turn', (
-                    await this.gameTurnsFormatterService.formatGameTurnAsync(nextGameTurn)
-                ))
-                this.startTurnTimer(nextGameTurn)
+                this.startTurnTimer(movingGameTurn)
                 break
             }
             case ActionCardType.GO_TO_JAIL: {
-                const actionCardExecuteResult = await this.gamesMasterService.executeGoToJailActionCardRequirement(gameTurn)
+                const { movingToJailGameTurn, player, gameFields } = await this.gamesMasterService.executeGoToJailActionCardRequirement(gameTurn)
 
-                this.server.to(gameTurn.gameId).emit('update-players', (
-                    await this.playersFormatterService.formatPlayersAsync([actionCardExecuteResult.player])
+                this.server.to(movingToJailGameTurn.gameId).emit('set-game-turn', (
+                    await this.gameTurnsFormatterService.formatGameTurnAsync(movingToJailGameTurn)
                 ))
-                this.server.to(gameTurn.gameId).emit('update-game-fields', (
-                    await this.gameFieldsFormatterService.formatGameFieldsAsync(actionCardExecuteResult.gameFields)
+                this.server.to(movingToJailGameTurn.gameId).emit('update-players', (
+                    await this.playersFormatterService.formatPlayersAsync([player])
                 ))
-                this.server.to(gameTurn.gameId).emit('set-game-turn', (
-                    await this.gameTurnsFormatterService.formatGameTurnAsync(actionCardExecuteResult.gameTurn)
+                this.server.to(movingToJailGameTurn.gameId).emit('update-game-fields', (
+                    await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
                 ))
 
-                this.startTurnTimer(
-                    await this.gamesMasterService.passGameTurnToNextPlayer(actionCardExecuteResult.gameTurn)
-                )
+                this.startTurnTimer(movingToJailGameTurn)
                 break
             }
             case ActionCardType.GET_MONEY: {
@@ -226,8 +218,11 @@ export class GamesGateway implements OnGatewayConnection {
             return
         }
 
-        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeGettingOutOfJailForDiceRoll(gameTurn)
+        const { movingOutOfJailGameTurn, player, fromGameField, toGameField } = await this.gamesMasterService.executeGettingOutOfJailForDiceRoll(gameTurn)
 
+        this.server.to(movingOutOfJailGameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(movingOutOfJailGameTurn)
+        ))
         this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
@@ -235,14 +230,21 @@ export class GamesGateway implements OnGatewayConnection {
             await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
         ))
 
+        this.startTurnTimer(movingOutOfJailGameTurn)
+    }
+
+    private async handleMovingOutOfJailTimeout(gameTurn: GameTurn): Promise<void> {
         this.startTurnTimer(
             await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
         )
     }
 
     private async handleGoToJailTimeout(gameTurn: GameTurn): Promise<void> {
-        const { player, gameFields } = await this.gamesMasterService.executeGoToJail(gameTurn)
+        const { movingToJailGameTurn, player, gameFields } = await this.gamesMasterService.executeMovingToJail(gameTurn)
 
+        this.server.to(movingToJailGameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(movingToJailGameTurn)
+        ))
         this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
@@ -250,30 +252,39 @@ export class GamesGateway implements OnGatewayConnection {
             await this.gameFieldsFormatterService.formatGameFieldsAsync(gameFields)
         ))
 
+        this.startTurnTimer(movingToJailGameTurn)
+    }
+
+    private async handleMovingToJailTimeout(gameTurn: GameTurn): Promise<void> {
         this.startTurnTimer(
             await this.gamesMasterService.passGameTurnToNextPlayer(gameTurn)
         )
-        return
     }
 
     private async handleThrowOfDiceForMoveTimeout(gameTurn: GameTurn): Promise<void> {
         if (gameTurn.doublesCount >= 3) {
             this.startTurnTimer(
-                await this.gamesMasterService.prepareGoToJailRequirement(gameTurn)
+                await this.gamesMasterService.prepareHitOnGoToJailRequirement(gameTurn)
             )
             return
         }
 
-        const { player, fromGameField, toGameField } = await this.gamesMasterService.executeMovePlayerForDiceRoll(gameTurn)
+        const { movingGameTurn, player, fromGameField, toGameField } = await this.gamesMasterService.executeMovePlayerForDiceRoll(gameTurn)
+        this.server.to(gameTurn.gameId).emit('set-game-turn', (
+            await this.gameTurnsFormatterService.formatGameTurnAsync(movingGameTurn)
+        ))
         this.server.to(gameTurn.gameId).emit('update-players', (
             await this.playersFormatterService.formatPlayersAsync([player])
         ))
         this.server.to(gameTurn.gameId).emit('update-game-fields', (
             await this.gameFieldsFormatterService.formatGameFieldsAsync([fromGameField, toGameField])
         ))
+        this.startTurnTimer(movingGameTurn)
+    }
 
+    private async handleMovingTimeout(gameTurn: GameTurn): Promise<void> {
         this.startTurnTimer(
-            await this.gamesMasterService.handlePlayerHitGameFieled(player, toGameField, gameTurn)
+            await this.gamesMasterService.handlePlayerHitGameFieled(gameTurn)
         )
     }
 
@@ -283,12 +294,24 @@ export class GamesGateway implements OnGatewayConnection {
                 await this.handleThrowOfDiceForMoveTimeout(gameTurn)
                 break
             }
-            case GameTurnStage.GO_TO_JAIL: {
+            case GameTurnStage.HIT_ON_GO_TO_JAIL: {
                 await this.handleGoToJailTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.MOVING_TO_JAIL: {
+                await this.handleMovingToJailTimeout(gameTurn)
                 break
             }
             case GameTurnStage.ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL: {
                 await this.handleThrowOfDiceForGetOutOfJailTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.MOVING: {
+                await this.handleMovingTimeout(gameTurn)
+                break
+            }
+            case GameTurnStage.MOVING_OUT_OF_JAIL: {
+                await this.handleMovingOutOfJailTimeout(gameTurn)
                 break
             }
             case GameTurnStage.ACTION_CARD_SHOWTIME: {
@@ -391,10 +414,10 @@ export class GamesGateway implements OnGatewayConnection {
         const { gameTurn, thrownDice } = await this.gamesMasterService.rollTheDiceForMove(userId)
 
         await this.gamesMasterService.removeAllPropertyBuildingPayments(gameTurn)
+
         this.server.to(gameTurn.gameId).emit('set-game-turn', (
             await this.gameTurnsFormatterService.formatGameTurnAsync(gameTurn)
         ))
-
         this.server.to(gameTurn.gameId).emit('throw-dices', (
             thrownDice
         ))

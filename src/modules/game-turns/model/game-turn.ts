@@ -7,13 +7,16 @@ import { Player } from "src/modules/players/model/player";
 import { v4 } from "uuid";
 
 export enum GameTurnStage {
-    MOVE = 'MOVE',
+    WAITING_FOR_MOVE = 'WAITING_FOR_MOVE',
     ROLL_OF_DICE_FOR_MOVE = 'ROLL_OF_DICE_FOR_MOVE',
     ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL = 'ROLL_OF_DICE_FOR_GET_OUT_OF_JAIL',
+    MOVING = 'MOVING',
+    MOVING_OUT_OF_JAIL = 'MOVING_OUT_OF_JAIL',
+    HIT_ON_GO_TO_JAIL = 'HIT_ON_GO_TO_JAIL',
+    MOVING_TO_JAIL = 'MOVING_TO_JAIL',
     BUY_GAME_FIELD = 'BUY_GAME_FIELD',
     PAY_RENT = 'PAY_RENT',
     PAY_TAX = 'PAY_TAX',
-    GO_TO_JAIL = 'GO_TO_JAIL',
     AT_JAIL = 'AT_JAIL',
     BUYOUT_FROM_JAIL = 'BUYOUT_FROM_JAIL',
     ACTION_CARD_SHOWTIME = 'ACTION_CARD_SHOWTIME',
@@ -22,6 +25,12 @@ export enum GameTurnStage {
     GET_PAYMENT_FROM_PLAYERS = 'GET_PAYMENT_FROM_PLAYERS',
     AYCTION = 'AUCTION',
     DEAL = 'DEAL'
+}
+
+export enum MovementType {
+    CLOCKWISE = 'CLOCKWISE',
+    COUNTERCLOCKWISE = 'COUNTERCLOCKWISE',
+    DIRECT = 'DIRECT'
 }
 
 @Table({ tableName: 'GameTurns' })
@@ -36,10 +45,16 @@ export class GameTurn extends Model {
 
     @Column({
         type: DataType.ENUM(...Object.values(GameTurnStage)),
-        allowNull: false,
-        defaultValue: () => GameTurnStage.MOVE
+        allowNull: false
     })
     declare stage: GameTurnStage
+
+    @Column({
+        type: DataType.ENUM(...Object.values(MovementType)),
+        allowNull: false,
+        defaultValue: () => MovementType.CLOCKWISE
+    })
+    declare movementType: MovementType
 
     @Column({
         type: DataType.INTEGER,
@@ -63,7 +78,7 @@ export class GameTurn extends Model {
     declare doublesCount: number
 
     @Column({
-        type: DataType.INTEGER,
+        type: DataType.FLOAT,
         allowNull: false
     })
     declare expires: number
