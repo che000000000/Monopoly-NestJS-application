@@ -41,15 +41,16 @@ export class GamesMasterService {
         private readonly messagesService: MessagesService
     ) { }
 
-    private readonly BOARD_SIZE = 40
     private readonly GAME_TURN_EXPIRES = 60
-    private readonly ONE_STEP_DURATION = 0.1
     private readonly THROW_OF_DICE_DURATION = 1
+    private readonly MOVING_DURATION = 0.8
     private readonly HIT_ON_GO_TO_JAIL_TIMEOUT = 0.2
     private readonly MOVING_TO_JAIL_DURATION = 0.5
     private readonly ACTION_CARD_SHOWTIME_DURATION = 4
-    private readonly JAIL_POSITION = 11
     private readonly BUYOUT_FROM_JAIL_AMOUNT = 50
+    
+    private readonly BOARD_SIZE = 40
+    private readonly JAIL_POSITION = 11
 
     private transformPropertyTypeToGameFieldTypeOrThrow(propertyType: ActionCardPropertyType): GameFieldType {
         switch (propertyType) {
@@ -491,7 +492,7 @@ export class GamesMasterService {
                         actionCardId: null, 
                         stage: GameTurnStage.MOVING,
                         movementType: MovementType.CLOCKWISE,
-                        expires: Math.round(this.ONE_STEP_DURATION * stepsCount * 10) / 10
+                        expires: this.MOVING_DURATION
                     }),
                     await this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
@@ -525,7 +526,7 @@ export class GamesMasterService {
                         actionCardId: null,
                         stage: GameTurnStage.MOVING,
                         movementType: MovementType.CLOCKWISE,
-                        expires: Math.round(this.ONE_STEP_DURATION * stepsCount * 10) / 10
+                        expires: this.MOVING_DURATION
                     }),
                     this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
@@ -561,7 +562,7 @@ export class GamesMasterService {
                         actionCardId: null,
                         stage: GameTurnStage.MOVING,
                         movementType: MovementType.COUNTERCLOCKWISE,
-                        expires: Math.round(this.ONE_STEP_DURATION * stepsCount * 10) / 10
+                        expires: this.MOVING_DURATION
                     }),
                     this.actionCardsService.updateOneById(actionCard.id, { isActive: false })
                 ])
@@ -914,7 +915,7 @@ export class GamesMasterService {
         const [movingGameTurn, updatedPlayer] = await Promise.all([
             this.gameTurnsService.updateOne(gameTurn.id, {
                 stage: GameTurnStage.MOVING,
-                expires: Math.round(this.ONE_STEP_DURATION * gameTurn.stepsCount * 10) / 10
+                expires: this.MOVING_DURATION
             }),
             this.handleCircleCompletion(player, gameTurn, fromGameField)
         ]) 
@@ -943,7 +944,10 @@ export class GamesMasterService {
 
         const [moveResult, movingOutOfJailGameTurn] = await Promise.all([
             this.movePlayer(player.id, currentGameField.position + gameTurn.stepsCount),
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.MOVING_OUT_OF_JAIL, expires: Math.round(this.ONE_STEP_DURATION * gameTurn.stepsCount * 10) / 10 }),
+            this.gameTurnsService.updateOne(gameTurn.id, { 
+                stage: GameTurnStage.MOVING_OUT_OF_JAIL, 
+                expires: this.MOVING_DURATION,
+            }),
             this.playersService.updateOne(player.id, { atJail: false, attemptsToGetOutOfJailCount: 0 })
         ])
 
