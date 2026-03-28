@@ -671,7 +671,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_MONEY, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.TO_BANK_PAYMENT, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_BANK,
                 payerPlayerId: gameTurn.playerId,
@@ -706,7 +706,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_PLAYERS, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.TO_PLAYERS_PAYMENT, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_PLAYERS,
                 payerPlayerId: gameTurn.playerId,
@@ -801,7 +801,7 @@ export class GamesMasterService {
         }
 
         const [updatedGameTurn] = await Promise.all([
-            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.PAY_MONEY, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
+            this.gameTurnsService.updateOne(gameTurn.id, { stage: GameTurnStage.TO_BANK_PAYMENT, actionCardId: null, expires: this.GAME_TURN_EXPIRES }),
             this.gamePaymentsService.create({
                 type: GamePaymentType.TO_BANK,
                 payerPlayerId: gameTurn.playerId,
